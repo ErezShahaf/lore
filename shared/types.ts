@@ -13,6 +13,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: string
+  isStreaming?: boolean
 }
 
 export interface AppSettings {
@@ -22,6 +23,32 @@ export interface AppSettings {
   selectedModel: string
   embeddingModel: string
   ollamaHost: string
+}
+
+export interface OllamaModel {
+  name: string
+  modifiedAt: string
+  size: number
+  digest: string
+}
+
+export interface ChatRequest {
+  model: string
+  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+  stream: boolean
+  format?: 'json'
+}
+
+export interface PullProgress {
+  status: string
+  digest?: string
+  total?: number
+  completed?: number
+}
+
+export interface OllamaStatus {
+  connected: boolean
+  error?: string
 }
 
 export type InputClassification =

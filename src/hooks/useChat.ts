@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import type { ChatMessage } from '../../shared/types'
 
 function createId(): string {
@@ -8,56 +8,113 @@ function createId(): string {
 export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const streamingIdRef = useRef<string | null>(null)
 
   const clearMessages = useCallback(() => {
     setMessages([])
     setIsLoading(false)
+    streamingIdRef.current = null
   }, [])
 
   useEffect(() => {
-    const cleanup = window.loreAPI.onChatReset(() => {
+    const cleanupReset = window.loreAPI.onChatReset(() => {
       clearMessages()
     })
-    return cleanup
+
+    const cleanupChunk = window.loreAPI.onMessageChunk((chunk: string) => {
+      const id = streamingIdRef.current
+      if (!id) return
+
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === id ? { ...msg, content: msg.content + chunk } : msg,
+        ),
+      )
+    })
+
+    const cleanupEnd = window.loreAPI.onResponseEnd(() => {
+      const id = streamingIdRef.current
+      if (!id) return
+
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === id ? { ...msg, isStreaming: false } : msg,
+        ),
+      )
+      streamingIdRef.current = null
+      setIsLoading(false)
+    })
+
+    const cleanupError = window.loreAPI.onResponseError((error: string) => {
+      const id = streamingIdRef.current
+      if (id) {
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.id === id
+              ? { ...msg, content: error, isStreaming: false }
+              : msg,
+          ),
+        )
+      } else {
+        setMessages(prev => [
+          ...prev,
+          {
+            id: createId(),
+            role: 'assistant',
+            content: error,
+            timestamp: new Date().toISOString(),
+          },
+        ])
+      }
+      streamingIdRef.current = null
+      setIsLoading(false)
+    })
+
+    return () => {
+      cleanupReset()
+      cleanupChunk()
+      cleanupEnd()
+      cleanupError()
+    }
   }, [clearMessages])
 
-  const sendMessage = useCallback(async (text: string) => {
-    const trimmed = text.trim()
-    if (!trimmed || isLoading) return
+  const sendMessage = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim()
+      if (!trimmed || isLoading) return
 
-    const userMsg: ChatMessage = {
-      id: createId(),
-      role: 'user',
-      content: trimmed,
-      timestamp: new Date().toISOString(),
-    }
+      const userMsg: ChatMessage = {
+        id: createId(),
+        role: 'user',
+        content: trimmed,
+        timestamp: new Date().toISOString(),
+      }
 
-    setMessages(prev => [...prev, userMsg])
-    setIsLoading(true)
-
-    try {
-      const response = await window.loreAPI.sendMessage(trimmed)
-
+      const assistantId = createId()
       const assistantMsg: ChatMessage = {
-        id: createId(),
+        id: assistantId,
         role: 'assistant',
-        content: response,
+        content: '',
         timestamp: new Date().toISOString(),
+        isStreaming: true,
       }
 
-      setMessages(prev => [...prev, assistantMsg])
-    } catch (err) {
-      const errorMsg: ChatMessage = {
-        id: createId(),
-        role: 'assistant',
-        content: 'Something went wrong. Please try again.',
-        timestamp: new Date().toISOString(),
-      }
-      setMessages(prev => [...prev, errorMsg])
-    } finally {
-      setIsLoading(false)
-    }
-  }, [isLoading])
+      streamingIdRef.current = assistantId
+
+      setMessages(prev => {
+        const history = prev
+          .filter(m => !m.isStreaming)
+          .map(m => ({ role: m.role, content: m.content }))
+
+        window.loreAPI.sendMessage(trimmed, history)
+
+        return [...prev, userMsg, assistantMsg]
+      })
+
+      setIsLoading(true)
+    },
+    [isLoading],
+  )
 
   return { messages, isLoading, sendMessage, clearMessages }
 }

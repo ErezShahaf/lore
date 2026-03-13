@@ -1,10 +1,11 @@
-import { app } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { createChatWindow, showChatWindow, getChatWindow, hideChatWindow } from './windows/chatWindow'
 import { createTray, destroyTray } from './tray/trayManager'
 import { registerShortcuts, unregisterShortcuts } from './shortcuts'
 import { registerIpcHandlers } from './ipc/handlers'
 import { getSettings } from './services/settingsService'
+import { startHealthCheck, stopHealthCheck } from './services/ollamaService'
 
 process.env.DIST_ELECTRON = join(__dirname)
 process.env.DIST = join(process.env.DIST_ELECTRON, '../dist')
@@ -35,6 +36,12 @@ if (!gotLock) {
 
     createTray()
     registerShortcuts()
+
+    startHealthCheck((status) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send('ollama:status-changed', status)
+      }
+    })
   })
 
   app.on('window-all-closed', () => {
@@ -52,6 +59,7 @@ if (!gotLock) {
   app.on('will-quit', () => {
     unregisterShortcuts()
     destroyTray()
+    stopHealthCheck()
   })
 
   app.on('before-quit', () => {

@@ -23,7 +23,7 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
         {messages.map(msg => (
           <MessageBubble key={msg.id} message={msg} />
         ))}
-        {isLoading && <TypingIndicator />}
+        {isLoading && !messages.some(m => m.isStreaming) && <TypingIndicator />}
         <div ref={bottomRef} />
       </div>
     </ScrollArea>
