@@ -82,6 +82,9 @@ export interface AppSettings {
   selectedModel: string
   embeddingModel: string
   ollamaHost: string
+  ollamaPath: string
+  ollamaModelsPath: string
+  ollamaSetupComplete: boolean
 }
 
 export interface OllamaModel {
@@ -105,9 +108,19 @@ export interface PullProgress {
   completed?: number
 }
 
+export interface ActivePullProgress extends PullProgress {
+  model: string
+}
+
 export interface OllamaStatus {
   connected: boolean
   error?: string
+}
+
+export interface OllamaSetupProgress {
+  phase: 'downloading' | 'starting' | 'ready' | 'error'
+  percent: number
+  message: string
 }
 
 export type InputClassification =
@@ -181,14 +194,19 @@ export interface HardwareProfile {
   warnings: string[]
 }
 
-export interface RecommendedModel {
-  name: string
-  displayName: string
-  parametersBillions: number
+export interface ModelVariant {
+  tag: string
+  quantization: string
   sizeOnDisk: string
   minRAMGB: number
+}
+
+export interface RecommendedModel {
+  displayName: string
+  parametersBillions: number
   tier: ModelTier
   category: 'chat' | 'embedding'
   description: string
   gpuRecommended: boolean
+  variants: ModelVariant[]
 }

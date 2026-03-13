@@ -2,11 +2,13 @@ import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { appendFileSync } from 'fs'
 import { createChatWindow, showChatWindow, getChatWindow, hideChatWindow } from './windows/chatWindow'
+import { createSetupWindow } from './windows/setupWindow'
 import { createTray, destroyTray } from './tray/trayManager'
 import { registerShortcuts, unregisterShortcuts } from './shortcuts'
 import { registerIpcHandlers } from './ipc/handlers'
-import { getSettings } from './services/settingsService'
+import { getSettings, updateSettings } from './services/settingsService'
 import { startHealthCheck, stopHealthCheck } from './services/ollamaService'
+import { bootstrapOllama, stopOllama, isOllamaSetupNeeded } from './services/ollamaBootstrap'
 import { initialize as initLanceDB, cleanupOldDeleted, compactTable } from './services/lanceService'
 import { applyAutoStart } from './services/autoStartService'
 
@@ -63,13 +65,6 @@ if (!gotLock) {
     }
 
     const settings = getSettings()
-    const chatWindow = createChatWindow()
-
-    if (settings.hideOnBlur) {
-      chatWindow.on('blur', () => {
-        hideChatWindow()
-      })
-    }
 
     createTray()
     registerShortcuts()
@@ -80,6 +75,28 @@ if (!gotLock) {
         win.webContents.send('ollama:status-changed', status)
       }
     })
+
+    const needsSetup = await isOllamaSetupNeeded()
+
+    if (needsSetup) {
+      createSetupWindow()
+    } else {
+      if (!settings.ollamaSetupComplete) {
+        updateSettings({ ollamaSetupComplete: true })
+      }
+
+      const chatWindow = createChatWindow()
+
+      if (settings.hideOnBlur) {
+        chatWindow.on('blur', () => {
+          hideChatWindow()
+        })
+      }
+
+      bootstrapOllama().catch((err) => {
+        console.error('[Lore] Ollama bootstrap error:', err)
+      })
+    }
   })
 
   app.on('window-all-closed', () => {
@@ -98,6 +115,7 @@ if (!gotLock) {
     unregisterShortcuts()
     destroyTray()
     stopHealthCheck()
+    stopOllama()
   })
 
   app.on('before-quit', () => {

@@ -3,7 +3,9 @@ import type {
   AppSettings,
   OllamaModel,
   OllamaStatus,
+  OllamaSetupProgress,
   PullProgress,
+  ActivePullProgress,
   DatabaseStats,
   RetrievalOptions,
   SystemInfo,
@@ -75,15 +77,28 @@ const loreAPI = {
   pullModel: (name: string): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('ollama:pull-model', { name }),
 
-  onPullProgress: (callback: (progress: PullProgress) => void) => {
-    const handler = (_e: Electron.IpcRendererEvent, progress: PullProgress) =>
+  getActivePulls: (): Promise<Record<string, PullProgress>> =>
+    ipcRenderer.invoke('ollama:active-pulls'),
+
+  onPullProgress: (callback: (progress: ActivePullProgress) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, progress: ActivePullProgress) =>
       callback(progress)
     ipcRenderer.on('ollama:pull-progress', handler)
     return () => ipcRenderer.removeListener('ollama:pull-progress', handler)
   },
 
+  onPullComplete: (callback: (result: { model: string; success: boolean; error?: string }) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, result: { model: string; success: boolean; error?: string }) =>
+      callback(result)
+    ipcRenderer.on('ollama:pull-complete', handler)
+    return () => ipcRenderer.removeListener('ollama:pull-complete', handler)
+  },
+
   deleteModel: (name: string): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('ollama:delete-model', { name }),
+
+  abortPull: (name: string): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('ollama:abort-pull', { name }),
 
   onOllamaStatusChange: (callback: (status: OllamaStatus) => void) => {
     const handler = (_e: Electron.IpcRendererEvent, status: OllamaStatus) =>
@@ -91,6 +106,32 @@ const loreAPI = {
     ipcRenderer.on('ollama:status-changed', handler)
     return () => ipcRenderer.removeListener('ollama:status-changed', handler)
   },
+
+  onSetupProgress: (callback: (progress: OllamaSetupProgress) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, progress: OllamaSetupProgress) =>
+      callback(progress)
+    ipcRenderer.on('ollama:setup-progress', handler)
+    return () => ipcRenderer.removeListener('ollama:setup-progress', handler)
+  },
+
+  openSettings: () => ipcRenderer.invoke('settings:open'),
+
+  // ── Setup wizard ──────────────────────────────────────────────
+
+  setupGetDefaultPath: (): Promise<string> =>
+    ipcRenderer.invoke('setup:get-default-path'),
+
+  setupPickFolder: (): Promise<string | null> =>
+    ipcRenderer.invoke('setup:pick-folder'),
+
+  setupPickModelsFolder: (): Promise<string | null> =>
+    ipcRenderer.invoke('setup:pick-models-folder'),
+
+  setupBegin: (ollamaPath: string, ollamaModelsPath?: string): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('setup:begin', { ollamaPath, ollamaModelsPath }),
+
+  setupComplete: (): Promise<void> =>
+    ipcRenderer.invoke('setup:complete'),
 
   // ── Settings ────────────────────────────────────────────────
 

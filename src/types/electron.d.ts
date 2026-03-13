@@ -1,4 +1,4 @@
-import type { AppSettings, OllamaModel, OllamaStatus, PullProgress, DatabaseStats, RetrievalOptions, SystemInfo, HardwareProfile } from '../../shared/types'
+import type { AppSettings, OllamaModel, OllamaStatus, OllamaSetupProgress, PullProgress, ActivePullProgress, DatabaseStats, RetrievalOptions, SystemInfo, HardwareProfile } from '../../shared/types'
 
 declare global {
   interface Window {
@@ -23,9 +23,20 @@ declare global {
       getOllamaStatus: () => Promise<OllamaStatus>
       listModels: () => Promise<OllamaModel[]>
       pullModel: (name: string) => Promise<{ success: boolean; error?: string }>
-      onPullProgress: (callback: (progress: PullProgress) => void) => () => void
+      getActivePulls: () => Promise<Record<string, PullProgress>>
+      onPullProgress: (callback: (progress: ActivePullProgress) => void) => () => void
+      onPullComplete: (callback: (result: { model: string; success: boolean; error?: string }) => void) => () => void
       deleteModel: (name: string) => Promise<{ success: boolean; error?: string }>
+      abortPull: (name: string) => Promise<{ success: boolean }>
       onOllamaStatusChange: (callback: (status: OllamaStatus) => void) => () => void
+      onSetupProgress: (callback: (progress: OllamaSetupProgress) => void) => () => void
+      openSettings: () => Promise<void>
+
+      setupGetDefaultPath: () => Promise<string>
+      setupPickFolder: () => Promise<string | null>
+      setupPickModelsFolder: () => Promise<string | null>
+      setupBegin: (ollamaPath: string, ollamaModelsPath?: string) => Promise<{ success: boolean }>
+      setupComplete: () => Promise<void>
 
       getSettings: () => Promise<AppSettings>
       updateSettings: (settings: Partial<AppSettings>) => Promise<AppSettings>

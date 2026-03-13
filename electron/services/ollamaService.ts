@@ -62,14 +62,30 @@ export async function listModels(): Promise<OllamaModel[]> {
   }))
 }
 
+const activeAbortControllers = new Map<string, AbortController>()
+
+export function abortPull(modelName: string): boolean {
+  const controller = activeAbortControllers.get(modelName)
+  if (controller) {
+    controller.abort()
+    activeAbortControllers.delete(modelName)
+    return true
+  }
+  return false
+}
+
 export async function pullModel(
   modelName: string,
   onProgress: (progress: PullProgress) => void,
 ): Promise<void> {
+  const controller = new AbortController()
+  activeAbortControllers.set(modelName, controller)
+
   const res = await fetch(`${getHost()}/api/pull`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name: modelName, stream: true }),
+    signal: controller.signal,
   })
 
   if (!res.ok) throw new Error(`Failed to pull model: ${res.statusText}`)
@@ -79,28 +95,32 @@ export async function pullModel(
   const decoder = new TextDecoder()
   let buffer = ''
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
 
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop() ?? ''
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
 
-    for (const line of lines) {
-      if (!line.trim()) continue
-      try {
-        const json = JSON.parse(line)
-        onProgress({
-          status: json.status ?? '',
-          digest: json.digest,
-          total: json.total,
-          completed: json.completed,
-        })
-      } catch {
-        // skip malformed lines
+      for (const line of lines) {
+        if (!line.trim()) continue
+        try {
+          const json = JSON.parse(line)
+          onProgress({
+            status: json.status ?? '',
+            digest: json.digest,
+            total: json.total,
+            completed: json.completed,
+          })
+        } catch {
+          // skip malformed lines
+        }
       }
     }
+  } finally {
+    activeAbortControllers.delete(modelName)
   }
 }
 

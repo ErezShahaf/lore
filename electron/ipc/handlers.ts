@@ -1,19 +1,25 @@
-import { ipcMain, BrowserWindow } from 'electron'
-import { resizeChatWindow, hideChatWindow } from '../windows/chatWindow'
+import { ipcMain, BrowserWindow, dialog, app } from 'electron'
+import { resizeChatWindow, hideChatWindow, createChatWindow, showChatWindow } from '../windows/chatWindow'
+import { createSettingsWindow } from '../windows/settingsWindow'
+import { closeSetupWindow } from '../windows/setupWindow'
 import { getSettings, updateSettings } from '../services/settingsService'
 import { setAutoStart } from '../services/autoStartService'
 import {
   checkConnection,
   listModels,
   pullModel,
+  abortPull,
   deleteModel,
 } from '../services/ollamaService'
+import { bootstrapOllama } from '../services/ollamaBootstrap'
 import { getStats } from '../services/lanceService'
 import { retrieveRelevantDocuments } from '../services/documentPipeline'
 import { getDocumentsByType } from '../services/lanceService'
 import { processUserInput, clearConversation } from '../services/agentService'
 import { getSystemInfo, getHardwareProfile } from '../services/systemInfoService'
-import type { RetrievalOptions } from '../../shared/types'
+import type { RetrievalOptions, PullProgress } from '../../shared/types'
+
+const activePulls = new Map<string, PullProgress>()
 
 function isString(v: unknown): v is string {
   return typeof v === 'string'
@@ -104,23 +110,44 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle('ollama:pull-model', async (event, args: unknown) => {
+  ipcMain.handle('ollama:pull-model', async (_event, args: unknown) => {
     const { name } = (args ?? {}) as { name?: unknown }
     if (!isString(name) || name.trim().length === 0) {
       return { success: false, error: 'Invalid model name' }
     }
-    const sender = event.sender
-    try {
-      await pullModel(name, (progress) => {
-        sender.send('ollama:pull-progress', progress)
-      })
-      return { success: true }
-    } catch (err) {
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : 'Pull failed',
+    if (activePulls.has(name)) {
+      return { success: false, error: 'Already downloading this model' }
+    }
+
+    activePulls.set(name, { status: 'Starting download...' })
+    const broadcast = (channel: string, payload: unknown) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send(channel, payload)
       }
     }
+
+    try {
+      await pullModel(name, (progress) => {
+        activePulls.set(name, progress)
+        broadcast('ollama:pull-progress', { model: name, ...progress })
+      })
+      activePulls.delete(name)
+      broadcast('ollama:pull-complete', { model: name, success: true })
+      return { success: true }
+    } catch (err) {
+      activePulls.delete(name)
+      const error = err instanceof Error ? err.message : 'Pull failed'
+      broadcast('ollama:pull-complete', { model: name, success: false, error })
+      return { success: false, error }
+    }
+  })
+
+  ipcMain.handle('ollama:active-pulls', () => {
+    const result: Record<string, PullProgress> = {}
+    for (const [model, progress] of activePulls) {
+      result[model] = progress
+    }
+    return result
   })
 
   ipcMain.handle('ollama:delete-model', async (_event, args: unknown) => {
@@ -139,6 +166,22 @@ export function registerIpcHandlers(): void {
     }
   })
 
+  ipcMain.handle('ollama:abort-pull', (_event, args: unknown) => {
+    const { name } = (args ?? {}) as { name?: unknown }
+    if (!isString(name)) return { success: false }
+    const aborted = abortPull(name)
+    if (aborted) {
+      activePulls.delete(name)
+      const broadcast = (channel: string, payload: unknown) => {
+        for (const win of BrowserWindow.getAllWindows()) {
+          win.webContents.send(channel, payload)
+        }
+      }
+      broadcast('ollama:pull-complete', { model: name, success: false, error: 'Download cancelled' })
+    }
+    return { success: aborted }
+  })
+
   // ── System info ─────────────────────────────────────────────────
 
   ipcMain.handle('system:info', async () => {
@@ -151,6 +194,10 @@ export function registerIpcHandlers(): void {
   })
 
   // ── Settings ────────────────────────────────────────────────────
+
+  ipcMain.handle('settings:open', () => {
+    createSettingsWindow()
+  })
 
   ipcMain.handle('settings:get', () => {
     return getSettings()
@@ -209,5 +256,68 @@ export function registerIpcHandlers(): void {
     } catch (err) {
       return { error: err instanceof Error ? err.message : 'Query failed' }
     }
+  })
+
+  // ── Ollama setup wizard ────────────────────────────────────────
+
+  ipcMain.handle('setup:get-default-path', () => {
+    return app.getPath('userData')
+  })
+
+  ipcMain.handle('setup:pick-folder', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const result = await dialog.showOpenDialog(win!, {
+      properties: ['openDirectory'],
+      title: 'Choose Ollama install location',
+    })
+    if (result.canceled) return null
+    return result.filePaths[0]
+  })
+
+  ipcMain.handle('setup:pick-models-folder', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const result = await dialog.showOpenDialog(win!, {
+      properties: ['openDirectory'],
+      title: 'Choose where to store AI models',
+    })
+    if (result.canceled) return null
+    return result.filePaths[0]
+  })
+
+  ipcMain.handle('setup:begin', async (_event, args: unknown) => {
+    const { ollamaPath, ollamaModelsPath } = (args ?? {}) as { ollamaPath?: string; ollamaModelsPath?: string }
+    const resolvedPath = isString(ollamaPath) && ollamaPath.length > 0
+      ? ollamaPath
+      : app.getPath('userData')
+
+    const settingsUpdate: Partial<import('../../shared/types').AppSettings> = { ollamaPath: resolvedPath }
+    if (isString(ollamaModelsPath) && ollamaModelsPath.length > 0) {
+      settingsUpdate.ollamaModelsPath = ollamaModelsPath
+    }
+    updateSettings(settingsUpdate)
+
+    bootstrapOllama(resolvedPath).catch((err) => {
+      console.error('[Lore] Setup bootstrap failed:', err)
+    })
+
+    return { success: true }
+  })
+
+  ipcMain.handle('setup:complete', () => {
+    updateSettings({ ollamaSetupComplete: true })
+    closeSetupWindow()
+
+    const settings = getSettings()
+    const chatWindow = createChatWindow()
+
+    if (settings.hideOnBlur) {
+      chatWindow.on('blur', () => {
+        hideChatWindow()
+      })
+    }
+
+    chatWindow.webContents.once('did-finish-load', () => {
+      showChatWindow()
+    })
   })
 }

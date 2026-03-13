@@ -10,6 +10,9 @@ const DEFAULTS: AppSettings = {
   selectedModel: 'llama3.2:3b',
   embeddingModel: 'nomic-embed-text',
   ollamaHost: 'http://127.0.0.1:11434',
+  ollamaPath: '',
+  ollamaModelsPath: '',
+  ollamaSetupComplete: false,
 }
 
 function getSettingsPath(): string {

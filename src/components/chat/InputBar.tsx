@@ -4,9 +4,10 @@ import { Send, X } from 'lucide-react'
 interface InputBarProps {
   onSend: (message: string) => void
   disabled?: boolean
+  disabledReason?: string
 }
 
-export function InputBar({ onSend, disabled }: InputBarProps) {
+export function InputBar({ onSend, disabled, disabledReason }: InputBarProps) {
   const [value, setValue] = useState('')
   const [flashing, setFlashing] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -82,7 +83,7 @@ export function InputBar({ onSend, disabled }: InputBarProps) {
           adjustHeight()
         }}
         onKeyDown={handleKeyDown}
-        placeholder="Type a thought or ask a question..."
+        placeholder={disabledReason || "Type a thought or ask a question..."}
         disabled={disabled}
         rows={1}
         className="flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none disabled:opacity-50"

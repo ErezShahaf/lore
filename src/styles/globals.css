@@ -55,6 +55,11 @@
   40% { opacity: 1; transform: scale(1); }
 }
 
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+
 * {
   scroll-behavior: smooth;
 }
