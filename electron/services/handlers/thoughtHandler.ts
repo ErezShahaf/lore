@@ -1,5 +1,5 @@
 import { chat } from '../ollamaService'
-import { storeThought } from '../documentPipeline'
+import { storeThought, checkForDuplicate } from '../documentPipeline'
 import { getSettings } from '../settingsService'
 import type { ClassificationResult, AgentEvent, DocumentType } from '../../../shared/types'
 
@@ -16,6 +16,19 @@ export async function* handleThought(
   classification: ClassificationResult,
 ): AsyncGenerator<AgentEvent> {
   yield { type: 'status', message: 'Processing your thought...' }
+
+  const duplicate = await checkForDuplicate(userInput)
+  if (duplicate) {
+    const preview = duplicate.content.slice(0, 120)
+    yield {
+      type: 'duplicate',
+      existingContent: preview,
+    }
+    yield {
+      type: 'chunk',
+      content: `This seems similar to a note you already have: "${preview}${duplicate.content.length > 120 ? '...' : ''}"\n\nI've saved it as a new note anyway, but you may want to delete the duplicate.`,
+    }
+  }
 
   const settings = getSettings()
   const docType = mapSubtypeToDocType(classification.subtype)
@@ -49,11 +62,14 @@ export async function* handleThought(
 
   yield { type: 'stored', documentId: doc.id }
 
-  const topic = classification.extractedTags.length > 0
-    ? classification.extractedTags[0]
-    : summarizeTopic(userInput)
+  if (!duplicate) {
+    const topic = classification.extractedTags.length > 0
+      ? classification.extractedTags[0]
+      : summarizeTopic(userInput)
 
-  yield { type: 'chunk', content: `Got it! I've saved your ${docType} about ${topic}.` }
+    yield { type: 'chunk', content: `Got it! I've saved your ${docType} about ${topic}.` }
+  }
+
   yield { type: 'done' }
 }
 

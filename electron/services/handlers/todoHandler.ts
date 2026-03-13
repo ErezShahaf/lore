@@ -1,0 +1,268 @@
+import { chat } from '../ollamaService'
+import {
+  storeThoughtWithMetadata,
+  retrieveActiveTodos,
+  retrieveRelevantDocuments,
+} from '../documentPipeline'
+import { updateDocument } from '../lanceService'
+import { getSettings } from '../settingsService'
+import type {
+  ClassificationResult,
+  AgentEvent,
+  LoreDocument,
+  TodoMetadata,
+} from '../../../shared/types'
+
+const RESTRUCTURE_TODO_PROMPT = `Extract a clear, concise todo item from the user's input.
+Return only the task description — no numbering, no prefixes, no extra commentary.
+
+Raw input: {userInput}`
+
+export async function* handleTodoAdd(
+  userInput: string,
+  classification: ClassificationResult,
+): AsyncGenerator<AgentEvent> {
+  yield { type: 'status', message: 'Adding todo...' }
+
+  const settings = getSettings()
+
+  let todoContent = ''
+  try {
+    const stream = chat({
+      model: settings.selectedModel,
+      messages: [
+        { role: 'user', content: RESTRUCTURE_TODO_PROMPT.replace('{userInput}', userInput) },
+      ],
+      stream: false,
+    })
+
+    for await (const chunk of stream) {
+      todoContent += chunk
+    }
+  } catch {
+    todoContent = userInput
+  }
+
+  todoContent = todoContent.trim() || userInput
+
+  const existingTodos = await retrieveActiveTodos()
+  const nextPosition = existingTodos.length + 1
+
+  const priority = extractPriority(userInput)
+  const category = extractCategory(classification.extractedTags)
+
+  const metadata: TodoMetadata = {
+    completed: false,
+    completedAt: null,
+    priority,
+    position: nextPosition,
+    category,
+  }
+
+  const today = new Date().toISOString().split('T')[0]
+
+  const doc = await storeThoughtWithMetadata(
+    {
+      content: todoContent,
+      originalInput: userInput,
+      type: 'todo',
+      date: classification.extractedDate ?? today,
+      tags: classification.extractedTags,
+    },
+    metadata,
+  )
+
+  yield { type: 'stored', documentId: doc.id }
+
+  const priorityLabel = priority ? ` (${priority} priority)` : ''
+  yield { type: 'chunk', content: `Added to your todo list${priorityLabel}: "${todoContent}"` }
+  yield { type: 'done' }
+}
+
+export async function* handleTodoList(
+  userInput: string,
+  classification: ClassificationResult,
+): AsyncGenerator<AgentEvent> {
+  yield { type: 'status', message: 'Retrieving your todos...' }
+
+  const settings = getSettings()
+  const todos = await retrieveActiveTodos()
+
+  if (todos.length === 0) {
+    yield { type: 'chunk', content: "Your todo list is empty. You're all caught up!" }
+    yield { type: 'done' }
+    return
+  }
+
+  const instructions = await retrieveRelevantDocuments(userInput, {
+    type: 'instruction',
+    maxResults: 5,
+  })
+
+  const sorted = sortTodos(todos, instructions)
+
+  let response = ''
+  if (instructions.length > 0) {
+    const instructionBlock = instructions.map((i) => i.content).join('\n')
+    const todoBlock = sorted
+      .map((t, i) => {
+        const meta = parseTodoMeta(t)
+        return `${i + 1}. ${t.content}${meta.priority ? ` [${meta.priority}]` : ''}${meta.category ? ` (${meta.category})` : ''}`
+      })
+      .join('\n')
+
+    const prompt = `Format this todo list for the user. Apply these user preferences:\n${instructionBlock}\n\nTodos:\n${todoBlock}\n\nReturn a nicely formatted list. Keep it concise.`
+
+    try {
+      const stream = chat({
+        model: settings.selectedModel,
+        messages: [{ role: 'user', content: prompt }],
+        stream: true,
+      })
+
+      for await (const chunk of stream) {
+        response += chunk
+        yield { type: 'chunk', content: chunk }
+      }
+    } catch {
+      response = formatTodoList(sorted)
+      yield { type: 'chunk', content: response }
+    }
+  } else {
+    response = formatTodoList(sorted)
+    yield { type: 'chunk', content: response }
+  }
+
+  yield { type: 'done' }
+}
+
+export async function* handleTodoComplete(
+  userInput: string,
+  classification: ClassificationResult,
+): AsyncGenerator<AgentEvent> {
+  yield { type: 'status', message: 'Finding todo to complete...' }
+
+  const todos = await retrieveActiveTodos()
+
+  if (todos.length === 0) {
+    yield { type: 'chunk', content: "You don't have any active todos to complete." }
+    yield { type: 'done' }
+    return
+  }
+
+  const settings = getSettings()
+  const docsForPrompt = todos
+    .map((d) => `ID: ${d.id}\nContent: ${d.content}`)
+    .join('\n---\n')
+
+  const prompt = `The user wants to mark a todo as complete. Based on their input, identify which todo they're referring to.
+
+User input: ${userInput}
+
+Active todos:
+${docsForPrompt}
+
+Return JSON: { "targetId": "<id of the matching todo>", "confidence": 0.0-1.0 }
+Return ONLY valid JSON.`
+
+  let targetId: string | null = null
+  try {
+    const stream = chat({
+      model: settings.selectedModel,
+      messages: [{ role: 'user', content: prompt }],
+      stream: false,
+      format: 'json',
+    })
+
+    let response = ''
+    for await (const chunk of stream) {
+      response += chunk
+    }
+
+    const parsed = JSON.parse(response)
+    targetId = typeof parsed.targetId === 'string' ? parsed.targetId : null
+  } catch {
+    yield { type: 'error', message: 'Failed to identify which todo to complete.' }
+    yield { type: 'done' }
+    return
+  }
+
+  const validIds = new Set(todos.map((t) => t.id))
+  if (!targetId || !validIds.has(targetId)) {
+    yield { type: 'chunk', content: "I couldn't determine which todo you're referring to. Could you be more specific?" }
+    yield { type: 'done' }
+    return
+  }
+
+  const completedMeta: TodoMetadata = {
+    ...parseTodoMeta(todos.find((t) => t.id === targetId)!),
+    completed: true,
+    completedAt: new Date().toISOString(),
+  }
+
+  await updateDocument(targetId, {
+    metadata: JSON.stringify(completedMeta),
+  })
+
+  const completed = todos.find((t) => t.id === targetId)!
+  const preview = completed.content.slice(0, 80)
+  yield { type: 'chunk', content: `Done! Marked "${preview}${completed.content.length > 80 ? '...' : ''}" as complete.` }
+  yield { type: 'done' }
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+
+function parseTodoMeta(doc: LoreDocument): TodoMetadata {
+  try {
+    const raw = JSON.parse(doc.metadata)
+    return {
+      completed: raw.completed ?? false,
+      completedAt: raw.completedAt ?? null,
+      priority: raw.priority ?? null,
+      position: raw.position ?? 0,
+      category: raw.category ?? null,
+    }
+  } catch {
+    return { completed: false, completedAt: null, priority: null, position: 0, category: null }
+  }
+}
+
+function extractPriority(input: string): TodoMetadata['priority'] {
+  const lower = input.toLowerCase()
+  if (/\b(urgent|asap|high\s*priority|important|critical)\b/.test(lower)) return 'high'
+  if (/\b(low\s*priority|whenever|not\s*urgent|eventually)\b/.test(lower)) return 'low'
+  return null
+}
+
+function extractCategory(tags: string[]): string | null {
+  const categoryTags = ['work', 'personal', 'home', 'health', 'finance', 'learning']
+  for (const tag of tags) {
+    if (categoryTags.includes(tag.toLowerCase())) return tag.toLowerCase()
+  }
+  return null
+}
+
+function sortTodos(todos: LoreDocument[], instructions: LoreDocument[]): LoreDocument[] {
+  return [...todos].sort((a, b) => {
+    const metaA = parseTodoMeta(a)
+    const metaB = parseTodoMeta(b)
+
+    const priorityOrder = { high: 0, medium: 1, low: 2 }
+    const pA = metaA.priority ? priorityOrder[metaA.priority] : 1
+    const pB = metaB.priority ? priorityOrder[metaB.priority] : 1
+    if (pA !== pB) return pA - pB
+
+    return metaA.position - metaB.position
+  })
+}
+
+function formatTodoList(todos: LoreDocument[]): string {
+  const lines = todos.map((t, i) => {
+    const meta = parseTodoMeta(t)
+    const parts = [`${i + 1}. ${t.content}`]
+    if (meta.priority) parts.push(`[${meta.priority}]`)
+    if (meta.category) parts.push(`(${meta.category})`)
+    return parts.join(' ')
+  })
+  return `Here's your todo list:\n\n${lines.join('\n')}`
+}

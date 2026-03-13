@@ -34,12 +34,31 @@ export interface StoreThoughtInput {
   tags: string[]
 }
 
+export interface TodoMetadata {
+  completed: boolean
+  completedAt: string | null
+  priority: 'high' | 'medium' | 'low' | null
+  position: number
+  category: string | null
+}
+
+export interface ScoredDocument extends LoreDocument {
+  score: number
+}
+
+export interface RetrievedDocumentSet {
+  documents: ScoredDocument[]
+  totalCandidates: number
+  cutoffScore: number
+}
+
 export interface RetrievalOptions {
   type?: DocumentType
   dateFrom?: string
   dateTo?: string
   maxResults?: number
   similarityThreshold?: number
+  includeCompleted?: boolean
 }
 
 export interface DatabaseStats {
@@ -125,5 +144,6 @@ export type AgentEvent =
   | { type: 'chunk'; content: string }
   | { type: 'stored'; documentId: string }
   | { type: 'deleted'; documentId: string }
+  | { type: 'duplicate'; existingContent: string }
   | { type: 'error'; message: string }
   | { type: 'done' }

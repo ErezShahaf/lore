@@ -3,25 +3,47 @@ import { handleThought } from './handlers/thoughtHandler'
 import { handleQuestion } from './handlers/questionHandler'
 import { handleCommand } from './handlers/commandHandler'
 import { handleInstruction } from './handlers/instructionHandler'
+import { handleTodoAdd, handleTodoList, handleTodoComplete } from './handlers/todoHandler'
 import type { AgentEvent } from '../../shared/types'
+
+// ── Session context ──────────────────────────────────────────
 
 interface ConversationEntry {
   role: 'user' | 'assistant'
   content: string
 }
 
-let conversationHistory: ConversationEntry[] = []
+interface SessionContext {
+  history: ConversationEntry[]
+  lastDocumentIds: string[]
+  lastTopic: string | null
+}
+
+const MAX_HISTORY = 20
+const SESSION_WINDOW = 10
+
+let session: SessionContext = {
+  history: [],
+  lastDocumentIds: [],
+  lastTopic: null,
+}
 
 export function clearConversation(): void {
-  conversationHistory = []
+  session = {
+    history: [],
+    lastDocumentIds: [],
+    lastTopic: null,
+  }
 }
 
 export function getConversationHistory(): ConversationEntry[] {
-  return conversationHistory
+  return session.history
 }
 
+// ── Main processing loop ─────────────────────────────────────
+
 export async function* processUserInput(userInput: string): AsyncGenerator<AgentEvent> {
-  conversationHistory.push({ role: 'user', content: userInput })
+  session.history.push({ role: 'user', content: userInput })
 
   yield { type: 'status', message: 'Classifying your input...' }
 
@@ -44,35 +66,70 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
   let assistantResponse = ''
 
   try {
-    switch (classification.intent) {
-      case 'thought': {
-        for await (const event of handleThought(userInput, classification)) {
+    if (classification.intent === 'thought' && classification.subtype === 'todo') {
+      for await (const event of handleTodoAdd(userInput, classification)) {
+        if (event.type === 'chunk') assistantResponse += event.content
+        if (event.type === 'stored') session.lastDocumentIds = [event.documentId]
+        yield event
+      }
+    } else if (
+      classification.intent === 'question' &&
+      (classification.subtype === 'list' || isTodoListQuery(userInput))
+    ) {
+      const isTodoQuery = isTodoListQuery(userInput)
+      if (isTodoQuery) {
+        for await (const event of handleTodoList(userInput, classification)) {
           if (event.type === 'chunk') assistantResponse += event.content
           yield event
         }
-        break
-      }
-      case 'question': {
-        const context = conversationHistory.slice(-6)
+      } else {
+        const context = session.history.slice(-SESSION_WINDOW)
         for await (const event of handleQuestion(userInput, classification, context)) {
           if (event.type === 'chunk') assistantResponse += event.content
           yield event
         }
-        break
       }
-      case 'command': {
-        for await (const event of handleCommand(userInput, classification)) {
-          if (event.type === 'chunk') assistantResponse += event.content
-          yield event
-        }
-        break
+    } else if (
+      classification.intent === 'command' &&
+      classification.subtype === 'complete'
+    ) {
+      for await (const event of handleTodoComplete(userInput, classification)) {
+        if (event.type === 'chunk') assistantResponse += event.content
+        yield event
       }
-      case 'instruction': {
-        for await (const event of handleInstruction(userInput, classification)) {
-          if (event.type === 'chunk') assistantResponse += event.content
-          yield event
+    } else {
+      switch (classification.intent) {
+        case 'thought': {
+          for await (const event of handleThought(userInput, classification)) {
+            if (event.type === 'chunk') assistantResponse += event.content
+            if (event.type === 'stored') session.lastDocumentIds = [event.documentId]
+            yield event
+          }
+          break
         }
-        break
+        case 'question': {
+          const context = session.history.slice(-SESSION_WINDOW)
+          for await (const event of handleQuestion(userInput, classification, context)) {
+            if (event.type === 'chunk') assistantResponse += event.content
+            yield event
+          }
+          break
+        }
+        case 'command': {
+          for await (const event of handleCommand(userInput, classification)) {
+            if (event.type === 'chunk') assistantResponse += event.content
+            yield event
+          }
+          break
+        }
+        case 'instruction': {
+          for await (const event of handleInstruction(userInput, classification)) {
+            if (event.type === 'chunk') assistantResponse += event.content
+            if (event.type === 'stored') session.lastDocumentIds = [event.documentId]
+            yield event
+          }
+          break
+        }
       }
     }
   } catch (err) {
@@ -83,11 +140,20 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
   }
 
   if (assistantResponse) {
-    conversationHistory.push({ role: 'assistant', content: assistantResponse })
+    session.history.push({ role: 'assistant', content: assistantResponse })
   }
 
-  const MAX_HISTORY = 20
-  if (conversationHistory.length > MAX_HISTORY) {
-    conversationHistory = conversationHistory.slice(-MAX_HISTORY)
+  if (classification.extractedTags.length > 0) {
+    session.lastTopic = classification.extractedTags[0]
   }
+
+  if (session.history.length > MAX_HISTORY) {
+    session.history = session.history.slice(-MAX_HISTORY)
+  }
+}
+
+function isTodoListQuery(input: string): boolean {
+  const lower = input.toLowerCase()
+  return /\b(todo|to-do|to do)\s*(list|items?|tasks?)?\b/.test(lower) &&
+    /\b(show|list|what|get|display|see|view)\b/.test(lower)
 }
