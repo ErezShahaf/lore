@@ -14,6 +14,7 @@ declare global {
       onMessageChunk: (callback: (chunk: string) => void) => () => void
       onResponseEnd: (callback: () => void) => () => void
       onResponseError: (callback: (error: string) => void) => () => void
+      onStatus: (callback: (message: string) => void) => () => void
       onChatReset: (callback: () => void) => () => void
 
       getOllamaStatus: () => Promise<OllamaStatus>

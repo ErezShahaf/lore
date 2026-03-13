@@ -6,14 +6,15 @@ import type { ChatMessage } from '../../../shared/types'
 interface MessageListProps {
   messages: ChatMessage[]
   isLoading: boolean
+  statusMessage?: string | null
 }
 
-export function MessageList({ messages, isLoading }: MessageListProps) {
+export function MessageList({ messages, isLoading, statusMessage }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isLoading])
+  }, [messages, isLoading, statusMessage])
 
   if (messages.length === 0 && !isLoading) return null
 
@@ -23,7 +24,12 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
         {messages.map(msg => (
           <MessageBubble key={msg.id} message={msg} />
         ))}
-        {isLoading && !messages.some(m => m.isStreaming) && <TypingIndicator />}
+        {statusMessage && (
+          <div className="flex justify-start">
+            <span className="text-xs italic text-muted-foreground">{statusMessage}</span>
+          </div>
+        )}
+        {isLoading && !messages.some(m => m.isStreaming) && !statusMessage && <TypingIndicator />}
         <div ref={bottomRef} />
       </div>
     </ScrollArea>

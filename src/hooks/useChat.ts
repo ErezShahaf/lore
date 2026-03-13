@@ -8,11 +8,13 @@ function createId(): string {
 export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const streamingIdRef = useRef<string | null>(null)
 
   const clearMessages = useCallback(() => {
     setMessages([])
     setIsLoading(false)
+    setStatusMessage(null)
     streamingIdRef.current = null
   }, [])
 
@@ -32,6 +34,10 @@ export function useChat() {
       )
     })
 
+    const cleanupStatus = window.loreAPI.onStatus((message: string) => {
+      setStatusMessage(message)
+    })
+
     const cleanupEnd = window.loreAPI.onResponseEnd(() => {
       const id = streamingIdRef.current
       if (!id) return
@@ -43,6 +49,7 @@ export function useChat() {
       )
       streamingIdRef.current = null
       setIsLoading(false)
+      setStatusMessage(null)
     })
 
     const cleanupError = window.loreAPI.onResponseError((error: string) => {
@@ -68,11 +75,13 @@ export function useChat() {
       }
       streamingIdRef.current = null
       setIsLoading(false)
+      setStatusMessage(null)
     })
 
     return () => {
       cleanupReset()
       cleanupChunk()
+      cleanupStatus()
       cleanupEnd()
       cleanupError()
     }
@@ -116,5 +125,5 @@ export function useChat() {
     [isLoading],
   )
 
-  return { messages, isLoading, sendMessage, clearMessages }
+  return { messages, isLoading, statusMessage, sendMessage, clearMessages }
 }

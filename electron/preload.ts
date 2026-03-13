@@ -42,6 +42,13 @@ const loreAPI = {
     return () => ipcRenderer.removeListener('chat:response-error', handler)
   },
 
+  onStatus: (callback: (message: string) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, { message }: { message: string }) =>
+      callback(message)
+    ipcRenderer.on('chat:status', handler)
+    return () => ipcRenderer.removeListener('chat:status', handler)
+  },
+
   onChatReset: (callback: () => void) => {
     ipcRenderer.on('chat:reset', callback)
     return () => ipcRenderer.removeListener('chat:reset', callback)

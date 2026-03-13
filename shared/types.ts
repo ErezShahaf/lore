@@ -96,3 +96,34 @@ export type InputClassification =
   | 'question'
   | 'command'
   | 'instruction'
+
+// ── Agent classification & routing ───────────────────────────
+
+export type ThoughtSubtype = 'general' | 'meeting' | 'idea' | 'learning' | 'todo'
+export type QuestionSubtype = 'recall' | 'search' | 'summary' | 'list'
+export type CommandSubtype = 'delete' | 'update' | 'complete' | 'reorder'
+export type InstructionSubtype = 'preference' | 'rule' | 'alias'
+
+export interface ClassificationResult {
+  intent: InputClassification
+  subtype: string
+  extractedDate: string | null
+  extractedTags: string[]
+  confidence: number
+  reasoning: string
+}
+
+export interface CommandTarget {
+  targetDocumentIds: string[]
+  action: 'delete' | 'update' | 'complete'
+  updatedContent: string | null
+  confidence: number
+}
+
+export type AgentEvent =
+  | { type: 'status'; message: string }
+  | { type: 'chunk'; content: string }
+  | { type: 'stored'; documentId: string }
+  | { type: 'deleted'; documentId: string }
+  | { type: 'error'; message: string }
+  | { type: 'done' }

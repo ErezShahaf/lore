@@ -6,15 +6,12 @@ import {
   listModels,
   pullModel,
   deleteModel,
-  chat,
 } from '../services/ollamaService'
 import { getStats } from '../services/lanceService'
 import { retrieveRelevantDocuments } from '../services/documentPipeline'
 import { getDocumentsByType } from '../services/lanceService'
-import type { ChatRequest, RetrievalOptions } from '../../shared/types'
-
-const SYSTEM_PROMPT =
-  'You are Lore, a personal knowledge assistant. You help the user capture thoughts and answer questions about their stored knowledge. Be concise and helpful.'
+import { processUserInput, clearConversation } from '../services/agentService'
+import type { RetrievalOptions } from '../../shared/types'
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('ping', () => 'pong')
@@ -24,22 +21,22 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.on('chat:hide', () => {
+    clearConversation()
     hideChatWindow()
   })
 
-  // ── Streaming chat ──────────────────────────────────────────────
+  // ── Streaming chat (agent pipeline) ────────────────────────────
 
   ipcMain.handle(
     'chat:send',
     async (
       event,
-      { message, history }: {
+      { message }: {
         message: string
         history?: Array<{ role: 'user' | 'assistant'; content: string }>
       },
     ) => {
       const sender = event.sender
-      const settings = getSettings()
 
       const status = await checkConnection()
       if (!status.connected) {
@@ -49,30 +46,28 @@ export function registerIpcHandlers(): void {
         return null
       }
 
-      const messages: ChatRequest['messages'] = [
-        { role: 'system', content: SYSTEM_PROMPT },
-      ]
-
-      if (history) {
-        for (const msg of history) {
-          messages.push({ role: msg.role, content: msg.content })
-        }
-      }
-
-      messages.push({ role: 'user', content: message })
-
       try {
-        const stream = chat({
-          model: settings.selectedModel,
-          messages,
-          stream: true,
-        })
+        const generator = processUserInput(message)
 
-        for await (const chunk of stream) {
-          sender.send('chat:response-chunk', { chunk })
+        for await (const agentEvent of generator) {
+          switch (agentEvent.type) {
+            case 'chunk':
+              sender.send('chat:response-chunk', { chunk: agentEvent.content })
+              break
+            case 'status':
+              sender.send('chat:status', { message: agentEvent.message })
+              break
+            case 'error':
+              sender.send('chat:response-error', { error: agentEvent.message })
+              break
+            case 'stored':
+            case 'deleted':
+              break
+            case 'done':
+              sender.send('chat:response-end')
+              break
+          }
         }
-
-        sender.send('chat:response-end')
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : 'An unexpected error occurred'
