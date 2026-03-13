@@ -147,3 +147,48 @@ export type AgentEvent =
   | { type: 'duplicate'; existingContent: string }
   | { type: 'error'; message: string }
   | { type: 'done' }
+
+// ── System info & hardware detection ─────────────────────────
+
+export interface SystemInfo {
+  platform: 'win32' | 'darwin' | 'linux'
+  osVersion: string
+  arch: string
+  totalMemoryGB: number
+  freeMemoryGB: number
+  cpuModel: string
+  cpuCores: number
+  gpu: GpuInfo | null
+}
+
+export interface GpuInfo {
+  vendor: 'nvidia' | 'amd' | 'intel' | 'apple' | 'unknown'
+  vendorString: string
+  deviceString: string
+  vramMB: number | null
+  cudaSupported: boolean
+  metalSupported: boolean
+  rocmSupported: boolean
+}
+
+export type ModelTier = 'small' | 'medium' | 'large'
+
+export interface HardwareProfile {
+  maxModelTier: ModelTier
+  maxParametersBillions: number
+  gpuAcceleration: boolean
+  gpuAccelerationType: 'cuda' | 'metal' | 'rocm' | 'none'
+  warnings: string[]
+}
+
+export interface RecommendedModel {
+  name: string
+  displayName: string
+  parametersBillions: number
+  sizeOnDisk: string
+  minRAMGB: number
+  tier: ModelTier
+  category: 'chat' | 'embedding'
+  description: string
+  gpuRecommended: boolean
+}

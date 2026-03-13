@@ -16,7 +16,7 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: ['electron'],
+              external: ['electron', '@lancedb/lancedb', 'apache-arrow'],
             },
           },
         },

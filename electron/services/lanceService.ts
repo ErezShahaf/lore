@@ -9,10 +9,6 @@ import {
   Field,
   Schema,
   FixedSizeList,
-  makeBuilder,
-  vectorFromArray,
-  tableFromArrays,
-  Table as ArrowTable,
 } from 'apache-arrow'
 import { getEmbeddingDimension } from './embeddingService'
 import type { LoreDocument, DatabaseStats } from '../../shared/types'
@@ -89,40 +85,10 @@ export async function initialize(): Promise<void> {
   } else {
     const dimension = getEmbeddingDimension()
     const schema = buildSchema(dimension)
-
-    const emptyTable = makeEmptyArrowTable(schema, dimension)
-    documentsTable = await db.createTable('documents', emptyTable, { schema })
+    documentsTable = await db.createEmptyTable('documents', schema)
   }
 
   console.log('[LanceDB] Initialized at', dbPath)
-}
-
-function makeEmptyArrowTable(schema: Schema, dimension: number): ArrowTable {
-  const id = makeBuilder({ type: new Utf8() })
-  const content = makeBuilder({ type: new Utf8() })
-  const vector = makeBuilder({ type: new FixedSizeList(dimension, new Field('item', new Float32())) })
-  const type = makeBuilder({ type: new Utf8() })
-  const createdAt = makeBuilder({ type: new Utf8() })
-  const updatedAt = makeBuilder({ type: new Utf8() })
-  const date = makeBuilder({ type: new Utf8() })
-  const tags = makeBuilder({ type: new Utf8() })
-  const source = makeBuilder({ type: new Utf8() })
-  const metadata = makeBuilder({ type: new Utf8() })
-  const isDeleted = makeBuilder({ type: new Bool() })
-
-  return new ArrowTable(schema, {
-    id: id.finish().toVector(),
-    content: content.finish().toVector(),
-    vector: vector.finish().toVector(),
-    type: type.finish().toVector(),
-    createdAt: createdAt.finish().toVector(),
-    updatedAt: updatedAt.finish().toVector(),
-    date: date.finish().toVector(),
-    tags: tags.finish().toVector(),
-    source: source.finish().toVector(),
-    metadata: metadata.finish().toVector(),
-    isDeleted: isDeleted.finish().toVector(),
-  })
 }
 
 function getTable(): lancedb.Table {

@@ -1,4 +1,4 @@
-import type { AppSettings, OllamaModel, OllamaStatus, PullProgress, DatabaseStats, RetrievalOptions } from '../../shared/types'
+import type { AppSettings, OllamaModel, OllamaStatus, PullProgress, DatabaseStats, RetrievalOptions, SystemInfo, HardwareProfile } from '../../shared/types'
 
 declare global {
   interface Window {
@@ -16,6 +16,9 @@ declare global {
       onResponseError: (callback: (error: string) => void) => () => void
       onStatus: (callback: (message: string) => void) => () => void
       onChatReset: (callback: () => void) => () => void
+
+      getSystemInfo: () => Promise<SystemInfo>
+      getHardwareProfile: () => Promise<HardwareProfile>
 
       getOllamaStatus: () => Promise<OllamaStatus>
       listModels: () => Promise<OllamaModel[]>

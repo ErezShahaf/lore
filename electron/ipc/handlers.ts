@@ -12,6 +12,7 @@ import { getStats } from '../services/lanceService'
 import { retrieveRelevantDocuments } from '../services/documentPipeline'
 import { getDocumentsByType } from '../services/lanceService'
 import { processUserInput, clearConversation } from '../services/agentService'
+import { getSystemInfo, getHardwareProfile } from '../services/systemInfoService'
 import type { RetrievalOptions } from '../../shared/types'
 
 function isString(v: unknown): v is string {
@@ -136,6 +137,17 @@ export function registerIpcHandlers(): void {
         error: err instanceof Error ? err.message : 'Delete failed',
       }
     }
+  })
+
+  // ── System info ─────────────────────────────────────────────────
+
+  ipcMain.handle('system:info', async () => {
+    return getSystemInfo()
+  })
+
+  ipcMain.handle('system:hardware-profile', async () => {
+    const info = await getSystemInfo()
+    return getHardwareProfile(info)
   })
 
   // ── Settings ────────────────────────────────────────────────────

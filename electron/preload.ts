@@ -6,6 +6,8 @@ import type {
   PullProgress,
   DatabaseStats,
   RetrievalOptions,
+  SystemInfo,
+  HardwareProfile,
 } from '../shared/types'
 
 const loreAPI = {
@@ -53,6 +55,14 @@ const loreAPI = {
     ipcRenderer.on('chat:reset', callback)
     return () => ipcRenderer.removeListener('chat:reset', callback)
   },
+
+  // ── System info ─────────────────────────────────────────────
+
+  getSystemInfo: (): Promise<SystemInfo> =>
+    ipcRenderer.invoke('system:info'),
+
+  getHardwareProfile: (): Promise<HardwareProfile> =>
+    ipcRenderer.invoke('system:hardware-profile'),
 
   // ── Ollama management ───────────────────────────────────────
 
