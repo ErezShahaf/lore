@@ -74,8 +74,8 @@ const loreAPI = {
   listModels: (): Promise<OllamaModel[]> =>
     ipcRenderer.invoke('ollama:list-models'),
 
-  pullModel: (name: string): Promise<{ success: boolean; error?: string }> =>
-    ipcRenderer.invoke('ollama:pull-model', { name }),
+  pullModel: (name: string, category?: 'chat' | 'embedding'): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('ollama:pull-model', { name, category }),
 
   getActivePulls: (): Promise<Record<string, PullProgress>> =>
     ipcRenderer.invoke('ollama:active-pulls'),

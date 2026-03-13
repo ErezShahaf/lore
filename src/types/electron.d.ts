@@ -1,4 +1,15 @@
-import type { AppSettings, OllamaModel, OllamaStatus, OllamaSetupProgress, PullProgress, ActivePullProgress, DatabaseStats, RetrievalOptions, SystemInfo, HardwareProfile } from '../../shared/types'
+import type {
+  AppSettings,
+  OllamaModel,
+  OllamaStatus,
+  OllamaSetupProgress,
+  PullProgress,
+  ActivePullProgress,
+  DatabaseStats,
+  RetrievalOptions,
+  SystemInfo,
+  HardwareProfile,
+} from '../../shared/types'
 
 declare global {
   interface Window {
@@ -22,7 +33,7 @@ declare global {
 
       getOllamaStatus: () => Promise<OllamaStatus>
       listModels: () => Promise<OllamaModel[]>
-      pullModel: (name: string) => Promise<{ success: boolean; error?: string }>
+      pullModel: (name: string, category?: 'chat' | 'embedding') => Promise<{ success: boolean; error?: string }>
       getActivePulls: () => Promise<Record<string, PullProgress>>
       onPullProgress: (callback: (progress: ActivePullProgress) => void) => () => void
       onPullComplete: (callback: (result: { model: string; success: boolean; error?: string }) => void) => () => void

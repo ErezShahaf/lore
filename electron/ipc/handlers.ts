@@ -11,13 +11,13 @@ import {
   abortPull,
   deleteModel,
 } from '../services/ollamaService'
-import { bootstrapOllama } from '../services/ollamaBootstrap'
+import { bootstrapOllama, restartOllamaWithNewModelsPath } from '../services/ollamaBootstrap'
 import { getStats } from '../services/lanceService'
 import { retrieveRelevantDocuments } from '../services/documentPipeline'
 import { getDocumentsByType } from '../services/lanceService'
 import { processUserInput, clearConversation } from '../services/agentService'
 import { getSystemInfo, getHardwareProfile } from '../services/systemInfoService'
-import type { RetrievalOptions, PullProgress } from '../../shared/types'
+import type { RetrievalOptions, PullProgress, AppSettings } from '../../shared/types'
 
 const activePulls = new Map<string, PullProgress>()
 
@@ -111,7 +111,7 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('ollama:pull-model', async (_event, args: unknown) => {
-    const { name } = (args ?? {}) as { name?: unknown }
+    const { name, category } = (args ?? {}) as { name?: unknown; category?: unknown }
     if (!isString(name) || name.trim().length === 0) {
       return { success: false, error: 'Invalid model name' }
     }
@@ -120,7 +120,7 @@ export function registerIpcHandlers(): void {
     }
 
     activePulls.set(name, { status: 'Starting download...' })
-    const broadcast = (channel: string, payload: unknown) => {
+    const broadcastToAll = (channel: string, payload: unknown) => {
       for (const win of BrowserWindow.getAllWindows()) {
         win.webContents.send(channel, payload)
       }
@@ -129,15 +129,35 @@ export function registerIpcHandlers(): void {
     try {
       await pullModel(name, (progress) => {
         activePulls.set(name, progress)
-        broadcast('ollama:pull-progress', { model: name, ...progress })
+        broadcastToAll('ollama:pull-progress', { model: name, ...progress })
       })
       activePulls.delete(name)
-      broadcast('ollama:pull-complete', { model: name, success: true })
+
+      const modelCategory = isString(category) ? category : null
+      if (modelCategory) {
+        const settings = getSettings()
+        const settingsUpdate: Partial<AppSettings> = {}
+        if (modelCategory === 'chat' && !settings.selectedModel) {
+          settingsUpdate.selectedModel = name
+        }
+        if (modelCategory === 'embedding' && !settings.embeddingModel) {
+          settingsUpdate.embeddingModel = name
+        }
+        if (Object.keys(settingsUpdate).length > 0) {
+          const updated = updateSettings(settingsUpdate)
+          broadcastToAll('settings:changed', updated)
+        }
+      }
+
+      broadcastToAll('ollama:pull-complete', { model: name, success: true })
       return { success: true }
     } catch (err) {
+      const wasTracked = activePulls.has(name)
       activePulls.delete(name)
       const error = err instanceof Error ? err.message : 'Pull failed'
-      broadcast('ollama:pull-complete', { model: name, success: false, error })
+      if (wasTracked) {
+        broadcastToAll('ollama:pull-complete', { model: name, success: false, error })
+      }
       return { success: false, error }
     }
   })
@@ -203,13 +223,21 @@ export function registerIpcHandlers(): void {
     return getSettings()
   })
 
-  ipcMain.handle('settings:update', (_event, partial: unknown) => {
+  ipcMain.handle('settings:update', async (_event, partial: unknown) => {
     if (!partial || typeof partial !== 'object') return getSettings()
 
-    const updated = updateSettings(partial as Partial<import('../../shared/types').AppSettings>)
+    const prev = getSettings()
+    const updated = updateSettings(partial as Partial<AppSettings>)
 
     if ('startOnLogin' in (partial as Record<string, unknown>)) {
       setAutoStart(updated.startOnLogin)
+    }
+
+    if ('ollamaModelsPath' in (partial as Record<string, unknown>) &&
+        updated.ollamaModelsPath !== prev.ollamaModelsPath) {
+      restartOllamaWithNewModelsPath().catch(err => {
+        console.error('[Lore] Failed to restart Ollama after models path change:', err)
+      })
     }
 
     for (const win of BrowserWindow.getAllWindows()) {

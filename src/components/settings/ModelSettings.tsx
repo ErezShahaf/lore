@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Download, Trash2, Check, CircleCheck, Star, X, FolderOpen } from 'lucide-react'
+import { Download, Trash2, Check, CircleCheck, Star, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   RECOMMENDED_MODELS,
@@ -109,26 +109,23 @@ export function ModelSettings({ settings, onUpdate }: ModelSettingsProps) {
     setPullErrors(prev => { const next = new Map(prev); next.delete(tag); return next })
     setActiveDownloads(prev => new Map(prev).set(tag, { status: 'Starting download...' }))
 
-    const result = await window.loreAPI.pullModel(tag)
+    try {
+      const result = await window.loreAPI.pullModel(tag, category)
 
-    if (result.success) {
-      await refreshModels()
-      if (category === 'chat' && !settings.selectedModel) {
-        onUpdate({ selectedModel: tag })
+      if (result.success) {
+        await refreshModels()
+      } else if (result.error) {
+        setPullErrors(prev => new Map(prev).set(tag, result.error!))
+        setActiveDownloads(prev => { const next = new Map(prev); next.delete(tag); return next })
       }
-      if (category === 'embedding' && !settings.embeddingModel) {
-        onUpdate({ embeddingModel: tag })
-      }
+    } catch {
+      setActiveDownloads(prev => { const next = new Map(prev); next.delete(tag); return next })
+      setPullErrors(prev => new Map(prev).set(tag, 'Download failed unexpectedly'))
     }
   }
 
   const handleAbortPull = async (tag: string) => {
     await window.loreAPI.abortPull(tag)
-  }
-
-  const handlePickModelsFolder = async () => {
-    const folder = await window.loreAPI.setupPickModelsFolder()
-    if (folder) onUpdate({ ollamaModelsPath: folder })
   }
 
   const handleDelete = async (name: string) => {
@@ -387,33 +384,6 @@ export function ModelSettings({ settings, onUpdate }: ModelSettingsProps) {
             )
           })}
         </div>
-      </div>
-
-      {/* Model storage path */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-foreground">Model Storage Location</label>
-        <div className="flex gap-2">
-          <div className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm text-muted-foreground truncate font-mono">
-            {settings.ollamaModelsPath || 'Default (managed by Ollama)'}
-          </div>
-          <Button variant="outline" size="sm" onClick={handlePickModelsFolder}>
-            <FolderOpen className="size-4" />
-            Browse
-          </Button>
-          {settings.ollamaModelsPath && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onUpdate({ ollamaModelsPath: '' })}
-              className="text-muted-foreground hover:text-destructive"
-            >
-              <X className="size-4" />
-            </Button>
-          )}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Where downloaded AI models are stored. Requires restarting the app to take effect.
-        </p>
       </div>
 
       {/* AI engine host */}

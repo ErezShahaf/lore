@@ -1,4 +1,5 @@
 import { app, BrowserWindow } from 'electron'
+import { join } from 'path'
 import { ElectronOllama } from 'electron-ollama'
 import { getSettings } from './settingsService'
 import type { OllamaSetupProgress } from '../../shared/types'
@@ -9,6 +10,15 @@ function broadcast(progress: OllamaSetupProgress): void {
   for (const win of BrowserWindow.getAllWindows()) {
     win.webContents.send('ollama:setup-progress', progress)
   }
+}
+
+export function getDefaultOllamaModelsPath(): string {
+  return join(app.getPath('home'), '.ollama', 'models')
+}
+
+function applyModelsPath(): void {
+  const settings = getSettings()
+  process.env.OLLAMA_MODELS = settings.ollamaModelsPath || getDefaultOllamaModelsPath()
 }
 
 export async function isOllamaSetupNeeded(): Promise<boolean> {
@@ -32,10 +42,7 @@ export async function bootstrapOllama(customBasePath?: string): Promise<void> {
     basePath,
   })
 
-  const settings = getSettings()
-  if (settings.ollamaModelsPath) {
-    process.env.OLLAMA_MODELS = settings.ollamaModelsPath
-  }
+  applyModelsPath()
 
   try {
     if (await eo.isRunning()) {
@@ -70,11 +77,18 @@ export async function bootstrapOllama(customBasePath?: string): Promise<void> {
   }
 }
 
-export function stopOllama(): void {
+export async function stopOllama(): Promise<void> {
   try {
-    eo?.getServer()?.stop()
+    await eo?.getServer()?.stop()
     console.log('[Lore] Ollama server stopped')
   } catch {
     // Ignore shutdown errors
   }
+}
+
+export async function restartOllamaWithNewModelsPath(): Promise<void> {
+  console.log('[Lore] Restarting Ollama with updated models path...')
+  await stopOllama()
+  await new Promise(resolve => setTimeout(resolve, 500))
+  await bootstrapOllama()
 }
