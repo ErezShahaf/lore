@@ -1,0 +1,54 @@
+---
+description: Project coding style and conventions for Lore
+alwaysApply: true
+---
+
+# Coding Style — Lore
+
+## Naming
+
+- No abbreviations. Use full, descriptive names for variables, functions, parameters, and types.
+- Boolean variables and functions should read as assertions: `isVisible`, `hasPermission`, `shouldRestructure`.
+
+## TypeScript
+
+- Strongly type everything. No `any`. Use `unknown` when the type is genuinely unknown and narrow it explicitly.
+- Prefer `interface` for object shapes, `type` for unions, intersections, and computed types.
+- All function parameters and return types must be explicitly typed.
+- Use `readonly` on properties and arrays that should not be mutated.
+- Prefer `const` assertions and `as const` where applicable.
+- Use discriminated unions over optional fields when modeling distinct states.
+
+## Code Structure
+
+- Keep functions small and focused. Extract helpers rather than nesting `if`/`else` blocks.
+- Avoid deeply nested logic. Use early returns, guard clauses, and extracted functions.
+- Reuse logic where beneficial — extract shared behavior into utility functions or shared modules.
+- Use abstraction (interfaces, generics, composition) when it genuinely reduces duplication or clarifies intent. Do not force abstraction for its own sake.
+
+## Comments
+
+- Do not add comments that merely narrate what code does.
+- Only comment when the intent, trade-off, or constraint is non-obvious and cannot be conveyed by naming alone.
+
+## Error Handling
+
+- Never swallow errors silently. Always log or propagate.
+- Use typed error classes when distinguishing error categories matters.
+
+## Imports
+
+- Use named imports. Avoid default exports where practical.
+- Group imports: external libraries, then internal modules, then relative imports.
+
+## React / UI
+
+- Functional components only.
+- Extract reusable hooks for shared stateful logic.
+- Keep component files focused — one primary component per file.
+- Colocate styles, types, and helpers with the component when they are not shared.
+
+## File Organization
+
+- Use `index.ts` barrel files sparingly — only at module boundaries, not inside deeply nested folders.
+- Name files after the primary export they contain.
