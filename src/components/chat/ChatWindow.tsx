@@ -95,7 +95,7 @@ export function ChatWindow() {
   return (
     <div className={`${isClosing ? 'h-screen' : 'animate-float h-screen'} p-6`}>
       <div
-        className={`${isClosing ? 'animate-scale-out' : 'animate-scale-in'} relative flex h-full flex-col overflow-hidden rounded-2xl border border-border/30 bg-[#0e0e0e]/95 backdrop-blur-xl [filter:drop-shadow(0_4px_12px_rgba(0,0,0,0.35))]`}
+        className={`${isClosing ? 'animate-scale-out' : 'animate-scale-in'} relative flex h-full flex-col gap-2 overflow-hidden rounded-2xl border border-border/30 bg-[#0e0e0e]/95 backdrop-blur-xl [filter:drop-shadow(0_4px_12px_rgba(0,0,0,0.35))]`}
         onAnimationEnd={handleAnimationEnd}
       >
         <div className="absolute right-3 top-3 z-10">

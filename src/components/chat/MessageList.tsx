@@ -69,8 +69,8 @@ export function MessageList({ messages, isLoading, statusMessage }: MessageListP
   if (messages.length === 0 && !isLoading) return <EmptyState />
 
   return (
-    <ScrollArea className="flex min-h-0 flex-[0_0_70%] overflow-hidden" viewportRef={viewportRef}>
-      <div className="flex flex-col gap-3 p-4">
+    <ScrollArea className="flex min-h-0 min-w-0 flex-1 overflow-hidden" viewportRef={viewportRef}>
+      <div className="flex min-w-0 max-w-full flex-col gap-3 overflow-x-hidden px-6 py-4">
         {messages.map(msg => (
           <MessageBubble key={msg.id} message={msg} />
         ))}

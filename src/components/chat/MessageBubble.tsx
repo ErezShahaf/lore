@@ -11,42 +11,42 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === 'user'
 
   return (
-    <div className={cn('animate-slide-up flex w-full', isUser ? 'justify-end' : 'justify-start')}>
+    <div className={cn('animate-slide-up flex min-w-0 w-full', isUser ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm leading-relaxed',
+          'min-w-0 max-w-[75%] overflow-hidden break-words rounded-xl px-3.5 py-2.5 text-sm leading-relaxed',
           isUser
             ? 'bg-primary/20 text-foreground'
             : 'bg-secondary/60 text-foreground',
         )}
       >
         {isUser ? (
-          <p className="whitespace-pre-wrap">{message.content}</p>
+          <p className="whitespace-pre-wrap break-words">{message.content}</p>
         ) : (
           <>
             {message.content ? (
               <Markdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                  p: ({ children }) => <p className="mb-2 last:mb-0 break-words">{children}</p>,
                   ul: ({ children }) => (
-                    <ul className="mb-2 list-disc pl-4 last:mb-0">{children}</ul>
+                    <ul className="mb-2 list-disc pl-4 last:mb-0 break-words">{children}</ul>
                   ),
                   ol: ({ children }) => (
-                    <ol className="mb-2 list-decimal pl-4 last:mb-0">{children}</ol>
+                    <ol className="mb-2 list-decimal pl-4 last:mb-0 break-words">{children}</ol>
                   ),
-                  li: ({ children }) => <li className="mb-0.5">{children}</li>,
+                  li: ({ children }) => <li className="mb-0.5 break-words">{children}</li>,
                   code: ({ children, className }) => {
                     const isBlock = className?.includes('language-')
                     if (isBlock) {
                       return (
-                        <pre className="my-2 overflow-x-auto rounded-md bg-[#0a0a0a] p-3 text-xs">
+                        <pre className="my-2 min-w-0 max-w-full whitespace-pre-wrap break-all rounded-md bg-[#0a0a0a] p-3 text-xs">
                           <code>{children}</code>
                         </pre>
                       )
                     }
                     return (
-                      <code className="rounded bg-[#0a0a0a] px-1.5 py-0.5 text-xs">
+                      <code className="break-all rounded bg-[#0a0a0a] px-1.5 py-0.5 text-xs">
                         {children}
                       </code>
                     )
