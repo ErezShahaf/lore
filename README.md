@@ -1,4 +1,4 @@
-<p align="center">
+ר<p align="center">
   <img src="https://github.com/ErezShahaf/lore/blob/main/icon.png?raw=true" width="80" height="80" />
 </p>
 
@@ -6,9 +6,10 @@
 
 <p align="center">
   AI-powered thought capture and recall — runs entirely on your machine.
+
+  <img src="readme-query-demo.gif" width="500"/>
 </p>
 
----
 
 ## What is Lore?
 
@@ -76,6 +77,10 @@ Lore searches your stored thoughts and generates an answer with relevant context
 - *"I purchased the milk you can remove that note"*
 - *"turns out daniel is on holiday, so change the todo we will meet him in the 4th"*
 
+ ### Setting regular instructions
+ - *"When I ask for my to do list, show the items in bullets."
+ - *"Always end a response by listing the original content & dates of the rows in the database which helped you give me this information."
+ - *"when you give me a list of todos include an emoji for each item."
 
 ### Settings
 
@@ -85,6 +90,15 @@ Right-click the tray icon and select **Settings**, or access settings to:
 - Select chat and embedding models
 - Pull or delete Ollama models
 - Enable/disable start on login
+## Star History
+
+<a href="https://www.star-history.com/?repos=ErezShahaf%2FLore&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=ErezShahaf/Lore&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=ErezShahaf/Lore&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=ErezShahaf/Lore&type=date&legend=top-left" />
+ </picture>
+</a>
 
 ## Development
 
