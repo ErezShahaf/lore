@@ -12,7 +12,7 @@
 
 ## What is Lore?
 
-Lore is a lightweight desktop app that sits in your system tray and lets you quickly capture thoughts, notes, and todos using natural language. It uses a local LLM (via [Ollama](https://ollama.com)) and a local vector database (LanceDB) to store, understand, and retrieve your information — no cloud services, no API keys, complete privacy.
+Lore is a lightweight desktop app that sits in your system tray and lets you pop-up a hover chat with a button click to quickly capture thoughts, notes, and todos using natural language. It uses a local LLM (via [Ollama](https://ollama.com)) and a local vector database (LanceDB) to store, understand, and retrieve your information — no cloud services, no API keys, complete privacy.
 
 ### Key features
 
@@ -22,12 +22,6 @@ Lore is a lightweight desktop app that sits in your system tray and lets you qui
 - **Todo management** — add, list, complete, and organize todos with priority and categories
 - **RAG pipeline** — retrieval-augmented generation finds relevant context from your notes before answering
 - **Fully local** — all data and AI processing stays on your machine
-
-## Prerequisites
-
-- [Ollama](https://ollama.com) installed and running
-- A chat model pulled (e.g. `ollama pull llama3.2:3b`)
-- An embedding model pulled: `ollama pull nomic-embed-text`
 
 ## Installation
 
@@ -60,30 +54,28 @@ Press **Ctrl+Shift+Space** (or **Cmd+Shift+Space** on macOS) to toggle the Lore 
 
 Just type naturally:
 
-- *"Meeting with Sarah about Q3 roadmap — she wants to prioritize mobile"*
-- *"Remember to buy milk on the way home"*
-- *"The API endpoint for user auth is /api/v2/auth/login"*
+- *"Daily note - sarah needs help with feature implementation"*
+- *"todo remember to buy milk on the way home"*
+- *"The stripe webhook event that caused our refund bug {schawarma: true}"*
+- *"add to my todo "talk to Daniel about the integration tomorrow"*
 
 Lore classifies and stores your input automatically.
 
 ### Asking questions
 
-- *"What did Sarah say about Q3?"*
-- *"What do I need to buy?"*
-- *"What's the auth API endpoint?"*
+- *"What notes did I write at daily today"*
+- *"I'm about to go home, is there anything I need to do on the way home?"*
+- *"what was the stripe webhook event that caused our bug?"*
+- *"what's on my todo list?"*
 
 Lore searches your stored thoughts and generates an answer with relevant context.
 
-### Managing todos
+### Managing existing data
 
-- *"Add todo: finish the quarterly report by Friday"*
-- *"Show my todos"*
-- *"Complete the quarterly report todo"*
+- *"remove from todo the note about speaking to daniel"*
+- *"I purchased the milk you can remove that note"*
+- *"turns out daniel is on holiday, so change the todo we will meet him in the 4th"*
 
-### Commands
-
-- *"Delete the note about milk"*
-- *"Update the meeting notes to include the new deadline"*
 
 ### Settings
 
@@ -93,7 +85,6 @@ Right-click the tray icon and select **Settings**, or access settings to:
 - Select chat and embedding models
 - Pull or delete Ollama models
 - Enable/disable start on login
-- Configure hide-on-blur behavior
 
 ## Development
 
@@ -125,56 +116,7 @@ npm run dev
 | `npm test` | Run unit tests (Vitest) |
 | `npm run test:watch` | Run tests in watch mode |
 
-## Architecture
 
-```
-electron/
-├── main.ts                  # App entry — tray, shortcuts, lifecycle
-├── preload.ts               # Context bridge (IPC API for renderer)
-├── ipc/handlers.ts          # IPC channel handlers
-├── windows/
-│   ├── chatWindow.ts        # Chat popup window management
-│   └── settingsWindow.ts    # Settings window management
-├── tray/trayManager.ts      # System tray icon and menu
-├── shortcuts.ts             # Global keyboard shortcuts
-└── services/
-    ├── agentService.ts      # Main agent: classify → route → respond
-    ├── classifierService.ts # LLM-based input classification
-    ├── ollamaService.ts     # Ollama HTTP client (chat, models, health)
-    ├── lanceService.ts      # LanceDB vector database operations
-    ├── embeddingService.ts  # Text → vector embedding via Ollama
-    ├── documentPipeline.ts  # Store, embed, retrieve documents
-    ├── settingsService.ts   # Persistent settings (JSON file)
-    ├── autoStartService.ts  # OS login item registration
-    └── handlers/
-        ├── thoughtHandler.ts    # Store thoughts with LLM restructuring
-        ├── questionHandler.ts   # RAG-powered Q&A
-        ├── commandHandler.ts    # Delete, update, complete documents
-        ├── instructionHandler.ts# Store user preferences
-        └── todoHandler.ts       # Todo CRUD with metadata
-
-src/
-├── App.tsx                  # Route to chat or settings window
-├── main.tsx                 # React entry point
-├── styles/globals.css       # Theme and animations
-├── components/
-│   ├── chat/                # Chat popup UI
-│   ├── settings/            # Settings panel UI
-│   └── ui/                  # Shared UI primitives
-├── hooks/                   # React hooks (useChat, useSettings, etc.)
-└── types/electron.d.ts      # Window API type declarations
-
-shared/types.ts              # Shared TypeScript types
-```
-
-### Data flow
-
-1. User types in the chat popup
-2. Message is sent to the main process via IPC
-3. `agentService` classifies the input (thought / question / command / instruction)
-4. Classified input is routed to the appropriate handler
-5. Handlers interact with LanceDB (store/retrieve) and Ollama (generate)
-6. Response streams back to the renderer via IPC events
 
 ## License
 
