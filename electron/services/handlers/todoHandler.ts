@@ -14,6 +14,15 @@ import type {
   TodoMetadata,
 } from '../../../shared/types'
 
+const TODO_COMPLETE_SCHEMA = {
+  type: 'object',
+  properties: {
+    targetId: { type: 'string' },
+    confidence: { type: 'number' },
+  },
+  required: ['targetId', 'confidence'],
+}
+
 export async function* handleTodoAdd(
   userInput: string,
   classification: ClassificationResult,
@@ -161,7 +170,7 @@ export async function* handleTodoComplete(
       model: settings.selectedModel,
       messages: [{ role: 'user', content: prompt }],
       stream: false,
-      format: 'json',
+      format: TODO_COMPLETE_SCHEMA,
       think: false,
     })
 

@@ -11,6 +11,23 @@ import type {
   CommandTarget,
 } from '../../../shared/types'
 
+const COMMAND_TARGET_SCHEMA = {
+  type: 'object',
+  properties: {
+    targetDocumentIds: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    action: {
+      type: 'string',
+      enum: ['delete', 'update', 'complete'],
+    },
+    updatedContent: { type: 'string' },
+    confidence: { type: 'number' },
+  },
+  required: ['targetDocumentIds', 'action', 'updatedContent', 'confidence'],
+}
+
 export async function* handleCommand(
   userInput: string,
   classification: ClassificationResult,
@@ -46,7 +63,7 @@ export async function* handleCommand(
       model: settings.selectedModel,
       messages: [{ role: 'user', content: prompt }],
       stream: false,
-      format: 'json',
+      format: COMMAND_TARGET_SCHEMA,
       think: false,
     })
 

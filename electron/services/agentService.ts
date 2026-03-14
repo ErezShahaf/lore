@@ -51,9 +51,10 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
   try {
     classification = await classifyInput(userInput)
   } catch (err) {
+    console.error('[Agent] Classification failed:', err)
     yield {
-      type: 'error',
-      message: 'Failed to classify input. Please try again.',
+      type: 'chunk',
+      content: "Sorry, I had trouble understanding that. Could you try rephrasing?",
     }
     yield { type: 'done' }
     return

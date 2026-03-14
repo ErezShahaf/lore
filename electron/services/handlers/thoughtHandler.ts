@@ -1,14 +1,11 @@
-import { chat } from '../ollamaService'
 import { storeThought, checkForDuplicate } from '../documentPipeline'
-import { getSettings } from '../settingsService'
-import { RESTRUCTURE_PROMPT } from '../../../prompts'
 import type { ClassificationResult, AgentEvent, DocumentType } from '../../../shared/types'
 
 export async function* handleThought(
   userInput: string,
   classification: ClassificationResult,
 ): AsyncGenerator<AgentEvent> {
-  yield { type: 'status', message: 'Processing your thought...' }
+  yield { type: 'status', message: 'Saving your thought...' }
 
   const duplicate = await checkForDuplicate(userInput)
   if (duplicate) {
@@ -23,35 +20,11 @@ export async function* handleThought(
     }
   }
 
-  const settings = getSettings()
   const docType = mapSubtypeToDocType(classification.subtype)
-
-  yield { type: 'status', message: 'Restructuring your note...' }
-
-  let restructured = ''
-  try {
-    const stream = chat({
-      model: settings.selectedModel,
-      messages: [
-        { role: 'user', content: RESTRUCTURE_PROMPT.replace('{userInput}', userInput) },
-      ],
-      stream: true,
-      think: false,
-    })
-
-    for await (const chunk of stream) {
-      restructured += chunk
-    }
-  } catch {
-    restructured = userInput
-  }
-
-  yield { type: 'status', message: 'Saving...' }
-
   const today = new Date().toISOString().split('T')[0]
 
   const doc = await storeThought({
-    content: restructured.trim() || userInput,
+    content: userInput,
     originalInput: userInput,
     type: docType,
     date: classification.extractedDate ?? today,

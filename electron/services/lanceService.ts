@@ -183,7 +183,7 @@ export async function searchSimilar(
   filter?: string,
 ): Promise<LoreDocument[]> {
   const table = getTable()
-  let query = table.search(Array.from(queryVector)).limit(limit)
+  let query = table.vectorSearch(Array.from(queryVector)).distanceType('cosine').limit(limit)
 
   const fullFilter = filter
     ? `isDeleted = false AND (${filter})`
@@ -191,7 +191,13 @@ export async function searchSimilar(
   query = query.where(fullFilter)
 
   const results = await query.toArray()
-  return results.map((r: Record<string, unknown>) => rowToDoc(r))
+  return results.map((r: Record<string, unknown>) => {
+    const doc = rowToDoc(r)
+    if ('_distance' in r) {
+      ;(doc as Record<string, unknown>)._distance = r._distance
+    }
+    return doc
+  })
 }
 
 export async function getDocumentById(id: string): Promise<LoreDocument | null> {

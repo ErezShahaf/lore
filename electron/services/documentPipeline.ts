@@ -19,6 +19,39 @@ const DUPLICATE_THRESHOLD = 0.92
 const RELEVANCE_CLIFF_RATIO = 0.3
 const ADAPTIVE_FETCH_LIMIT = 30
 const ADAPTIVE_MAX_RETURN = 10
+const MINIMUM_RELEVANCE_SCORE = 0.1
+
+const TAG_BOOST_FACTOR = 0.15
+
+function buildFilter(options?: RetrievalOptions): string | undefined {
+  const parts: string[] = []
+  if (options?.type) {
+    parts.push(`type = '${options.type}'`)
+  }
+  if (options?.dateFrom) {
+    parts.push(`date >= '${options.dateFrom}'`)
+  }
+  if (options?.dateTo) {
+    parts.push(`date <= '${options.dateTo}'`)
+  }
+  return parts.length > 0 ? parts.join(' AND ') : undefined
+}
+
+function boostByTags(docs: ScoredDocument[], queryTags: string[]): ScoredDocument[] {
+  if (queryTags.length === 0) return docs
+
+  const lowerTags = queryTags.map((t) => t.toLowerCase())
+
+  return docs.map((doc) => {
+    const docTags = (doc.tags || '').toLowerCase().split(',').filter(Boolean)
+    const matchCount = lowerTags.filter((qt) =>
+      docTags.some((dt) => dt.includes(qt) || qt.includes(dt)),
+    ).length
+    if (matchCount === 0) return doc
+    const boost = TAG_BOOST_FACTOR * (matchCount / lowerTags.length)
+    return { ...doc, score: doc.score + boost }
+  })
+}
 
 export async function storeThought(input: StoreThoughtInput): Promise<LoreDocument> {
   const vector = await embedText(input.content)
@@ -39,6 +72,7 @@ export async function storeThought(input: StoreThoughtInput): Promise<LoreDocume
   }
 
   await insertDocument(document)
+  console.log(`[store] saved ${document.type} (id=${document.id.slice(0, 8)}) tags=[${input.tags}] content="${input.content.slice(0, 80)}"`)
   return document
 }
 
@@ -64,6 +98,7 @@ export async function storeThoughtWithMetadata(
   }
 
   await insertDocument(document)
+  console.log(`[store] saved ${document.type} (id=${document.id.slice(0, 8)}) tags=[${input.tags}] content="${input.content.slice(0, 80)}"`)
   return document
 }
 
@@ -100,19 +135,7 @@ export async function retrieveRelevantDocuments(
   const queryVector = await embedText(query)
 
   const limit = options?.maxResults ?? DEFAULT_MAX_RESULTS
-
-  const filterParts: string[] = []
-  if (options?.type) {
-    filterParts.push(`type = '${options.type}'`)
-  }
-  if (options?.dateFrom) {
-    filterParts.push(`date >= '${options.dateFrom}'`)
-  }
-  if (options?.dateTo) {
-    filterParts.push(`date <= '${options.dateTo}'`)
-  }
-
-  const filter = filterParts.length > 0 ? filterParts.join(' AND ') : undefined
+  const filter = buildFilter(options)
 
   return searchSimilar(queryVector, limit, filter)
 }
@@ -124,19 +147,7 @@ export async function retrieveWithAdaptiveThreshold(
   options?: RetrievalOptions,
 ): Promise<RetrievedDocumentSet> {
   const queryVector = await embedText(query)
-
-  const filterParts: string[] = []
-  if (options?.type) {
-    filterParts.push(`type = '${options.type}'`)
-  }
-  if (options?.dateFrom) {
-    filterParts.push(`date >= '${options.dateFrom}'`)
-  }
-  if (options?.dateTo) {
-    filterParts.push(`date <= '${options.dateTo}'`)
-  }
-
-  const filter = filterParts.length > 0 ? filterParts.join(' AND ') : undefined
+  const filter = buildFilter(options)
 
   const rawResults = await searchSimilar(queryVector, ADAPTIVE_FETCH_LIMIT, filter)
 
@@ -147,22 +158,38 @@ export async function retrieveWithAdaptiveThreshold(
     return { ...doc, score: 1 - distance }
   })
 
-  const relevant = applyRelevanceCliff(scored)
+  const boosted = boostByTags(scored, options?.tags ?? [])
+    .sort((a, b) => b.score - a.score)
+
+  if (boosted.length > 0) {
+    console.log(
+      `[retrieval] top-5 scores: ${boosted.slice(0, 5).map((d) => `${d.score.toFixed(3)}${d.tags ? ` [${d.tags}]` : ''}`).join(', ')}`,
+    )
+  }
+
+  const relevant = applyRelevanceCliff(boosted)
+
+  console.log(
+    `[retrieval] ${boosted.length} candidates → ${relevant.length} after cliff+floor (min=${MINIMUM_RELEVANCE_SCORE})`,
+  )
 
   return {
     documents: relevant,
-    totalCandidates: scored.length,
+    totalCandidates: boosted.length,
     cutoffScore: relevant.length > 0 ? relevant[relevant.length - 1].score : 0,
   }
 }
 
 function applyRelevanceCliff(results: ScoredDocument[]): ScoredDocument[] {
   if (results.length === 0) return []
-  if (results.length === 1) return results
+
+  if (results[0].score < MINIMUM_RELEVANCE_SCORE) return []
 
   const kept: ScoredDocument[] = [results[0]]
 
   for (let i = 1; i < results.length && kept.length < ADAPTIVE_MAX_RETURN; i++) {
+    if (results[i].score < MINIMUM_RELEVANCE_SCORE) break
+
     const gap = results[i - 1].score - results[i].score
     const relativeGap = results[i - 1].score > 0
       ? gap / results[i - 1].score
@@ -174,6 +201,58 @@ function applyRelevanceCliff(results: ScoredDocument[]): ScoredDocument[] {
   }
 
   return kept
+}
+
+// ── Multi-query retrieval ─────────────────────────────────────
+
+export async function multiQueryRetrieve(
+  queries: string[],
+  options?: RetrievalOptions,
+): Promise<RetrievedDocumentSet> {
+  const filter = buildFilter(options)
+
+  const queryVectors = await Promise.all(queries.map((q) => embedText(q)))
+
+  const allResults = await Promise.all(
+    queryVectors.map((vec) => searchSimilar(vec, ADAPTIVE_FETCH_LIMIT, filter)),
+  )
+
+  const bestById = new Map<string, ScoredDocument>()
+
+  for (const results of allResults) {
+    for (const doc of results) {
+      const distance = '_distance' in doc
+        ? (doc as Record<string, unknown>)._distance as number
+        : 0
+      const score = 1 - distance
+      const existing = bestById.get(doc.id)
+
+      if (!existing || score > existing.score) {
+        bestById.set(doc.id, { ...doc, score })
+      }
+    }
+  }
+
+  const scored = [...bestById.values()].sort((a, b) => b.score - a.score)
+
+  if (scored.length > 0) {
+    console.log(
+      `[multi-query] ${queries.length} queries → ${scored.length} unique docs, ` +
+      `top-5 scores: ${scored.slice(0, 5).map((d) => d.score.toFixed(3)).join(', ')}`,
+    )
+  }
+
+  const relevant = applyRelevanceCliff(scored)
+
+  console.log(
+    `[multi-query] ${scored.length} candidates → ${relevant.length} after cliff+floor (min=${MINIMUM_RELEVANCE_SCORE})`,
+  )
+
+  return {
+    documents: relevant,
+    totalCandidates: scored.length,
+    cutoffScore: relevant.length > 0 ? relevant[relevant.length - 1].score : 0,
+  }
 }
 
 // ── Todo-specific retrieval ───────────────────────────────────

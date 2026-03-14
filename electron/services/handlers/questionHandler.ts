@@ -4,7 +4,10 @@ import {
   retrieveRelevantDocuments,
 } from '../documentPipeline'
 import { getSettings } from '../settingsService'
-import { RAG_SYSTEM_PROMPT, EMPTY_RESULT_RESPONSE } from '../../../prompts'
+import {
+  RAG_SYSTEM_PROMPT,
+  EMPTY_RESULT_RESPONSE,
+} from '../../../prompts'
 import type {
   ClassificationResult,
   AgentEvent,
@@ -28,13 +31,18 @@ export async function* handleQuestion(
     retrievalOpts.dateFrom = dateRange.from
     retrievalOpts.dateTo = dateRange.to
   }
+  if (classification.extractedTags.length > 0) {
+    retrievalOpts.tags = classification.extractedTags
+  }
 
-  const [adaptiveResult, instructions] = await Promise.all([
+  console.log(`[question] searching "${userInput}" with tags=${JSON.stringify(classification.extractedTags)}`)
+
+  const [result, instructions] = await Promise.all([
     retrieveWithAdaptiveThreshold(userInput, retrievalOpts),
     retrieveRelevantDocuments(userInput, { type: 'instruction', maxResults: 5 }),
   ])
 
-  const documents = adaptiveResult.documents
+  const documents = result.documents
 
   if (documents.length === 0 && instructions.length === 0) {
     yield { type: 'chunk', content: EMPTY_RESULT_RESPONSE }
@@ -166,10 +174,13 @@ function buildRagPrompt(
   instructions: string,
   userInput: string,
 ): string {
-  let prompt = `Context from stored notes (this is the ONLY information you may use):\n---\n${context}\n---\n\n`
+  let prompt = `The user asks: "${userInput}"\n\n`
+  prompt += `=== RETRIEVED NOTES FROM DATABASE (this is the ONLY source of truth) ===\n${context}\n=== END OF RETRIEVED NOTES ===\n\n`
   if (instructions !== '(none)') {
-    prompt += `User preferences/instructions (apply these when formatting your response):\n- ${instructions}\n\n`
+    prompt += `User preferences/instructions:\n- ${instructions}\n\n`
   }
-  prompt += `Question: ${userInput}\n\nReminder: Answer using ONLY the documents above. If they don't cover the question, say you don't have notes about it.`
+  prompt += `Answer using ONLY the retrieved notes above. Use "you/your" (NEVER "I/my") when stating facts about the user. Do not ask follow-up questions — just answer and stop.
+  Think logically if the context that we receieved really answers the question or if it is unrelated, you don't need to mention everything you receieved there may be mistakes in the vectordb.
+  `
   return prompt
 }

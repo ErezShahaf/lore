@@ -56,6 +56,7 @@ export interface RetrievalOptions {
   type?: DocumentType
   dateFrom?: string
   dateTo?: string
+  tags?: string[]
   maxResults?: number
   similarityThreshold?: number
   includeCompleted?: boolean
@@ -102,7 +103,7 @@ export interface ChatRequest {
   model: string
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
   stream: boolean
-  format?: 'json'
+  format?: 'json' | Record<string, unknown>
   think?: boolean
   options?: ChatRequestOptions
   keep_alive?: number | string

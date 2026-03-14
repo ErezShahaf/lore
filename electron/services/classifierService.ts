@@ -3,53 +3,87 @@ import { getSettings } from './settingsService'
 import { CLASSIFICATION_PROMPT } from '../../prompts'
 import type { ClassificationResult } from '../../shared/types'
 
-const FALLBACK: ClassificationResult = {
-  intent: 'thought',
-  subtype: 'general',
-  extractedDate: null,
-  extractedTags: [],
-  confidence: 0.5,
-  reasoning: 'Fallback classification — could not parse LLM response',
+const CLASSIFICATION_SCHEMA = {
+  type: 'object',
+  properties: {
+    intent: {
+      type: 'string',
+      enum: ['thought', 'question', 'command', 'instruction'],
+    },
+    subtype: { type: 'string' },
+    extractedDate: { type: 'string' },
+    extractedTags: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    confidence: { type: 'number' },
+    reasoning: { type: 'string' },
+  },
+  required: ['intent', 'subtype', 'extractedDate', 'extractedTags', 'confidence', 'reasoning'],
 }
+
+const MAX_RETRIES = 3
 
 export async function classifyInput(userInput: string): Promise<ClassificationResult> {
   const settings = getSettings()
   const now = new Date()
   const systemPrompt = buildSystemPrompt(now)
 
-  try {
-    const stream = chat({
-      model: settings.selectedModel,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userInput },
-      ],
-      stream: false,
-      format: 'json',
-      think: false,
-    })
+  let lastError: unknown
 
-    let response = ''
-    for await (const chunk of stream) {
-      response += chunk
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const stream = chat({
+        model: settings.selectedModel,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userInput },
+        ],
+        stream: false,
+        format: CLASSIFICATION_SCHEMA,
+        think: false,
+      })
+
+      let response = ''
+      for await (const chunk of stream) {
+        response += chunk
+      }
+
+      const parsed = JSON.parse(sanitizeJsonResponse(response))
+
+      return {
+        intent: validateIntent(parsed.intent),
+        subtype: typeof parsed.subtype === 'string' ? parsed.subtype : 'general',
+        extractedDate: typeof parsed.extractedDate === 'string' && parsed.extractedDate !== ''
+          ? parsed.extractedDate
+          : null,
+        extractedTags: Array.isArray(parsed.extractedTags)
+          ? parsed.extractedTags.filter((t: unknown) => typeof t === 'string')
+          : [],
+        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.5,
+        reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
+      }
+    } catch (err) {
+      lastError = err
+      console.warn(`[Classifier] Attempt ${attempt + 1}/${MAX_RETRIES} failed:`, err)
     }
-
-    const parsed = JSON.parse(response)
-
-    return {
-      intent: validateIntent(parsed.intent),
-      subtype: typeof parsed.subtype === 'string' ? parsed.subtype : 'general',
-      extractedDate: typeof parsed.extractedDate === 'string' ? parsed.extractedDate : null,
-      extractedTags: Array.isArray(parsed.extractedTags)
-        ? parsed.extractedTags.filter((t: unknown) => typeof t === 'string')
-        : [],
-      confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.5,
-      reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
-    }
-  } catch (err) {
-    console.error('[Classifier] Failed to classify input:', err)
-    return { ...FALLBACK }
   }
+
+  console.error('[Classifier] All attempts failed, throwing error')
+  throw new Error(
+    `Classification failed after ${MAX_RETRIES} attempts: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+  )
+}
+
+function sanitizeJsonResponse(raw: string): string {
+  let s = raw.trim()
+  s = s.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/g, '')
+  const first = s.indexOf('{')
+  const last = s.lastIndexOf('}')
+  if (first !== -1 && last !== -1 && last > first) {
+    s = s.slice(first, last + 1)
+  }
+  return s
 }
 
 function validateIntent(value: unknown): ClassificationResult['intent'] {
