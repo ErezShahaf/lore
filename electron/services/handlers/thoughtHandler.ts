@@ -20,7 +20,7 @@ export async function* handleThought(
     }
   }
 
-  const docType = mapSubtypeToDocType(classification.subtype)
+  const docType = inferDocumentType(classification.extractedTags)
   const today = new Date().toISOString().split('T')[0]
 
   const doc = await storeThought({
@@ -44,15 +44,10 @@ export async function* handleThought(
   yield { type: 'done' }
 }
 
-function mapSubtypeToDocType(subtype: string): DocumentType {
-  const map: Record<string, DocumentType> = {
-    meeting: 'meeting',
-    todo: 'todo',
-    idea: 'note',
-    learning: 'note',
-    general: 'thought',
-  }
-  return map[subtype] ?? 'thought'
+function inferDocumentType(tags: string[]): DocumentType {
+  const lowerTags = tags.map((t) => t.toLowerCase())
+  if (lowerTags.includes('todo')) return 'todo'
+  return 'thought'
 }
 
 function summarizeTopic(input: string): string {

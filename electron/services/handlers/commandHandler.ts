@@ -35,7 +35,10 @@ export async function* handleCommand(
   yield { type: 'status', message: 'Finding relevant documents...' }
 
   const settings = getSettings()
-  const documents = await retrieveRelevantDocuments(userInput)
+  const retrievalOpts = classification.subtype === 'complete'
+    ? { type: 'todo' as const }
+    : undefined
+  const documents = await retrieveRelevantDocuments(userInput, retrievalOpts)
 
   if (documents.length === 0) {
     yield {

@@ -11,15 +11,14 @@ import type {
   RetrievalOptions,
   ScoredDocument,
   RetrievedDocumentSet,
-  TodoMetadata,
 } from '../../shared/types'
 
 const DEFAULT_MAX_RESULTS = 1000
 const DUPLICATE_THRESHOLD = 0.92
 const RELEVANCE_CLIFF_RATIO = 0.3
-const MINIMUM_RELEVANCE_SCORE = 0.4
+const MINIMUM_RELEVANCE_SCORE = 0.3
 
-const TAG_BOOST_FACTOR = 0.15
+const TAG_BOOST_FACTOR = 0.2
 
 function buildFilter(options?: RetrievalOptions): string | undefined {
   const parts: string[] = []
@@ -251,21 +250,6 @@ export async function multiQueryRetrieve(
     totalCandidates: scored.length,
     cutoffScore: relevant.length > 0 ? relevant[relevant.length - 1].score : 0,
   }
-}
-
-// ── Todo-specific retrieval ───────────────────────────────────
-
-export async function retrieveActiveTodos(): Promise<LoreDocument[]> {
-  const allTodos = await getAllDocuments(false)
-  return allTodos.filter((doc) => {
-    if (doc.type !== 'todo') return false
-    try {
-      const meta = JSON.parse(doc.metadata) as Partial<TodoMetadata>
-      return !meta.completed
-    } catch {
-      return true
-    }
-  })
 }
 
 export async function getDocumentCount(): Promise<number> {

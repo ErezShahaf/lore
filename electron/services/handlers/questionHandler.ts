@@ -2,7 +2,6 @@ import { chat } from '../ollamaService'
 import {
   retrieveWithAdaptiveThreshold,
   retrieveRelevantDocuments,
-  retrieveActiveTodos,
 } from '../documentPipeline'
 import { getSettings } from '../settingsService'
 import {
@@ -41,14 +40,11 @@ export async function* handleQuestion(
 
   console.log(`[question] searching "${userInput}" with tags=${JSON.stringify(classification.extractedTags)}`)
 
-  let documents: ScoredDocument[]
+  const result = await retrieveWithAdaptiveThreshold(userInput, retrievalOpts)
+  let documents = result.documents
 
   if (isTodoQuery) {
-    const activeTodos = await retrieveActiveTodos()
-    documents = activeTodos.map((doc) => ({ ...doc, score: 1 }))
-  } else {
-    const result = await retrieveWithAdaptiveThreshold(userInput, retrievalOpts)
-    documents = result.documents
+    documents = documents.filter((doc) => !isTodoCompleted(doc))
   }
 
   const instructions = await retrieveRelevantDocuments(userInput, { type: 'instruction' })
@@ -97,6 +93,15 @@ export async function* handleQuestion(
   }
 
   yield { type: 'done' }
+}
+
+function isTodoCompleted(doc: ScoredDocument): boolean {
+  try {
+    const meta = JSON.parse(doc.metadata) as { completed?: boolean }
+    return meta.completed === true
+  } catch {
+    return false
+  }
 }
 
 // ── Date range resolution ─────────────────────────────────────

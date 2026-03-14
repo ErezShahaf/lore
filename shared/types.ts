@@ -139,10 +139,10 @@ export type InputClassification =
 
 // ── Agent classification & routing ───────────────────────────
 
-export type ThoughtSubtype = 'general' | 'meeting' | 'idea' | 'learning' | 'todo'
-export type QuestionSubtype = 'recall' | 'search' | 'summary' | 'list'
+export type ThoughtSubtype = 'general'
+export type QuestionSubtype = 'general'
 export type CommandSubtype = 'delete' | 'update' | 'complete' | 'reorder'
-export type InstructionSubtype = 'preference' | 'rule' | 'alias'
+export type InstructionSubtype = 'general'
 
 export interface ClassificationResult {
   intent: InputClassification

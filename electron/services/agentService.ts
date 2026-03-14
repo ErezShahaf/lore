@@ -3,7 +3,6 @@ import { handleThought } from './handlers/thoughtHandler'
 import { handleQuestion } from './handlers/questionHandler'
 import { handleCommand } from './handlers/commandHandler'
 import { handleInstruction } from './handlers/instructionHandler'
-import { handleTodoAdd, handleTodoComplete } from './handlers/todoHandler'
 import type { AgentEvent, RetrievalOptions } from '../../shared/types'
 
 // ── Session context ──────────────────────────────────────────
@@ -87,22 +86,7 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
   let assistantResponse = ''
 
   try {
-    if (classification.intent === 'thought' && classification.subtype === 'todo') {
-      for await (const event of handleTodoAdd(userInput, classification)) {
-        if (event.type === 'chunk') assistantResponse += event.content
-        if (event.type === 'stored') session.lastDocumentIds = [event.documentId]
-        yield event
-      }
-    } else if (
-      classification.intent === 'command' &&
-      classification.subtype === 'complete'
-    ) {
-      for await (const event of handleTodoComplete(userInput, classification)) {
-        if (event.type === 'chunk') assistantResponse += event.content
-        yield event
-      }
-    } else {
-      switch (classification.intent) {
+    switch (classification.intent) {
         case 'thought': {
           for await (const event of handleThought(userInput, classification)) {
             if (event.type === 'chunk') assistantResponse += event.content
@@ -137,7 +121,6 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
           }
           break
         }
-      }
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'An unexpected error occurred'
