@@ -9,6 +9,8 @@
 </p>
 
 ---
+![Demo](https://i.imgur.com/cfC2pId.gif)
+---
 
 ## What is Lore?
 
