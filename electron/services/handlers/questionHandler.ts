@@ -2,6 +2,7 @@ import { chat } from '../ollamaService'
 import {
   retrieveWithAdaptiveThreshold,
   retrieveRelevantDocuments,
+  retrieveActiveTodos,
 } from '../documentPipeline'
 import { getSettings } from '../settingsService'
 import {
@@ -21,12 +22,14 @@ export async function* handleQuestion(
   userInput: string,
   classification: ClassificationResult,
   conversationContext?: Array<{ role: 'user' | 'assistant'; content: string }>,
+  retrievalOverrides?: RetrievalOptions,
 ): AsyncGenerator<AgentEvent> {
   yield { type: 'status', message: 'Searching your notes...' }
 
   const settings = getSettings()
+  const isTodoQuery = retrievalOverrides?.type === 'todo'
 
-  const retrievalOpts: RetrievalOptions = {}
+  const retrievalOpts: RetrievalOptions = { ...retrievalOverrides }
   const dateRange = resolveDateRange(classification)
   if (dateRange) {
     retrievalOpts.dateFrom = dateRange.from
@@ -38,12 +41,17 @@ export async function* handleQuestion(
 
   console.log(`[question] searching "${userInput}" with tags=${JSON.stringify(classification.extractedTags)}`)
 
-  const [result, instructions] = await Promise.all([
-    retrieveWithAdaptiveThreshold(userInput, retrievalOpts),
-    retrieveRelevantDocuments(userInput, { type: 'instruction' }),
-  ])
+  let documents: ScoredDocument[]
 
-  const documents = result.documents
+  if (isTodoQuery) {
+    const activeTodos = await retrieveActiveTodos()
+    documents = activeTodos.map((doc) => ({ ...doc, score: 1 }))
+  } else {
+    const result = await retrieveWithAdaptiveThreshold(userInput, retrievalOpts)
+    documents = result.documents
+  }
+
+  const instructions = await retrieveRelevantDocuments(userInput, { type: 'instruction' })
 
   if (documents.length === 0 && instructions.length === 0) {
     yield { type: 'chunk', content: EMPTY_RESULT_RESPONSE }

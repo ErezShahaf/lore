@@ -32,8 +32,10 @@ export function buildRagPrompt(
   instructions: string,
   userInput: string,
 ): string {
+  const today = new Date().toISOString().split('T')[0]
   let prompt = `
   You are Lore, an AI personal knowledge assistant where the user can store information and then ask you about it.
+  Today's date is ${today}.
   The user currently has a question for you about their stored data : === USER INPUT === ${userInput} === END OF USER INPUT ===`
   prompt += `we looked for relevant notes in the vector database and found these: === RETRIEVED NOTES FROM DATABASE === ${context} === END OF RETRIEVED NOTES ===`
   if (instructions !== '(none)') {

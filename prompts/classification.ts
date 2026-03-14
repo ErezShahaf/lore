@@ -11,8 +11,18 @@ The JSON object MUST have exactly these six keys:
   "subtype"       — a string (see allowed values below)
   "extractedDate" — an ISO date string like "2025-03-14", or null if no date is mentioned
   "extractedTags" — an array of strings (may be empty)
-  "confidence"    — a number between 0.0 and 1.0
+  "confidence"    — a number between 0.0 and 1.0 (see confidence rules below)
   "reasoning"     — a short string explaining your classification
+
+Confidence rules:
+- Set confidence HIGH (0.85–1.0) when the input clearly maps to a single intent with enough detail to act on.
+- Set confidence MEDIUM (0.6–0.84) when intent is likely but the input is somewhat ambiguous.
+- Set confidence LOW (below 0.6) when:
+  - The input is too vague or incomplete to determine what the user wants (e.g. "todo add", "update", "note").
+  - The input contains only a category keyword without actual content or a clear action.
+  - You are guessing between multiple plausible intents.
+  - The input is a single word or very short phrase that lacks enough context.
+- When in doubt, prefer a LOWER confidence. It is better to ask the user for clarification than to misinterpret their intent.
 
 Example of a valid response:
 {"intent":"thought","subtype":"general","extractedDate":"2025-03-14","extractedTags":["work","meeting","project","standup"],"confidence":0.95,"reasoning":"User is sharing information to remember."}

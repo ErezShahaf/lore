@@ -15,6 +15,3 @@ Return JSON: { "targetId": "<id of the matching todo>", "confidence": 0.0-1.0 }
 Return ONLY valid JSON.`
 }
 
-export function buildTodoListPrompt(instructionBlock: string, todoBlock: string): string {
-  return `Format this todo list for the user. Apply these user preferences:\n${instructionBlock}\n\nTodos:\n${todoBlock}\n\nReturn a nicely formatted list. Keep it concise.`
-}

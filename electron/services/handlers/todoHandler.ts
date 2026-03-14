@@ -2,11 +2,10 @@ import { chat } from '../ollamaService'
 import {
   storeThoughtWithMetadata,
   retrieveActiveTodos,
-  retrieveRelevantDocuments,
 } from '../documentPipeline'
 import { updateDocument } from '../lanceService'
 import { getSettings } from '../settingsService'
-import { RESTRUCTURE_TODO_PROMPT, buildTodoCompletePrompt, buildTodoListPrompt } from '../../../prompts'
+import { RESTRUCTURE_TODO_PROMPT, buildTodoCompletePrompt } from '../../../prompts'
 import type {
   ClassificationResult,
   AgentEvent,
@@ -82,63 +81,6 @@ export async function* handleTodoAdd(
 
   const priorityLabel = priority ? ` (${priority} priority)` : ''
   yield { type: 'chunk', content: `Added to your todo list${priorityLabel}: "${todoContent}"` }
-  yield { type: 'done' }
-}
-
-export async function* handleTodoList(
-  userInput: string,
-  classification: ClassificationResult,
-): AsyncGenerator<AgentEvent> {
-  yield { type: 'status', message: 'Retrieving your todos...' }
-
-  const settings = getSettings()
-  const todos = await retrieveActiveTodos()
-
-  if (todos.length === 0) {
-    yield { type: 'chunk', content: "Your todo list is empty. You're all caught up!" }
-    yield { type: 'done' }
-    return
-  }
-
-  const instructions = await retrieveRelevantDocuments(userInput, {
-    type: 'instruction',
-  })
-
-  const sorted = sortTodos(todos, instructions)
-
-  let response = ''
-  if (instructions.length > 0) {
-    const instructionBlock = instructions.map((i) => i.content).join('\n')
-    const todoBlock = sorted
-      .map((t, i) => {
-        const meta = parseTodoMeta(t)
-        return `${i + 1}. ${t.content}${meta.priority ? ` [${meta.priority}]` : ''}${meta.category ? ` (${meta.category})` : ''}`
-      })
-      .join('\n')
-
-    const prompt = buildTodoListPrompt(instructionBlock, todoBlock)
-
-    try {
-      const stream = chat({
-        model: settings.selectedModel,
-        messages: [{ role: 'user', content: prompt }],
-        stream: true,
-        think: false,
-      })
-
-      for await (const chunk of stream) {
-        response += chunk
-        yield { type: 'chunk', content: chunk }
-      }
-    } catch {
-      response = formatTodoList(sorted)
-      yield { type: 'chunk', content: response }
-    }
-  } else {
-    response = formatTodoList(sorted)
-    yield { type: 'chunk', content: response }
-  }
-
   yield { type: 'done' }
 }
 
@@ -241,27 +183,3 @@ function extractCategory(tags: string[]): string | null {
   return null
 }
 
-function sortTodos(todos: LoreDocument[], instructions: LoreDocument[]): LoreDocument[] {
-  return [...todos].sort((a, b) => {
-    const metaA = parseTodoMeta(a)
-    const metaB = parseTodoMeta(b)
-
-    const priorityOrder = { high: 0, medium: 1, low: 2 }
-    const pA = metaA.priority ? priorityOrder[metaA.priority] : 1
-    const pB = metaB.priority ? priorityOrder[metaB.priority] : 1
-    if (pA !== pB) return pA - pB
-
-    return metaA.position - metaB.position
-  })
-}
-
-function formatTodoList(todos: LoreDocument[]): string {
-  const lines = todos.map((t, i) => {
-    const meta = parseTodoMeta(t)
-    const parts = [`${i + 1}. ${t.content}`]
-    if (meta.priority) parts.push(`[${meta.priority}]`)
-    if (meta.category) parts.push(`(${meta.category})`)
-    return parts.join(' ')
-  })
-  return `Here's your todo list:\n\n${lines.join('\n')}`
-}

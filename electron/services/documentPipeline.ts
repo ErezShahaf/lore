@@ -17,7 +17,7 @@ import type {
 const DEFAULT_MAX_RESULTS = 1000
 const DUPLICATE_THRESHOLD = 0.92
 const RELEVANCE_CLIFF_RATIO = 0.3
-const MINIMUM_RELEVANCE_SCORE = 0.1
+const MINIMUM_RELEVANCE_SCORE = 0.4
 
 const TAG_BOOST_FACTOR = 0.15
 
@@ -161,7 +161,7 @@ export async function retrieveWithAdaptiveThreshold(
 
   if (boosted.length > 0) {
     console.log(
-      `[retrieval] top-5 scores: ${boosted.slice(0, 5).map((d) => `${d.score.toFixed(3)}${d.tags ? ` [${d.tags}]` : ''}`).join(', ')}`,
+      `[retrieval] top scores: ${boosted.map((d) => `${d.score.toFixed(3)}${d.tags ? ` [${d.tags}]` : ''}`).join(', ')}`,
     )
   }
 
@@ -236,7 +236,7 @@ export async function multiQueryRetrieve(
   if (scored.length > 0) {
     console.log(
       `[multi-query] ${queries.length} queries → ${scored.length} unique docs, ` +
-      `top-5 scores: ${scored.slice(0, 5).map((d) => d.score.toFixed(3)).join(', ')}`,
+      `scores: ${scored.map((d) => d.score.toFixed(3)).join(', ')}`,
     )
   }
 

@@ -3,8 +3,8 @@ import { handleThought } from './handlers/thoughtHandler'
 import { handleQuestion } from './handlers/questionHandler'
 import { handleCommand } from './handlers/commandHandler'
 import { handleInstruction } from './handlers/instructionHandler'
-import { handleTodoAdd, handleTodoList, handleTodoComplete } from './handlers/todoHandler'
-import type { AgentEvent } from '../../shared/types'
+import { handleTodoAdd, handleTodoComplete } from './handlers/todoHandler'
+import type { AgentEvent, RetrievalOptions } from '../../shared/types'
 
 // ── Session context ──────────────────────────────────────────
 
@@ -40,6 +40,10 @@ export function getConversationHistory(): ConversationEntry[] {
   return session.history
 }
 
+// ── Confidence thresholds ─────────────────────────────────────
+
+const CLASSIFICATION_CONFIDENCE_THRESHOLD = 0.6
+
 // ── Main processing loop ─────────────────────────────────────
 
 export async function* processUserInput(userInput: string): AsyncGenerator<AgentEvent> {
@@ -64,6 +68,22 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
     `[Agent] Classified as ${classification.intent}/${classification.subtype} (confidence: ${classification.confidence})`,
   )
 
+  if (classification.confidence < CLASSIFICATION_CONFIDENCE_THRESHOLD) {
+    console.warn(
+      `[Agent] Classification confidence too low (${classification.confidence}), refusing to act`,
+    )
+    yield {
+      type: 'chunk',
+      content: "I'm not sure what you'd like me to do. Could you provide more detail or rephrase?",
+    }
+    yield { type: 'done' }
+    session.history.push({
+      role: 'assistant',
+      content: "I'm not sure what you'd like me to do. Could you provide more detail or rephrase?",
+    })
+    return
+  }
+
   let assistantResponse = ''
 
   try {
@@ -72,23 +92,6 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
         if (event.type === 'chunk') assistantResponse += event.content
         if (event.type === 'stored') session.lastDocumentIds = [event.documentId]
         yield event
-      }
-    } else if (
-      classification.intent === 'question' &&
-      (classification.subtype === 'list' || isTodoListQuery(userInput))
-    ) {
-      const isTodoQuery = isTodoListQuery(userInput)
-      if (isTodoQuery) {
-        for await (const event of handleTodoList(userInput, classification)) {
-          if (event.type === 'chunk') assistantResponse += event.content
-          yield event
-        }
-      } else {
-        const context = session.history.slice(-SESSION_WINDOW)
-        for await (const event of handleQuestion(userInput, classification, context)) {
-          if (event.type === 'chunk') assistantResponse += event.content
-          yield event
-        }
       }
     } else if (
       classification.intent === 'command' &&
@@ -110,7 +113,10 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
         }
         case 'question': {
           const context = session.history.slice(-SESSION_WINDOW)
-          for await (const event of handleQuestion(userInput, classification, context)) {
+          const todoOverrides: RetrievalOptions | undefined = isTodoListQuery(userInput)
+            ? { type: 'todo' }
+            : undefined
+          for await (const event of handleQuestion(userInput, classification, context, todoOverrides)) {
             if (event.type === 'chunk') assistantResponse += event.content
             yield event
           }

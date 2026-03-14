@@ -82,6 +82,7 @@ export async function preloadModels(): Promise<void> {
           model: chatModel,
           messages: [],
           keep_alive: -1,
+          think: false,
           options: { num_ctx: CHAT_NUM_CTX },
         }),
         signal: AbortSignal.timeout(120_000),
