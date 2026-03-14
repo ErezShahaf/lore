@@ -58,6 +58,18 @@ const loreAPI = {
     return () => ipcRenderer.removeListener('chat:reset', callback)
   },
 
+  onChatShown: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('chat:shown', handler)
+    return () => ipcRenderer.removeListener('chat:shown', handler)
+  },
+
+  onChatWillHide: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('chat:will-hide', handler)
+    return () => ipcRenderer.removeListener('chat:will-hide', handler)
+  },
+
   // ── System info ─────────────────────────────────────────────
 
   getSystemInfo: (): Promise<SystemInfo> =>
@@ -149,6 +161,10 @@ const loreAPI = {
   },
 
   // ── Database ──────────────────────────────────────────────
+
+  closeWindow: () => ipcRenderer.send('window:close'),
+  minimizeWindow: () => ipcRenderer.send('window:minimize'),
+  openExternal: (url: string) => ipcRenderer.send('window:open-external', url),
 
   getDbStats: (): Promise<DatabaseStats> =>
     ipcRenderer.invoke('db:stats'),

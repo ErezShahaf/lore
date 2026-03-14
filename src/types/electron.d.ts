@@ -27,6 +27,8 @@ declare global {
       onResponseError: (callback: (error: string) => void) => () => void
       onStatus: (callback: (message: string) => void) => () => void
       onChatReset: (callback: () => void) => () => void
+      onChatShown: (callback: () => void) => () => void
+      onChatWillHide: (callback: () => void) => () => void
 
       getSystemInfo: () => Promise<SystemInfo>
       getHardwareProfile: () => Promise<HardwareProfile>
@@ -52,6 +54,10 @@ declare global {
       getSettings: () => Promise<AppSettings>
       updateSettings: (settings: Partial<AppSettings>) => Promise<AppSettings>
       onSettingsChanged: (callback: (settings: AppSettings) => void) => () => void
+
+      closeWindow: () => void
+      minimizeWindow: () => void
+      openExternal: (url: string) => void
 
       getDbStats: () => Promise<DatabaseStats>
       searchDocuments: (query: string, options?: RetrievalOptions) => Promise<unknown[]>

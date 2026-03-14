@@ -3,16 +3,17 @@ import { join } from 'path'
 
 let chatWindow: BrowserWindow | null = null
 
-const CHAT_WIDTH = 600
+const CHAT_WIDTH = 416
 const CHAT_DEFAULT_HEIGHT = 80
+const SCREEN_MARGIN = 20
 
 export function createChatWindow(): BrowserWindow {
   if (chatWindow && !chatWindow.isDestroyed()) return chatWindow
 
   const { workArea } = screen.getPrimaryDisplay()
 
-  const x = Math.round(workArea.x + (workArea.width - CHAT_WIDTH) / 2)
-  const y = Math.round(workArea.y + workArea.height * 0.35 - CHAT_DEFAULT_HEIGHT / 2)
+  const x = workArea.x + SCREEN_MARGIN
+  const y = workArea.y + workArea.height - CHAT_DEFAULT_HEIGHT - SCREEN_MARGIN
 
   const windowOptions: Electron.BrowserWindowConstructorOptions = {
     width: CHAT_WIDTH,
@@ -22,6 +23,7 @@ export function createChatWindow(): BrowserWindow {
     frame: false,
     alwaysOnTop: true,
     transparent: true,
+    backgroundColor: '#00000000',
     skipTaskbar: true,
     resizable: false,
     show: false,
@@ -38,16 +40,8 @@ export function createChatWindow(): BrowserWindow {
     windowOptions.visualEffectState = 'active'
   }
 
-  chatWindow = new BrowserWindow(windowOptions)
 
-  if (process.platform === 'win32') {
-    try {
-      (chatWindow as BrowserWindow & { setBackgroundMaterial?: (m: string) => void })
-        .setBackgroundMaterial?.('acrylic')
-    } catch {
-      // Acrylic not available on older Windows versions
-    }
-  }
+  chatWindow = new BrowserWindow(windowOptions)
 
   if (process.env.VITE_DEV_SERVER_URL) {
     chatWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
@@ -71,13 +65,14 @@ export function showChatWindow(): void {
   if (!win) return
 
   const { workArea } = screen.getPrimaryDisplay()
-  const [width] = win.getSize()
-  const x = Math.round(workArea.x + (workArea.width - width) / 2)
-  const y = Math.round(workArea.y + workArea.height * 0.35 - CHAT_DEFAULT_HEIGHT / 2)
+  const [, height] = win.getSize()
+  const x = workArea.x + SCREEN_MARGIN
+  const y = workArea.y + workArea.height - height - SCREEN_MARGIN
   win.setPosition(x, y)
 
   win.show()
   win.focus()
+  win.webContents.send('chat:shown')
 }
 
 export function hideChatWindow(): void {
@@ -89,12 +84,25 @@ export function hideChatWindow(): void {
   win.webContents.send('chat:reset')
 }
 
+export function hideChatWindowAnimated(): void {
+  const win = getChatWindow()
+  if (!win || !win.isVisible()) return
+
+  win.webContents.send('chat:will-hide')
+
+  setTimeout(() => {
+    if (win && !win.isDestroyed() && win.isVisible()) {
+      hideChatWindow()
+    }
+  }, 300)
+}
+
 export function toggleChatWindow(): void {
   const win = getChatWindow()
   if (!win) return
 
   if (win.isVisible()) {
-    hideChatWindow()
+    hideChatWindowAnimated()
   } else {
     showChatWindow()
   }
@@ -109,8 +117,11 @@ export function resizeChatWindow(height: number): void {
   if (resizeTimer) clearTimeout(resizeTimer)
   resizeTimer = setTimeout(() => {
     if (!win || win.isDestroyed()) return
-    const clamped = Math.max(CHAT_DEFAULT_HEIGHT, Math.min(height, 600))
-    const [width] = win.getSize()
-    win.setSize(width, clamped)
+    const clamped = Math.max(CHAT_DEFAULT_HEIGHT, Math.min(height, 480))
+    const [width, oldHeight] = win.getSize()
+    const [xPos] = win.getPosition()
+    const [, yPos] = win.getPosition()
+    const newY = yPos + (oldHeight - clamped)
+    win.setBounds({ x: xPos, y: newY, width, height: clamped })
   }, 16)
 }

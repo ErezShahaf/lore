@@ -24,7 +24,9 @@
 
   --animate-fade-in: fade-in 0.2s ease-out both;
   --animate-slide-up: slide-up 0.25s ease-out both;
-  --animate-scale-in: scale-in 0.2s ease-out both;
+  --animate-scale-in: scale-in 0.15s ease-out both;
+  --animate-scale-out: scale-out 0.15s ease-in both;
+  --animate-float: float 6s ease-in-out infinite;
   --animate-send-flash: send-flash 0.3s ease-out;
   --animate-typing-dot: typing-dot 1.4s infinite ease-in-out;
 }
@@ -40,8 +42,18 @@
 }
 
 @keyframes scale-in {
-  from { opacity: 0; transform: scale(0.96); }
-  to { opacity: 1; transform: scale(1); }
+  from { transform: scale(0.96); }
+  to { transform: scale(1); }
+}
+
+@keyframes scale-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.96); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 
 @keyframes send-flash {
@@ -62,4 +74,10 @@
 
 * {
   scroll-behavior: smooth;
+}
+
+html[data-window="chat"],
+html[data-window="chat"] body,
+html[data-window="chat"] #root {
+  background: transparent !important;
 }

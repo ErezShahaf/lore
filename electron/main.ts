@@ -1,7 +1,7 @@
 import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { appendFileSync } from 'fs'
-import { createChatWindow, showChatWindow, getChatWindow, hideChatWindow } from './windows/chatWindow'
+import { createChatWindow, showChatWindow, getChatWindow } from './windows/chatWindow'
 import { createSetupWindow } from './windows/setupWindow'
 import { createTray, destroyTray } from './tray/trayManager'
 import { registerShortcuts, unregisterShortcuts } from './shortcuts'
@@ -85,13 +85,7 @@ if (!gotLock) {
         updateSettings({ ollamaSetupComplete: true })
       }
 
-      const chatWindow = createChatWindow()
-
-      if (settings.hideOnBlur) {
-        chatWindow.on('blur', () => {
-          hideChatWindow()
-        })
-      }
+      createChatWindow()
 
       bootstrapOllama()
         .then(() => preloadModels())

@@ -2,6 +2,7 @@ node_modules/
 dist/
 dist-electron/
 release/
+resources/icons/
 .env
 *.log
 .DS_Store

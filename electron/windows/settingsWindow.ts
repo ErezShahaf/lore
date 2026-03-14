@@ -1,7 +1,15 @@
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, nativeImage } from 'electron'
 import { join } from 'path'
 
 let settingsWindow: BrowserWindow | null = null
+
+function getIconPath(): string {
+  const isDev = !!process.env.VITE_DEV_SERVER_URL
+  if (isDev) {
+    return join(__dirname, '..', 'resources', 'icon.png')
+  }
+  return join(process.resourcesPath, 'icon.png')
+}
 
 export function createSettingsWindow(): BrowserWindow {
   if (settingsWindow && !settingsWindow.isDestroyed()) {
@@ -9,12 +17,17 @@ export function createSettingsWindow(): BrowserWindow {
     return settingsWindow
   }
 
+  const iconPath = getIconPath()
+  const icon = nativeImage.createFromPath(iconPath)
+
   settingsWindow = new BrowserWindow({
     width: 800,
     height: 600,
     minWidth: 600,
     minHeight: 400,
     title: 'Lore Settings',
+    icon: icon.isEmpty() ? undefined : iconPath,
+    frame: false,
     show: false,
     webPreferences: {
       preload: join(__dirname, 'preload.js'),

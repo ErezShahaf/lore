@@ -1,7 +1,15 @@
-import { BrowserWindow, screen } from 'electron'
+import { BrowserWindow, nativeImage, screen } from 'electron'
 import { join } from 'path'
 
 let setupWindow: BrowserWindow | null = null
+
+function getIconPath(): string {
+  const isDev = !!process.env.VITE_DEV_SERVER_URL
+  if (isDev) {
+    return join(__dirname, '..', 'resources', 'icon.png')
+  }
+  return join(process.resourcesPath, 'icon.png')
+}
 
 export function createSetupWindow(): BrowserWindow {
   if (setupWindow && !setupWindow.isDestroyed()) {
@@ -15,11 +23,15 @@ export function createSetupWindow(): BrowserWindow {
   const x = Math.round(workArea.x + (workArea.width - width) / 2)
   const y = Math.round(workArea.y + (workArea.height - height) / 2)
 
+  const iconPath = getIconPath()
+  const icon = nativeImage.createFromPath(iconPath)
+
   setupWindow = new BrowserWindow({
     width,
     height,
     x,
     y,
+    icon: icon.isEmpty() ? undefined : iconPath,
     resizable: false,
     maximizable: false,
     title: 'Lore — Setup',

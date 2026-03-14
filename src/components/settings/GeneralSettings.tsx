@@ -59,27 +59,6 @@ export function GeneralSettings({ settings, onUpdate }: GeneralSettingsProps) {
           </button>
         </div>
 
-        <div className="flex items-center justify-between rounded-lg border border-border p-4">
-          <div>
-            <p className="text-sm font-medium text-foreground">Hide on blur</p>
-            <p className="text-xs text-muted-foreground">
-              Hide the popup when it loses focus.
-            </p>
-          </div>
-          <button
-            onClick={() => onUpdate({ hideOnBlur: !settings.hideOnBlur })}
-            className={`relative h-6 w-11 rounded-full transition-colors ${
-              settings.hideOnBlur ? 'bg-primary' : 'bg-secondary'
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white transition-transform ${
-                settings.hideOnBlur ? 'translate-x-5' : 'translate-x-0'
-              }`}
-            />
-          </button>
-        </div>
-
         <div className="space-y-2">
           <label className="text-sm font-medium text-foreground">Model Storage Location</label>
           <div className="flex gap-2">

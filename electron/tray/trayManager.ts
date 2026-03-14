@@ -22,12 +22,19 @@ export function createTray(): Tray {
     icon = nativeImage.createEmpty()
   }
 
-  if (process.platform === 'darwin') {
+  if (process.platform === 'darwin' || process.platform === 'win32') {
     icon = icon.resize({ width: 16, height: 16 })
   }
 
   tray = new Tray(icon)
   tray.setToolTip('Lore')
+
+  if (process.platform === 'darwin' && !icon.isEmpty()) {
+    const dockIcon = nativeImage.createFromPath(getIconPath())
+    if (!dockIcon.isEmpty()) {
+      app.dock.setIcon(dockIcon)
+    }
+  }
 
   const contextMenu = Menu.buildFromTemplate([
     {

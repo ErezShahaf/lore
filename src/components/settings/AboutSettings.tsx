@@ -1,3 +1,23 @@
+import { Github, Linkedin, Twitter } from 'lucide-react'
+
+const LINKS = [
+  {
+    icon: Github,
+    label: 'Lore GitHub Repository',
+    url: 'https://github.com/ErezShahaf/Lore',
+  },
+  {
+    icon: Linkedin,
+    label: 'LinkedIn Profile',
+    url: 'https://www.linkedin.com/in/erez-shahaf-563640197/',
+  },
+  {
+    icon: Twitter,
+    label: 'X / Twitter Profile',
+    url: 'https://x.com/shahaf_erez',
+  },
+] as const
+
 export function AboutSettings() {
   return (
     <div className="space-y-8">
@@ -9,6 +29,26 @@ export function AboutSettings() {
       </div>
 
       <div className="space-y-6">
+        <div className="rounded-lg border border-border p-4">
+          <p className="text-sm font-medium text-foreground">Created by Erez Shahaf</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Built with care for developers who value privacy and local-first tools.
+            Your thoughts stay on your machine — always.
+          </p>
+          <div className="mt-4 flex flex-col gap-2">
+            {LINKS.map(({ icon: Icon, label, url }) => (
+              <button
+                key={url}
+                onClick={() => window.loreAPI.openExternal(url)}
+                className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <Icon className="size-4" />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="rounded-lg border border-border p-4">
           <div className="space-y-3">
             <div className="flex items-baseline justify-between">

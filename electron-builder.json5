@@ -9,9 +9,12 @@
     "dist-electron/**/*",
     "dist/**/*"
   ],
+  "extraResources": [
+    { "from": "resources/icon.png", "to": "icon.png" }
+  ],
   "win": {
     "target": ["nsis"],
-    "icon": "resources/icon.ico",
+    "icon": "resources/icons/icon.ico",
     "artifactName": "${productName}-${version}-Setup.${ext}"
   },
   "nsis": {
@@ -24,7 +27,7 @@
   },
   "mac": {
     "target": ["dmg"],
-    "icon": "resources/icon.icns",
+    "icon": "resources/icons/icon.icns",
     "category": "public.app-category.productivity",
     "hardenedRuntime": true,
     "gatekeeperAssess": false,

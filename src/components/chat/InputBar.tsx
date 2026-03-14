@@ -3,11 +3,12 @@ import { Send, X } from 'lucide-react'
 
 interface InputBarProps {
   onSend: (message: string) => void
+  onRequestClose: () => void
   disabled?: boolean
   disabledReason?: string
 }
 
-export function InputBar({ onSend, disabled, disabledReason }: InputBarProps) {
+export function InputBar({ onSend, onRequestClose, disabled, disabledReason }: InputBarProps) {
   const [value, setValue] = useState('')
   const [flashing, setFlashing] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -18,6 +19,13 @@ export function InputBar({ onSend, disabled, disabledReason }: InputBarProps) {
 
   useEffect(() => {
     const cleanup = window.loreAPI.onChatReset(() => {
+      requestAnimationFrame(() => textareaRef.current?.focus())
+    })
+    return cleanup
+  }, [])
+
+  useEffect(() => {
+    const cleanup = window.loreAPI.onChatShown(() => {
       requestAnimationFrame(() => textareaRef.current?.focus())
     })
     return cleanup
@@ -44,6 +52,7 @@ export function InputBar({ onSend, disabled, disabledReason }: InputBarProps) {
         textareaRef.current.style.height = 'auto'
       }
     })
+    setTimeout(() => textareaRef.current?.focus(), 50)
   }, [value, disabled, onSend])
 
   const handleClear = useCallback(() => {
@@ -60,7 +69,7 @@ export function InputBar({ onSend, disabled, disabledReason }: InputBarProps) {
     (e: React.KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
-        window.loreAPI.hideChatWindow()
+        onRequestClose()
         return
       }
       if (e.key === 'Enter' && !e.shiftKey) {

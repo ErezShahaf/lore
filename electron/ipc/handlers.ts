@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow, dialog, app } from 'electron'
+import { ipcMain, BrowserWindow, dialog, app, shell } from 'electron'
 import { resizeChatWindow, hideChatWindow, createChatWindow, showChatWindow } from '../windows/chatWindow'
 import { createSettingsWindow } from '../windows/settingsWindow'
 import { closeSetupWindow } from '../windows/setupWindow'
@@ -344,17 +344,24 @@ export function registerIpcHandlers(): void {
     updateSettings({ ollamaSetupComplete: true })
     closeSetupWindow()
 
-    const settings = getSettings()
     const chatWindow = createChatWindow()
-
-    if (settings.hideOnBlur) {
-      chatWindow.on('blur', () => {
-        hideChatWindow()
-      })
-    }
 
     chatWindow.webContents.once('did-finish-load', () => {
       showChatWindow()
     })
+  })
+
+  ipcMain.on('window:close', (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.close()
+  })
+
+  ipcMain.on('window:minimize', (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.minimize()
+  })
+
+  ipcMain.on('window:open-external', (_event, url: string) => {
+    if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
+      shell.openExternal(url)
+    }
   })
 }

@@ -1,5 +1,5 @@
-import { useRef } from 'react'
-import { Settings } from 'lucide-react'
+import { useRef, useState, useEffect, useLayoutEffect, useCallback } from 'react'
+import { Settings, X } from 'lucide-react'
 import { MessageList } from './MessageList'
 import { InputBar } from './InputBar'
 import { useChat } from '@/hooks/useChat'
@@ -53,8 +53,36 @@ export function ChatWindow() {
   const { messages, isLoading, statusMessage, sendMessage } = useChat()
   const containerRef = useRef<HTMLDivElement>(null)
   const setupState = useSetupStatus()
+  const [isClosing, setIsClosing] = useState(false)
 
   useWindowResize(containerRef)
+
+  useLayoutEffect(() => {
+    document.documentElement.dataset.window = 'chat'
+  }, [])
+
+  useEffect(() => {
+    return window.loreAPI.onChatShown(() => {
+      setIsClosing(false)
+    })
+  }, [])
+
+  useEffect(() => {
+    return window.loreAPI.onChatWillHide(() => {
+      setIsClosing(true)
+    })
+  }, [])
+
+  const handleRequestClose = useCallback(() => {
+    setIsClosing(true)
+  }, [])
+
+  const handleAnimationEnd = useCallback((event: React.AnimationEvent) => {
+    if (event.animationName === 'scale-out') {
+      setIsClosing(false)
+      window.loreAPI.hideChatWindow()
+    }
+  }, [])
 
   const chatDisabled = setupState.status !== 'ready' || isLoading
   const disabledReason =
@@ -65,20 +93,39 @@ export function ChatWindow() {
         : undefined
 
   return (
-    <div className="animate-scale-in flex h-screen flex-col overflow-hidden rounded-xl border border-border/30 bg-[#0e0e0e]/95 backdrop-blur-xl">
-      <div ref={containerRef} className="flex min-h-0 flex-1 flex-col">
-        {setupState.status === 'setting-up' ? (
-          <SetupProgress percent={setupState.percent} message={setupState.message} />
-        ) : setupState.status === 'needs-models' ? (
-          <NeedsModels
-            missingChat={setupState.missingChat}
-            missingEmbedding={setupState.missingEmbedding}
-          />
-        ) : (
-          <MessageList messages={messages} isLoading={isLoading} statusMessage={statusMessage} />
-        )}
+    <div className={`${isClosing ? 'h-screen' : 'animate-float h-screen'} p-6`}>
+      <div
+        className={`${isClosing ? 'animate-scale-out' : 'animate-scale-in'} relative flex h-full flex-col overflow-hidden rounded-2xl border border-border/30 bg-[#0e0e0e]/95 backdrop-blur-xl [filter:drop-shadow(0_4px_12px_rgba(0,0,0,0.35))]`}
+        onAnimationEnd={handleAnimationEnd}
+      >
+        <div className="absolute right-3 top-3 z-10">
+          <button
+            onClick={handleRequestClose}
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            aria-label="Close chat"
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+        <div ref={containerRef} className="flex min-h-0 flex-1 flex-col">
+          {setupState.status === 'setting-up' ? (
+            <SetupProgress percent={setupState.percent} message={setupState.message} />
+          ) : setupState.status === 'needs-models' ? (
+            <NeedsModels
+              missingChat={setupState.missingChat}
+              missingEmbedding={setupState.missingEmbedding}
+            />
+          ) : (
+            <MessageList messages={messages} isLoading={isLoading} statusMessage={statusMessage} />
+          )}
+        </div>
+        <InputBar
+          onSend={sendMessage}
+          onRequestClose={handleRequestClose}
+          disabled={chatDisabled}
+          disabledReason={disabledReason}
+        />
       </div>
-      <InputBar onSend={sendMessage} disabled={chatDisabled} disabledReason={disabledReason} />
     </div>
   )
 }
