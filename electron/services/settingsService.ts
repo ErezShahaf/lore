@@ -5,7 +5,7 @@ import type { AppSettings } from '../../shared/types'
 
 const DEFAULTS: AppSettings = {
   shortcut: 'CommandOrControl+Shift+Space',
-  startOnLogin: false,
+  startOnLogin: true,
   hideOnBlur: true,
   selectedModel: '',
   embeddingModel: '',
