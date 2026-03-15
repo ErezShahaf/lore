@@ -4,8 +4,15 @@ import electron from 'vite-plugin-electron'
 import electronRenderer from 'vite-plugin-electron-renderer'
 import tailwindcss from '@tailwindcss/vite'
 import { resolve } from 'path'
+import { readFileSync } from 'fs'
+
+const packageJson = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'))
+const appVersion: string = packageJson.version ?? '0.0.0'
 
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
+  },
   plugins: [
     react(),
     tailwindcss(),

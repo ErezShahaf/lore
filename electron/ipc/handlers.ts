@@ -18,6 +18,11 @@ import { retrieveRelevantDocuments } from '../services/documentPipeline'
 import { getDocumentsByType } from '../services/lanceService'
 import { processUserInput, clearConversation } from '../services/agentService'
 import { getSystemInfo, getHardwareProfile } from '../services/systemInfoService'
+import {
+  fetchLatestVersion,
+  getLastUpdatePromptShownAt,
+  setLastUpdatePromptShownAt,
+} from '../services/updateCheckService'
 import type { RetrievalOptions, PullProgress, AppSettings } from '../../shared/types'
 
 const activePulls = new Map<string, PullProgress>()
@@ -347,7 +352,7 @@ export function registerIpcHandlers(): void {
 
     const chatWindow = createChatWindow()
 
-    chatWindow.webContents.once('did-finish-load', () => {
+    chatWindow.once('ready-to-show', () => {
       showChatWindow()
     })
   })
@@ -364,5 +369,21 @@ export function registerIpcHandlers(): void {
     if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
       shell.openExternal(url)
     }
+  })
+
+  // ── Update check ───────────────────────────────────────────────
+
+  ipcMain.handle('update:get-latest-version', async () => {
+    const version = await fetchLatestVersion()
+    return version !== null ? { version } : null
+  })
+
+  ipcMain.handle('update:get-last-prompt-shown', async () => {
+    const at = await getLastUpdatePromptShownAt()
+    return at
+  })
+
+  ipcMain.handle('update:set-last-prompt-shown', async () => {
+    await setLastUpdatePromptShownAt()
   })
 }

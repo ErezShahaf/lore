@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "npm run build:icons && tsc --noEmit && vite build && electron-builder",
-    "build:icons": "electron-icon-builder --input=resources/icon.png --output=resources --flatten",
+    "build:icons": "electron-icon-builder --input=resources/icon.png --output=resources --flatten && node -e \"require('fs').copyFileSync(require('path').join('resources','icon.png'), require('path').join('resources','iconTemplate.png'))\"",
     "build:win": "npm run build:icons && tsc --noEmit && vite build && electron-builder --win",
     "build:mac": "npm run build:icons && tsc --noEmit && vite build && electron-builder --mac",
     "build:linux": "tsc --noEmit && vite build && electron-builder --linux",

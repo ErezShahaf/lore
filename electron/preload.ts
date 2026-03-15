@@ -177,6 +177,17 @@ const loreAPI = {
 
   getDocumentsByType: (type: string): Promise<unknown[]> =>
     ipcRenderer.invoke('db:get-by-type', { type }),
+
+  // ── Update check ──────────────────────────────────────────────
+
+  getLatestVersion: (): Promise<{ version: string } | null> =>
+    ipcRenderer.invoke('update:get-latest-version'),
+
+  getLastUpdatePromptShownAt: (): Promise<number | null> =>
+    ipcRenderer.invoke('update:get-last-prompt-shown'),
+
+  setLastUpdatePromptShownAt: (): Promise<void> =>
+    ipcRenderer.invoke('update:set-last-prompt-shown'),
 }
 
 contextBridge.exposeInMainWorld('loreAPI', loreAPI)

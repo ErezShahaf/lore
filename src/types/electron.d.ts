@@ -62,6 +62,10 @@ declare global {
       getDbStats: () => Promise<DatabaseStats>
       searchDocuments: (query: string, options?: RetrievalOptions) => Promise<unknown[]>
       getDocumentsByType: (type: string) => Promise<unknown[]>
+
+      getLatestVersion: () => Promise<{ version: string } | null>
+      getLastUpdatePromptShownAt: () => Promise<number | null>
+      setLastUpdatePromptShownAt: () => Promise<void>
     }
   }
 }

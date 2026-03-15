@@ -13,11 +13,21 @@ function getIconPath(): string {
   return join(process.resourcesPath, 'icon.png')
 }
 
+function getIconTemplatePath(): string {
+  const base = getIconPath()
+  return base.replace(/icon\.png$/, 'iconTemplate.png')
+}
+
 export function createTray(): Tray {
   if (tray) return tray
 
-  let icon = nativeImage.createFromPath(getIconPath())
+  const iconPath =
+    process.platform === 'darwin' ? getIconTemplatePath() : getIconPath()
+  let icon = nativeImage.createFromPath(iconPath)
 
+  if (icon.isEmpty() && process.platform === 'darwin') {
+    icon = nativeImage.createFromPath(getIconPath())
+  }
   if (icon.isEmpty()) {
     icon = nativeImage.createEmpty()
   }
@@ -29,11 +39,8 @@ export function createTray(): Tray {
   tray = new Tray(icon)
   tray.setToolTip('Lore')
 
-  if (process.platform === 'darwin' && !icon.isEmpty()) {
-    const dockIcon = nativeImage.createFromPath(getIconPath())
-    if (!dockIcon.isEmpty()) {
-      app.dock.setIcon(dockIcon)
-    }
+  if (process.platform === 'darwin') {
+    app.dock.hide()
   }
 
   const contextMenu = Menu.buildFromTemplate([

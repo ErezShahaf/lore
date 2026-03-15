@@ -156,17 +156,22 @@ export function ModelSettings({ settings, onUpdate }: ModelSettingsProps) {
   }
 
   const saveEmbeddingModel = async () => {
-    if (settings.embeddingModel && localEmbeddingModel !== settings.embeddingModel) {
-      try {
-        const stats = await window.loreAPI.getDbStats()
-        setDocCount(stats.totalDocuments)
-      } catch {
-        setDocCount(null)
-      }
-      setShowEmbeddingWarning(true)
+    const hadPreviousEmbeddingModel = settings.embeddingModel.trim() !== ''
+    const isSwitchingToDifferentModel =
+      hadPreviousEmbeddingModel && localEmbeddingModel !== settings.embeddingModel
+
+    if (!isSwitchingToDifferentModel) {
+      commitEmbeddingModel()
       return
     }
-    commitEmbeddingModel()
+
+    try {
+      const stats = await window.loreAPI.getDbStats()
+      setDocCount(stats.totalDocuments)
+    } catch {
+      setDocCount(null)
+    }
+    setShowEmbeddingWarning(true)
   }
 
   const commitEmbeddingModel = () => {

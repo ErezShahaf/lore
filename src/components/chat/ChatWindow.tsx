@@ -1,10 +1,23 @@
 import { useRef, useState, useEffect, useLayoutEffect, useCallback } from 'react'
-import { Settings, X } from 'lucide-react'
+import { Settings, X, ExternalLink } from 'lucide-react'
 import { MessageList } from './MessageList'
 import { InputBar } from './InputBar'
 import { useChat } from '@/hooks/useChat'
 import { useWindowResize } from '@/hooks/useWindowResize'
 import { useSetupStatus } from '@/hooks/useSetupStatus'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { compareSemver } from '@/lib/semver'
+
+const LORE_REPO_URL = 'https://github.com/ErezShahaf/Lore'
+const UPDATE_PROMPT_INTERVAL_MS = 2.5 * 24 * 60 * 60 * 1000
 
 function SetupProgress({ percent, message }: { percent: number; message: string }) {
   return (
@@ -54,6 +67,9 @@ export function ChatWindow() {
   const containerRef = useRef<HTMLDivElement>(null)
   const setupState = useSetupStatus()
   const [isClosing, setIsClosing] = useState(false)
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false)
+  const [latestVersion, setLatestVersion] = useState<string | null>(null)
+  const updateCheckDoneRef = useRef(false)
 
   useWindowResize(containerRef)
 
@@ -65,6 +81,44 @@ export function ChatWindow() {
     return window.loreAPI.onChatShown(() => {
       setIsClosing(false)
     })
+  }, [])
+
+  useEffect(() => {
+    const runUpdateCheck = async (): Promise<void> => {
+      if (updateCheckDoneRef.current) return
+      const currentVersion = import.meta.env.VITE_APP_VERSION
+      if (typeof currentVersion !== 'string') return
+      try {
+        const [result, lastShownAt] = await Promise.all([
+          window.loreAPI.getLatestVersion(),
+          window.loreAPI.getLastUpdatePromptShownAt(),
+        ])
+        if (result === null) return
+        const comparison = compareSemver(result.version, currentVersion)
+        if (comparison !== 1) return
+        const now = Date.now()
+        const shouldShow =
+          lastShownAt === null || now - lastShownAt > UPDATE_PROMPT_INTERVAL_MS
+        if (shouldShow) {
+          updateCheckDoneRef.current = true
+          setLatestVersion(result.version)
+          setShowUpdateDialog(true)
+        }
+      } catch {
+        // Ignore; do not block or surface errors
+      }
+    }
+    const cleanup = window.loreAPI.onChatShown(() => {
+      runUpdateCheck()
+    })
+    runUpdateCheck()
+    return cleanup
+  }, [])
+
+  const handleUpdateDialogClose = useCallback(() => {
+    setShowUpdateDialog(false)
+    setLatestVersion(null)
+    window.loreAPI.setLastUpdatePromptShownAt()
   }, [])
 
   useEffect(() => {
@@ -126,6 +180,32 @@ export function ChatWindow() {
           disabledReason={disabledReason}
         />
       </div>
+
+      <Dialog open={showUpdateDialog} onOpenChange={(open) => !open && handleUpdateDialogClose()}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Update available</DialogTitle>
+            <DialogDescription>
+              A new version of Lore ({latestVersion ?? ''}) is available. You can download it from
+              the repository.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter showCloseButton>
+            <Button variant="outline" onClick={handleUpdateDialogClose}>
+              Later
+            </Button>
+            <Button
+              onClick={() => {
+                window.loreAPI.openExternal(LORE_REPO_URL)
+                handleUpdateDialogClose()
+              }}
+            >
+              <ExternalLink className="size-4" />
+              Open GitHub
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
