@@ -34,6 +34,27 @@ process.on('unhandledRejection', (reason) => {
   logErrorToFile('unhandledRejection', reason)
 })
 
+function onSignal(): void {
+  stopHealthCheck()
+  const exitAfterCleanup = (code: number) => {
+    process.exit(code)
+  }
+  const timeout = setTimeout(() => exitAfterCleanup(1), 15_000)
+  stopOllama()
+    .then(() => {
+      clearTimeout(timeout)
+      exitAfterCleanup(0)
+    })
+    .catch((err) => {
+      clearTimeout(timeout)
+      logger.error({ err }, '[Lore] Error during signal cleanup')
+      exitAfterCleanup(1)
+    })
+}
+
+process.prependOnceListener('SIGINT', onSignal)
+process.prependOnceListener('SIGTERM', onSignal)
+
 process.env.DIST_ELECTRON = join(__dirname)
 process.env.DIST = join(process.env.DIST_ELECTRON, '../dist')
 process.env.VITE_PUBLIC = process.env.VITE_DEV_SERVER_URL
@@ -108,11 +129,20 @@ if (!gotLock) {
     }
   })
 
-  app.on('will-quit', () => {
+  let isQuitting = false
+  app.on('will-quit', (event) => {
+    if (isQuitting) return
+    event.preventDefault()
+    isQuitting = true
     unregisterShortcuts()
     destroyTray()
     stopHealthCheck()
     stopOllama()
+      .then(() => app.quit())
+      .catch((err) => {
+        logger.error({ err }, '[Lore] Error during quit cleanup')
+        app.quit()
+      })
   })
 
   app.on('before-quit', () => {

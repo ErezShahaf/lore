@@ -9,7 +9,7 @@ export const RECOMMENDED_MODELS: RecommendedModel[] = [
     parametersBillions: 0.8,
     tier: 'small',
     category: 'chat',
-    description: 'Ultra-fast — ideal for classification and structured decisions',
+    description: 'Ultra-fast fallback for low-RAM systems',
     gpuRecommended: false,
     variants: [
       { tag: 'qwen3.5:0.8b', quantization: 'Q8', sizeOnDisk: '~1 GB', minRAMGB: 4 },
@@ -20,7 +20,7 @@ export const RECOMMENDED_MODELS: RecommendedModel[] = [
     parametersBillions: 2,
     tier: 'small',
     category: 'chat',
-    description: 'Fast and capable — great default for most systems',
+    description: 'Fast and capable — good fallback when 4B/9B do not fit',
     gpuRecommended: false,
     variants: [
       { tag: 'qwen3.5:2b-q4_K_M', quantization: 'Q4_K_M', sizeOnDisk: '~1.9 GB', minRAMGB: 4 },
@@ -32,7 +32,7 @@ export const RECOMMENDED_MODELS: RecommendedModel[] = [
     parametersBillions: 4,
     tier: 'medium',
     category: 'chat',
-    description: 'Best speed-to-quality ratio — recommended default',
+    description: 'Strong fallback when 9B does not fit',
     gpuRecommended: false,
     variants: [
       { tag: 'qwen3.5:4b', quantization: 'Q4_K_M', sizeOnDisk: '~3.4 GB', minRAMGB: 6 },
@@ -44,7 +44,7 @@ export const RECOMMENDED_MODELS: RecommendedModel[] = [
     parametersBillions: 9,
     tier: 'medium',
     category: 'chat',
-    description: 'Richer answers for RAG — pick this if you have a GPU',
+    description: 'Recommended — best quality for RAG when your system can run it',
     gpuRecommended: true,
     variants: [
       { tag: 'qwen3.5:9b', quantization: 'Q4_K_M', sizeOnDisk: '~6.6 GB', minRAMGB: 8 },
@@ -98,9 +98,9 @@ export function pickBestVariant(
 }
 
 /**
- * Sort models so the fastest compatible model appears first.
- * Compatible models sorted smallest-first (fastest), then
- * incompatible ones after (smallest-first so near-misses show first).
+ * Sort models so the best compatible model appears first.
+ * Compatible models sorted largest-first (best quality); incompatible
+ * ones after, smallest-first so near-misses show first.
  */
 export function sortModelsForSystem(
   models: RecommendedModel[],
@@ -114,6 +114,6 @@ export function sortModelsForSystem(
 
     if (aFits && !bFits) return -1
     if (!aFits && bFits) return 1
-    return a.parametersBillions - b.parametersBillions
+    return b.parametersBillions - a.parametersBillions
   })
 }

@@ -39,12 +39,6 @@ export function createChatWindow(): BrowserWindow {
     },
   }
 
-  if (process.platform === 'darwin') {
-    windowOptions.vibrancy = 'under-window'
-    windowOptions.visualEffectState = 'active'
-  }
-
-
   chatWindow = new BrowserWindow(windowOptions)
 
   if (process.env.VITE_DEV_SERVER_URL) {
