@@ -5,11 +5,7 @@ import {
   retrieveRelevantDocuments,
 } from '../documentPipeline'
 import { getSettings } from '../settingsService'
-import {
-  RAG_SYSTEM_PROMPT,
-  EMPTY_RESULT_RESPONSE,
-  buildRagPrompt,
-} from '../../../prompts'
+import { loadSkill } from '../skillLoader'
 import type {
   ClassificationResult,
   AgentEvent,
@@ -17,6 +13,8 @@ import type {
   RetrievalOptions,
   ScoredDocument,
 } from '../../../shared/types'
+
+const EMPTY_RESULT_RESPONSE = "I don't have any data about that topic."
 
 export async function* handleQuestion(
   userInput: string,
@@ -27,7 +25,6 @@ export async function* handleQuestion(
   yield { type: 'status', message: 'Searching your notes...' }
 
   const settings = getSettings()
-  const isTodoQuery = retrievalOverrides?.type === 'todo'
 
   const retrievalOpts: RetrievalOptions = { ...retrievalOverrides }
   const dateRange = resolveDateRange(classification)
@@ -42,11 +39,7 @@ export async function* handleQuestion(
   logger.debug({ userInput, tags: classification.extractedTags }, '[question] searching')
 
   const result = await retrieveWithAdaptiveThreshold(userInput, retrievalOpts)
-  let documents = result.documents
-
-  if (isTodoQuery) {
-    documents = documents.filter((doc) => !isTodoCompleted(doc))
-  }
+  const documents = result.documents
 
   const instructions = await retrieveRelevantDocuments(userInput, { type: 'instruction' })
 
@@ -62,13 +55,14 @@ export async function* handleQuestion(
   const instructionBlock = formatInstructions(instructions)
 
   const ragPrompt = buildRagPrompt(contextBlock, instructionBlock, userInput)
+  const ragSystemPrompt = loadSkill('question')
 
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
-    { role: 'system', content: RAG_SYSTEM_PROMPT },
+    { role: 'system', content: ragSystemPrompt },
   ]
 
   if (conversationContext) {
-    for (const msg of conversationContext.slice(-6)) {
+    for (const msg of conversationContext) {
       messages.push({ role: msg.role, content: msg.content })
     }
   }
@@ -94,15 +88,6 @@ export async function* handleQuestion(
   }
 
   yield { type: 'done' }
-}
-
-function isTodoCompleted(doc: ScoredDocument): boolean {
-  try {
-    const meta = JSON.parse(doc.metadata) as { completed?: boolean }
-    return meta.completed === true
-  } catch {
-    return false
-  }
 }
 
 // ── Date range resolution ─────────────────────────────────────
@@ -182,3 +167,19 @@ function formatInstructions(docs: LoreDocument[]): string {
   return docs.map((d) => d.content).join('\n- ')
 }
 
+function buildRagPrompt(
+  context: string,
+  instructions: string,
+  userInput: string,
+): string {
+  const today = new Date().toISOString().split('T')[0]
+  let prompt = `
+  Today's date is ${today}.
+  The user currently has a question for you about their stored data : === USER INPUT === ${userInput} === END OF USER INPUT ===`
+  prompt += `we looked for relevant notes in the vector database and found these: === RETRIEVED NOTES FROM DATABASE === ${context} === END OF RETRIEVED NOTES ===`
+  if (instructions !== '(none)') {
+    prompt += `=== User preferred instructions (if you can't do some of these, safely ignore them, and don't even mention them in the answer): ===- ${instructions} === END OF USER PREFERRED INSTRUCTIONS ===`
+  }
+
+  return prompt
+}

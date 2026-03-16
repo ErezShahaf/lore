@@ -4,23 +4,14 @@ import { handleThought } from './handlers/thoughtHandler'
 import { handleQuestion } from './handlers/questionHandler'
 import { handleCommand } from './handlers/commandHandler'
 import { handleInstruction } from './handlers/instructionHandler'
-import type { AgentEvent, RetrievalOptions } from '../../shared/types'
-
-// ── Session context ──────────────────────────────────────────
-
-interface ConversationEntry {
-  role: 'user' | 'assistant'
-  content: string
-}
+import { handleConversational } from './handlers/conversationalHandler'
+import type { AgentEvent, ConversationEntry, RetrievalOptions } from '../../shared/types'
 
 interface SessionContext {
   history: ConversationEntry[]
   lastDocumentIds: string[]
   lastTopic: string | null
 }
-
-const MAX_HISTORY = 20
-const SESSION_WINDOW = 10
 
 let session: SessionContext = {
   history: [],
@@ -42,18 +33,19 @@ export function getConversationHistory(): ConversationEntry[] {
 
 // ── Confidence thresholds ─────────────────────────────────────
 
-const CLASSIFICATION_CONFIDENCE_THRESHOLD = 0.6
+const CLASSIFICATION_CONFIDENCE_THRESHOLD = 0.75
 
 // ── Main processing loop ─────────────────────────────────────
 
 export async function* processUserInput(userInput: string): AsyncGenerator<AgentEvent> {
+  const priorHistory = session.history.slice()
   session.history.push({ role: 'user', content: userInput })
 
   yield { type: 'status', message: 'Classifying your input...' }
 
   let classification
   try {
-    classification = await classifyInput(userInput)
+    classification = await classifyInput(userInput, priorHistory)
   } catch (err) {
     logger.error({ err }, '[Agent] Classification failed')
     yield {
@@ -71,15 +63,12 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
 
   if (classification.confidence < CLASSIFICATION_CONFIDENCE_THRESHOLD) {
     logger.warn({ confidence: classification.confidence }, '[Agent] Classification confidence too low, refusing to act')
-    yield {
-      type: 'chunk',
-      content: "I'm not sure what you'd like me to do. Could you provide more detail or rephrase?",
-    }
+    const lowConfidenceResponse =
+      "I'm not sure what you'd like me to do. Could you provide more detail or rephrase? " +
+      'You can also ask me "what can you do?" to learn about my capabilities.'
+    yield { type: 'chunk', content: lowConfidenceResponse }
     yield { type: 'done' }
-    session.history.push({
-      role: 'assistant',
-      content: "I'm not sure what you'd like me to do. Could you provide more detail or rephrase?",
-    })
+    session.history.push({ role: 'assistant', content: lowConfidenceResponse })
     return
   }
 
@@ -88,26 +77,30 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
   try {
     switch (classification.intent) {
         case 'thought': {
-          for await (const event of handleThought(userInput, classification)) {
+          const storedDocumentIds: string[] = []
+          for await (const event of handleThought(userInput, classification, priorHistory)) {
             if (event.type === 'chunk') assistantResponse += event.content
-            if (event.type === 'stored') session.lastDocumentIds = [event.documentId]
+            if (event.type === 'stored') storedDocumentIds.push(event.documentId)
             yield event
           }
+          session.lastDocumentIds = storedDocumentIds
           break
         }
         case 'question': {
-          const context = session.history.slice(-SESSION_WINDOW)
-          const todoOverrides: RetrievalOptions | undefined = isTodoListQuery(userInput)
+          const isTodoQuery = classification.extractedTags.some(
+            (tag) => tag.toLowerCase() === 'todo',
+          )
+          const todoOverrides: RetrievalOptions | undefined = isTodoQuery
             ? { type: 'todo' }
             : undefined
-          for await (const event of handleQuestion(userInput, classification, context, todoOverrides)) {
+          for await (const event of handleQuestion(userInput, classification, priorHistory, todoOverrides)) {
             if (event.type === 'chunk') assistantResponse += event.content
             yield event
           }
           break
         }
         case 'command': {
-          for await (const event of handleCommand(userInput, classification)) {
+          for await (const event of handleCommand(userInput, classification, priorHistory)) {
             if (event.type === 'chunk') assistantResponse += event.content
             yield event
           }
@@ -117,6 +110,13 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
           for await (const event of handleInstruction(userInput, classification)) {
             if (event.type === 'chunk') assistantResponse += event.content
             if (event.type === 'stored') session.lastDocumentIds = [event.documentId]
+            yield event
+          }
+          break
+        }
+        case 'conversational': {
+          for await (const event of handleConversational(userInput, classification, priorHistory)) {
+            if (event.type === 'chunk') assistantResponse += event.content
             yield event
           }
           break
@@ -136,14 +136,4 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
   if (classification.extractedTags.length > 0) {
     session.lastTopic = classification.extractedTags[0]
   }
-
-  if (session.history.length > MAX_HISTORY) {
-    session.history = session.history.slice(-MAX_HISTORY)
-  }
-}
-
-function isTodoListQuery(input: string): boolean {
-  const lower = input.toLowerCase()
-  return /\b(todo|to-do|to do)\s*(list|items?|tasks?)?\b/.test(lower) &&
-    /\b(show|list|what|get|display|see|view)\b/.test(lower)
 }

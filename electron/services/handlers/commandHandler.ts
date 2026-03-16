@@ -1,40 +1,27 @@
-import { chat } from '../ollamaService'
 import { retrieveRelevantDocuments } from '../documentPipeline'
 import { softDeleteDocument, updateDocument } from '../lanceService'
-import { getSettings } from '../settingsService'
 import { embedText } from '../embeddingService'
-import { TARGET_IDENTIFICATION_PROMPT } from '../../../prompts'
+import { resolveCommandTargets } from '../commandDecompositionService'
 import type {
   ClassificationResult,
+  ConversationEntry,
   AgentEvent,
   LoreDocument,
-  CommandTarget,
+  CommandOperation,
 } from '../../../shared/types'
 
-const COMMAND_TARGET_SCHEMA = {
-  type: 'object',
-  properties: {
-    targetDocumentIds: {
-      type: 'array',
-      items: { type: 'string' },
-    },
-    action: {
-      type: 'string',
-      enum: ['delete', 'update', 'complete'],
-    },
-    updatedContent: { type: 'string' },
-    confidence: { type: 'number' },
-  },
-  required: ['targetDocumentIds', 'action', 'updatedContent', 'confidence'],
+interface ExecutionResult {
+  action: CommandOperation['action']
+  documents: LoreDocument[]
 }
 
 export async function* handleCommand(
   userInput: string,
   classification: ClassificationResult,
+  conversationHistory: readonly ConversationEntry[] = [],
 ): AsyncGenerator<AgentEvent> {
   yield { type: 'status', message: 'Finding relevant documents...' }
 
-  const settings = getSettings()
   const retrievalOpts = classification.subtype === 'complete'
     ? { type: 'todo' as const }
     : undefined
@@ -49,64 +36,30 @@ export async function* handleCommand(
     return
   }
 
-  yield { type: 'status', message: 'Identifying target...' }
+  yield { type: 'status', message: 'Analyzing your request...' }
 
-  const docsForPrompt = documents
-    .map((d) => `ID: ${d.id}\nType: ${d.type}\nDate: ${d.date}\nContent: ${d.content}`)
-    .join('\n---\n')
-
-  const prompt = TARGET_IDENTIFICATION_PROMPT
-    .replace('{action}', classification.subtype)
-    .replace('{userInput}', userInput)
-    .replace('{documents}', docsForPrompt)
-
-  let target: CommandTarget
+  let resolution
   try {
-    const stream = chat({
-      model: settings.selectedModel,
-      messages: [{ role: 'user', content: prompt }],
-      stream: false,
-      format: COMMAND_TARGET_SCHEMA,
-      think: false,
-    })
-
-    let response = ''
-    for await (const chunk of stream) {
-      response += chunk
-    }
-
-    const parsed = JSON.parse(response)
-    target = {
-      targetDocumentIds: Array.isArray(parsed.targetDocumentIds)
-        ? parsed.targetDocumentIds
-        : [],
-      action: validateAction(parsed.action),
-      updatedContent:
-        typeof parsed.updatedContent === 'string' ? parsed.updatedContent : null,
-      confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.5,
-    }
-  } catch (err) {
+    resolution = await resolveCommandTargets(userInput, documents, conversationHistory)
+  } catch {
     yield {
       type: 'error',
-      message: 'Failed to identify which document to modify. Please try being more specific.',
+      message: 'Failed to understand which documents to modify. Please try being more specific.',
     }
     yield { type: 'done' }
     return
   }
 
-  if (target.targetDocumentIds.length === 0) {
+  if (resolution.status === 'clarify') {
     yield {
       type: 'chunk',
-      content: "I couldn't determine which document you're referring to. Could you be more specific?",
+      content: resolution.clarificationMessage,
     }
     yield { type: 'done' }
     return
   }
 
-  const validIds = new Set(documents.map((d) => d.id))
-  const confirmedIds = target.targetDocumentIds.filter((id) => validIds.has(id))
-
-  if (confirmedIds.length === 0) {
+  if (resolution.operations.length === 0) {
     yield {
       type: 'chunk',
       content: "I couldn't match your request to any stored documents.",
@@ -115,70 +68,109 @@ export async function* handleCommand(
     return
   }
 
-  yield { type: 'status', message: `Executing ${target.action}...` }
+  const operationLabel = resolution.operations.length === 1
+    ? resolution.operations[0].action
+    : `${resolution.operations.length} operations`
+  yield { type: 'status', message: `Executing ${operationLabel}...` }
 
-  const affected = documents.filter((d) => confirmedIds.includes(d.id))
+  const documentLookup = new Map(documents.map((document) => [document.id, document]))
+  const results: ExecutionResult[] = []
 
-  switch (target.action) {
+  for (const operation of resolution.operations) {
+    const affected = operation.targetDocumentIds
+      .map((id) => documentLookup.get(id))
+      .filter((document): document is LoreDocument => document !== undefined)
+
+    if (affected.length === 0) continue
+
+    yield* executeOperation(operation, affected)
+    results.push({ action: operation.action, documents: affected })
+  }
+
+  yield { type: 'chunk', content: buildConfirmationMessage(results) }
+  yield { type: 'done' }
+}
+
+async function* executeOperation(
+  operation: CommandOperation,
+  affected: LoreDocument[],
+): AsyncGenerator<AgentEvent> {
+  switch (operation.action) {
     case 'delete':
-      for (const id of confirmedIds) {
-        await softDeleteDocument(id)
-        yield { type: 'deleted', documentId: id }
-      }
-      yield {
-        type: 'chunk',
-        content: buildDeleteConfirmation(affected),
+      for (const document of affected) {
+        await softDeleteDocument(document.id)
+        yield { type: 'deleted', documentId: document.id }
       }
       break
 
     case 'update':
-      for (const id of confirmedIds) {
+      for (const document of affected) {
         const updates: Partial<LoreDocument> = {}
-        if (target.updatedContent) {
-          updates.content = target.updatedContent
-          updates.vector = await embedText(target.updatedContent)
+        if (operation.updatedContent) {
+          updates.content = operation.updatedContent
+          updates.vector = await embedText(operation.updatedContent)
         }
-        await updateDocument(id, updates)
-      }
-      yield {
-        type: 'chunk',
-        content: `Done! I've updated ${confirmedIds.length === 1 ? 'the document' : `${confirmedIds.length} documents`}.`,
+        await updateDocument(document.id, updates)
       }
       break
 
     case 'complete':
-      for (const id of confirmedIds) {
-        await updateDocument(id, {
-          metadata: JSON.stringify({ completed: true, completedAt: new Date().toISOString() }),
-        })
-      }
-      yield {
-        type: 'chunk',
-        content: buildCompleteConfirmation(affected),
+      for (const document of affected) {
+        await softDeleteDocument(document.id)
+        yield { type: 'deleted', documentId: document.id }
       }
       break
   }
-
-  yield { type: 'done' }
 }
 
-function validateAction(value: unknown): CommandTarget['action'] {
-  const valid = ['delete', 'update', 'complete']
-  return valid.includes(value as string) ? (value as CommandTarget['action']) : 'delete'
-}
+function buildConfirmationMessage(results: ExecutionResult[]): string {
+  if (results.length === 0) return 'No changes were made.'
 
-function buildDeleteConfirmation(docs: LoreDocument[]): string {
-  if (docs.length === 1) {
-    const preview = docs[0].content.slice(0, 80)
-    return `Done! I've removed "${preview}${docs[0].content.length > 80 ? '...' : ''}" from your notes.`
+  const deletedDocuments = results.filter((result) => result.action === 'delete').flatMap((result) => result.documents)
+  const updatedDocuments = results.filter((result) => result.action === 'update').flatMap((result) => result.documents)
+  const completedDocuments = results.filter((result) => result.action === 'complete').flatMap((result) => result.documents)
+
+  const parts: string[] = []
+
+  if (deletedDocuments.length > 0) {
+    parts.push(formatDeletedSummary(deletedDocuments))
   }
-  return `Done! I've removed ${docs.length} documents from your notes.`
+
+  if (updatedDocuments.length > 0) {
+    parts.push(formatUpdatedSummary(updatedDocuments))
+  }
+
+  if (completedDocuments.length > 0) {
+    parts.push(formatCompletedSummary(completedDocuments))
+  }
+
+  return `Done! I've ${parts.join(', and ')}.`
 }
 
-function buildCompleteConfirmation(docs: LoreDocument[]): string {
-  if (docs.length === 1) {
-    const preview = docs[0].content.slice(0, 80)
-    return `Done! I've marked "${preview}${docs[0].content.length > 80 ? '...' : ''}" as complete.`
+function formatDeletedSummary(documents: LoreDocument[]): string {
+  if (documents.length <= 3) {
+    const previews = documents.map((document) => `"${truncateContent(document.content, 60)}"`)
+    return `removed ${previews.join(' and ')}`
   }
-  return `Done! I've marked ${docs.length} items as complete.`
+  return `removed ${documents.length} documents`
+}
+
+function formatUpdatedSummary(documents: LoreDocument[]): string {
+  if (documents.length === 1) {
+    return `updated "${truncateContent(documents[0].content, 60)}"`
+  }
+  return `updated ${documents.length} documents`
+}
+
+function formatCompletedSummary(documents: LoreDocument[]): string {
+  if (documents.length <= 3) {
+    const previews = documents.map((document) => `"${truncateContent(document.content, 60)}"`)
+    return `marked ${previews.join(' and ')} as complete`
+  }
+  return `marked ${documents.length} items as complete`
+}
+
+function truncateContent(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text
+  return text.slice(0, maxLength) + '...'
 }

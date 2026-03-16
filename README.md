@@ -6,7 +6,18 @@
 
 <p align="center">
   AI-powered thought capture and recall — runs entirely on your machine.
+</p>
 
+<p align="center">
+  <a href="https://discord.gg/hsrsertbdb">
+    <img src="https://img.shields.io/badge/Discord-Join%20Server-5865F2?logo=discord&logoColor=white" alt="Discord" />
+  </a>
+  <a href="https://github.com/ErezShahaf/Lore">
+    <img src="https://img.shields.io/github/stars/ErezShahaf/Lore?style=flat&logo=github&label=Stars" alt="GitHub Stars" />
+  </a>
+</p>
+
+<p align="center">
   <img src="readme-query-demo.gif" width="500"/>
 </p>
 
@@ -90,6 +101,14 @@ Right-click the tray icon and select **Settings**, or access settings to:
 - Select chat and embedding models
 - Pull or delete Ollama models
 - Enable/disable start on login
+## Community
+
+Join the [Lore Discord server](https://discord.gg/hsrsertbdb) to share feedback, ask questions, and connect with other users.
+
+<a href="https://discord.gg/hsrsertbdb">
+  <img src="https://www.vectorlogo.zone/logos/discord/discord-icon.svg" width="40" alt="Discord" />
+</a>
+
 ## Star History
 
 <a href="https://www.star-history.com/?repos=ErezShahaf%2FLore&type=date&legend=top-left">

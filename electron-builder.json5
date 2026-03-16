@@ -11,7 +11,8 @@
   ],
   "extraResources": [
     { "from": "resources/icon.png", "to": "icon.png" },
-    { "from": "resources/iconTemplate.png", "to": "iconTemplate.png" }
+    { "from": "resources/iconTemplate.png", "to": "iconTemplate.png" },
+    { "from": "skills", "to": "skills" }
   ],
   "win": {
     "target": ["nsis"],

@@ -1,15 +1,15 @@
 import { chat } from './ollamaService'
 import { logger } from '../logger'
 import { getSettings } from './settingsService'
-import { CLASSIFICATION_PROMPT } from '../../prompts'
-import type { ClassificationResult } from '../../shared/types'
+import { loadSkill } from './skillLoader'
+import type { ClassificationResult, ConversationEntry } from '../../shared/types'
 
 const CLASSIFICATION_SCHEMA = {
   type: 'object',
   properties: {
     intent: {
       type: 'string',
-      enum: ['thought', 'question', 'command', 'instruction'],
+      enum: ['thought', 'question', 'command', 'instruction', 'conversational'],
     },
     subtype: { type: 'string' },
     extractedDate: { type: 'string' },
@@ -25,10 +25,23 @@ const CLASSIFICATION_SCHEMA = {
 
 const MAX_RETRIES = 3
 
-export async function classifyInput(userInput: string): Promise<ClassificationResult> {
+export async function classifyInput(
+  userInput: string,
+  conversationHistory: readonly ConversationEntry[] = [],
+): Promise<ClassificationResult> {
   const settings = getSettings()
   const now = new Date()
   const systemPrompt = buildSystemPrompt(now)
+
+  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+    { role: 'system', content: systemPrompt },
+  ]
+
+  for (const entry of conversationHistory) {
+    messages.push({ role: entry.role, content: entry.content })
+  }
+
+  messages.push({ role: 'user', content: userInput })
 
   let lastError: unknown
 
@@ -36,10 +49,7 @@ export async function classifyInput(userInput: string): Promise<ClassificationRe
     try {
       const stream = chat({
         model: settings.selectedModel,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userInput },
-        ],
+        messages,
         stream: false,
         format: CLASSIFICATION_SCHEMA,
         think: false,
@@ -88,7 +98,7 @@ function sanitizeJsonResponse(raw: string): string {
 }
 
 function validateIntent(value: unknown): ClassificationResult['intent'] {
-  const valid = ['thought', 'question', 'command', 'instruction']
+  const valid = ['thought', 'question', 'command', 'instruction', 'conversational']
   return valid.includes(value as string)
     ? (value as ClassificationResult['intent'])
     : 'thought'
@@ -117,7 +127,7 @@ function buildSystemPrompt(now: Date): string {
   const lastMonday = new Date(thisMonday)
   lastMonday.setDate(lastMonday.getDate() - 7)
 
-  return CLASSIFICATION_PROMPT
+  return loadSkill('classification')
     .replace(/\{currentDate\}/g, currentDate)
     .replace('{currentDay}', DAY_NAMES[now.getDay()])
     .replace('{yesterdayDate}', toISODate(yesterday))

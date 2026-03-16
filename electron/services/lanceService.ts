@@ -164,7 +164,11 @@ export async function updateDocument(
 
   valueUpdates.updatedAt = `'${new Date().toISOString()}'`
 
-  await table.update(valueUpdates, { where: `id = '${escapeSql(id)}'` })
+  const result = await table.update(valueUpdates, { where: `id = '${escapeSql(id)}'` })
+  logger.debug(
+    { id: id.slice(0, 8), updatedColumns: Object.keys(valueUpdates), rowsUpdated: result?.rows_updated },
+    '[LanceDB] updateDocument',
+  )
 }
 
 export async function softDeleteDocument(id: string): Promise<void> {

@@ -11,5 +11,5 @@
     "isolatedModules": true,
     "noEmit": true
   },
-  "include": ["electron/**/*", "shared/**/*", "prompts/**/*", "vite.config.mts"]
+  "include": ["electron/**/*", "shared/**/*", "vite.config.mts"]
 }

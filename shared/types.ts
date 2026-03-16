@@ -34,14 +34,6 @@ export interface StoreThoughtInput {
   tags: string[]
 }
 
-export interface TodoMetadata {
-  completed: boolean
-  completedAt: string | null
-  priority: 'high' | 'medium' | 'low' | null
-  position: number
-  category: string | null
-}
-
 export interface ScoredDocument extends LoreDocument {
   score: number
 }
@@ -59,13 +51,17 @@ export interface RetrievalOptions {
   tags?: string[]
   maxResults?: number
   similarityThreshold?: number
-  includeCompleted?: boolean
 }
 
 export interface DatabaseStats {
   totalDocuments: number
   deletedDocuments: number
   documentsByType: Record<string, number>
+}
+
+export interface ConversationEntry {
+  role: 'user' | 'assistant'
+  content: string
 }
 
 export interface ChatMessage {
@@ -136,6 +132,13 @@ export type InputClassification =
   | 'question'
   | 'command'
   | 'instruction'
+  | 'conversational'
+
+// ── Save decomposition ───────────────────────────────────────
+
+export interface SaveDecompositionResult {
+  items: string[]
+}
 
 // ── Agent classification & routing ───────────────────────────
 
@@ -143,6 +146,7 @@ export type ThoughtSubtype = 'general'
 export type QuestionSubtype = 'general'
 export type CommandSubtype = 'delete' | 'update' | 'complete' | 'reorder'
 export type InstructionSubtype = 'general'
+export type ConversationalSubtype = 'greeting' | 'usage' | 'reaction'
 
 export interface ClassificationResult {
   intent: InputClassification
@@ -159,6 +163,20 @@ export interface CommandTarget {
   updatedContent: string | null
   confidence: number
 }
+
+// ── Command decomposition ─────────────────────────────────────
+
+export interface CommandOperation {
+  targetDocumentIds: string[]
+  action: 'delete' | 'update' | 'complete'
+  updatedContent: string | null
+  confidence: number
+  description: string
+}
+
+export type CommandResolution =
+  | { status: 'execute'; operations: CommandOperation[]; clarificationMessage: null }
+  | { status: 'clarify'; operations: []; clarificationMessage: string }
 
 export type AgentEvent =
   | { type: 'status'; message: string }

@@ -56,13 +56,14 @@ export function MessageList({ messages, isLoading, statusMessage }: MessageListP
     if (!viewport) return
 
     const userMessageCount = messages.filter(m => m.role === 'user').length
-    if (userMessageCount > userMessageCountRef.current) {
+    const isNewUserMessage = userMessageCount > userMessageCountRef.current
+    if (isNewUserMessage) {
       userMessageCountRef.current = userMessageCount
       userHasScrolledUpRef.current = false
     }
 
     if (userHasScrolledUpRef.current) return
-    if (!isScrolledToBottom(viewport)) return
+    if (!isNewUserMessage && !isScrolledToBottom(viewport)) return
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading, statusMessage])
 
