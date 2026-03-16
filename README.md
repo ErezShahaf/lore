@@ -67,9 +67,13 @@ Lore searches your stored thoughts and generates an answer with relevant context
 - *"turns out daniel is on holiday, so change the todo we will meet him in the 4th"*
 
  ### Setting regular instructions
- - *"When I ask for my to do list, show the items in bullets."
+ - *"From now on, when I ask for my to do list, show the items in bullets, and add an emoji for each one."
  - *"Always end a response by listing the original content & dates of the rows in the database which helped you give me this information."
- - *"when you give me a list of todos include an emoji for each item."
+ - *"Start each conversation by calling me ."
+
+  ### Getting help
+ - *What can you do?"
+ - *"Wassup my brotha Lore, tell me what u can do or I uninstall"
 
 ### Settings
 
