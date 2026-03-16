@@ -89,7 +89,7 @@ Return JSON with this exact structure:
 Subtypes:
 - thought: "general", "meeting", "idea", "learning", "todo"
 - question: "recall", "search", "summary", "list"
-- command: "delete", "update", "complete", "reorder"
+- command: "delete", "update", "reorder"
 - instruction: "preference", "rule", "alias"
 
 Date extraction rules:
@@ -178,16 +178,15 @@ When input is classified as a command:
    Return JSON:
    {
      "targetDocumentIds": ["id1", "id2"],
-     "action": "delete" | "update" | "complete",
+     "action": "delete" | "update",
      "updatedContent": "<new content if action is update, null otherwise>",
      "confidence": 0.0-1.0
    }
    ```
 
 2. **Execute**: Based on the action:
-   - **delete**: Soft-delete the target documents
+   - **delete**: Hard-delete the target documents (we do not store finished todos — completing a task means removing it)
    - **update**: Update the content (re-embed) of the target documents
-   - **complete**: Mark todo items as done (update metadata)
    - **reorder**: Store a new instruction document about ordering preferences
 
 3. **Confirm**: Respond with what was done: "Done! I've removed 'buy groceries' from your todo list."

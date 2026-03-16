@@ -7,6 +7,8 @@ The confidence score is a number between 0 and 1, where 0 is the lowest confiden
 
 IMPORTANT: Use the conversation history to understand context. If the user's message suggests they want to CREATE or ADD something new (rather than modify existing stored data), set confidence to 0.0 — this is not a command. For example, if the prior conversation was about examples of what the user CAN do, and the user says "add that" or "add the last suggestion", they want to CREATE a new entry, not modify an existing one.
 
+IMPORTANT — COMPLETION vs. SHARING: We do NOT store finished todos — completing a task means deleting it. When the action is "delete" because the user says they finished or completed something, verify against the document list. If a matching document exists but the user's message reads like a narrative or journal entry (includes location, feelings, rich experiential details), set confidence to 0.0. The upstream agent will ask the user to clarify. Only set high confidence when the user clearly intends to remove a stored task because they finished it — e.g. "mark that one as done", "I finished that task", "the grocery todo is done".
+
 User input: {userInput}
 
 Matching documents:
@@ -15,7 +17,7 @@ Matching documents:
 Return JSON with this exact structure:
 {
   "targetDocumentIds": ["id1"],
-  "action": "delete" | "update" | "complete",
+  "action": "delete" | "update",
   "updatedContent": "<new content if action is update, null otherwise>",
   "confidence": 0.0-1.0
 }

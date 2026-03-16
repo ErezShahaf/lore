@@ -27,7 +27,7 @@ const COMMAND_RESOLUTION_SCHEMA = {
           },
           action: {
             type: 'string',
-            enum: ['delete', 'update', 'complete'],
+            enum: ['delete', 'update'],
           },
           updatedContent: { type: 'string' },
           confidence: { type: 'number' },
@@ -185,7 +185,7 @@ function validateResolution(
 }
 
 function validateAction(value: unknown): CommandOperation['action'] {
-  const validActions: CommandOperation['action'][] = ['delete', 'update', 'complete']
+  const validActions: CommandOperation['action'][] = ['delete', 'update']
   return validActions.includes(value as CommandOperation['action'])
     ? (value as CommandOperation['action'])
     : 'delete'

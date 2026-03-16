@@ -144,7 +144,7 @@ export interface SaveDecompositionResult {
 
 export type ThoughtSubtype = 'general'
 export type QuestionSubtype = 'general'
-export type CommandSubtype = 'delete' | 'update' | 'complete' | 'reorder'
+export type CommandSubtype = 'delete' | 'update' | 'reorder'
 export type InstructionSubtype = 'general'
 export type ConversationalSubtype = 'greeting' | 'usage' | 'reaction'
 
@@ -159,7 +159,7 @@ export interface ClassificationResult {
 
 export interface CommandTarget {
   targetDocumentIds: string[]
-  action: 'delete' | 'update' | 'complete'
+  action: 'delete' | 'update'
   updatedContent: string | null
   confidence: number
 }
@@ -168,7 +168,7 @@ export interface CommandTarget {
 
 export interface CommandOperation {
   targetDocumentIds: string[]
-  action: 'delete' | 'update' | 'complete'
+  action: 'delete' | 'update'
   updatedContent: string | null
   confidence: number
   description: string

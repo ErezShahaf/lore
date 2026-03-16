@@ -35,7 +35,7 @@ The JSON object MUST have exactly one key:
 Split ONLY when ALL of these conditions are true:
 1. The message clearly contains a LIST of discrete items (bullet points, numbered list, or clearly enumerated items under a shared header/title).
 2. Each item is independently meaningful — it makes sense on its own without the other items.
-3. It is plausible that the user would later want to manage them independently — delete one, update one, or complete one without affecting the others.
+3. It is plausible that the user would later want to manage them independently — delete one or update one without affecting the others.
 
 ## When NOT to split
 

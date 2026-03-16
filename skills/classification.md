@@ -53,11 +53,30 @@ Intent definitions:
 - "thought": The user is sharing information they want to remember or things it wants you to add to the database (notes, ideas, observations, meeting summaries, todos). 
 examples of things the user can write which are thoughts: "todo: buy groceries", "note: meeting with Alice about the new project", "idea: we should use AI to generate code", "meeting: standup with the team", "todo: review the PR", "add to my todo jump ten times".
 - "question": The user is asking for information from their stored knowledge (recall, search, summaries, lists). Sometimes the user asks a question without a question mark — infer intent from context. This is NOT about asking how to use the product (that is "conversational"), this is about asking for information from their stored data.
-- "command": The user wants to modify EXISTING STORED data (delete, update, mark complete, reorder). They will usually tell you something that indicates it is something that already exists in the database. For example "delete what I told you about buying milk", "I finished buying the milk".
- CRITICAL: "command" is ONLY for operating on data the user PREVIOUSLY STORED. If the user is asking to ADD or CREATE something new — even if they reference something from the conversation — that is "thought", NOT "command". The verbs "add", "create", "save" signal creation. The verbs "delete", "remove", "update", "change", "complete", "finish", "done" signal commands on existing data.
+- "command": The user wants to modify EXISTING STORED data (delete, update, reorder). They will usually tell you something that indicates it is something that already exists in the database. For example "delete what I told you about buying milk", "I finished buying the milk".
+ CRITICAL: "command" is ONLY for operating on data the user PREVIOUSLY STORED. If the user is asking to ADD or CREATE something new — even if they reference something from the conversation — that is "thought", NOT "command". The verbs "add", "create", "save" signal creation. The verbs "delete", "remove", "update", "change", "finish", "done" signal commands on existing data.
  Think logically from first principles, and read between the lines. If they are not saying something that indicates it is a change/update/delete of existing stored data, it is probably NOT a command. But don't look
  at the word "change" like a special keyword. In the past the user wrote something like "todo: change lightbulb" and you thought it was a change, but it is a thought
  of type todo where the user needs to change the lightbulb, here the change was the action the user wants to do, not a change that you need to make.
+ CRITICAL — TASK COMPLETION = DELETION: We do NOT store finished todos. When a user says they finished, completed, or are done with a task, this means the task should be REMOVED (deleted) from the database. There is no "complete" status — finishing a task means deleting it. Use subtype "delete" for these cases.
+ CRITICAL — TASK COMPLETION vs. SHARING AN EXPERIENCE: Words like "finished", "done", "completed" do NOT always mean the user wants to remove a stored task. You MUST distinguish between these two scenarios:
+   1. **Task completion (command/delete)**: The user is referring to a PREVIOUSLY STORED todo, checklist item, or task and wants it removed because they finished it. Indicators:
+      - The conversation history shows the user has been tracking tasks, viewing their todo list, or discussing stored items.
+      - The user uses deictic or referential language pointing at a tracked item: "I finished that one", "mark this as done", "the grocery one is done", "done with that", "I completed the first task".
+      - The phrasing is about removing a known tracked item because it is finished, not about sharing a life event.
+   2. **Sharing an experience (thought)**: The user is telling you about something they did in real life. They are sharing information, not requesting a removal. Indicators:
+      - The statement includes rich context about the experience: location, people, feelings, time details (e.g. "I finished running today at George's beach and it was fun").
+      - There is NO prior conversation about tracking that activity as a task.
+      - The phrasing reads as a narrative or journal entry, not as a status update on a tracked item.
+      - The verb "finished" describes the real-world activity, not a request to modify stored data.
+   When it is AMBIGUOUS — e.g. the user says "I finished the run" and there IS a stored todo about running but the phrasing could also be casual sharing — set confidence to MEDIUM or LOW so the system can ask for clarification. It is always better to ask than to silently delete the wrong thing.
+   Examples:
+     - "I finished that one" (after viewing todos) → command/delete, HIGH confidence
+     - "mark the grocery task as done" → command/delete, HIGH confidence
+     - "done with the laundry" (prior conversation about a laundry todo) → command/delete, HIGH confidence
+     - "I finished running today at George's beach and it was fun" → thought/general, HIGH confidence (clearly sharing an experience)
+     - "I finished painting the fence" (no prior todo context about painting) → thought/general, HIGH confidence (narrative sharing)
+     - "I finished the report" (ambiguous — could be a completed task OR sharing) → if no clear todo context, classify as thought with HIGH confidence; if there IS a todo about a report in conversation history, classify as command/delete with MEDIUM confidence so the system can verify
 - "instruction": The user is setting a preference for how the RAG/you should behave in the future. It is not new data but a new way for you to act from now on. For example: "always refer to me by my name", "show my todo list with emojis"
 
 PLEASE TAKE INTO CONSIDERATION THAT ALL THAT I SAID IN THE EXAMPLES ARE NOT THE REAL REQUIREMENTS OF THE USER, I JUST GAVE YOU EXAMPLES TO HELP YOU UNDERSTAND THE DESIRED BEHAVIOR.
@@ -66,7 +85,7 @@ Allowed subtypes per intent:
 - conversational → "greeting" (pure greeting, no question), "usage" (asking about capabilities or how to use the product), "reaction" (acknowledgment, casual reply, or reaction to previous message)
 - thought     → "general" only
 - question    → "general" only
-- command     → "delete", "update", "complete", "reorder"
+- command     → "delete", "update", "reorder"
 - instruction → "general" only
 
 Tag extraction rules:
@@ -94,7 +113,8 @@ Date extraction rules:
 - "last week" → {lastWeekStart} (start of previous week, Monday)
 - "this week" → {thisWeekStart}
 - For recurring events (e.g. "every Monday", "weekly standup"), set extractedDate to the next occurrence and include "recurring" in extractedTags.
-- If no date is mentioned at all, set extractedDate to null (the system will default to today).
+- If no date is mentioned at all, set extractedDate to null.
+- CRITICAL for questions: When the user asks a question (intent = "question") and does NOT explicitly mention a time frame (e.g. "today", "yesterday", "this week", "last Monday"), you MUST set extractedDate to null. For example, "what's on my todo?", "show me my todos", "what do I need to do?" — these have NO date and extractedDate MUST be null. Only set a date when the user explicitly asks about a specific time like "what did I add today?" or "show my todos from yesterday".
 
 Current date: {currentDate} ({currentDay})
 Yesterday: {yesterdayDate}

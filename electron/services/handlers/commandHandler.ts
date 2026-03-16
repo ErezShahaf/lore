@@ -1,5 +1,5 @@
 import { retrieveRelevantDocuments } from '../documentPipeline'
-import { softDeleteDocument, updateDocument } from '../lanceService'
+import { hardDeleteDocument, updateDocument } from '../lanceService'
 import { embedText } from '../embeddingService'
 import { resolveCommandTargets } from '../commandDecompositionService'
 import type {
@@ -22,7 +22,10 @@ export async function* handleCommand(
 ): AsyncGenerator<AgentEvent> {
   yield { type: 'status', message: 'Finding relevant documents...' }
 
-  const retrievalOpts = classification.subtype === 'complete'
+  const isTodoCompletion = classification.extractedTags.some(
+    (tag) => tag.toLowerCase() === 'todo',
+  )
+  const retrievalOpts = isTodoCompletion
     ? { type: 'todo' as const }
     : undefined
   const documents = await retrieveRelevantDocuments(userInput, retrievalOpts)
@@ -98,7 +101,7 @@ async function* executeOperation(
   switch (operation.action) {
     case 'delete':
       for (const document of affected) {
-        await softDeleteDocument(document.id)
+        await hardDeleteDocument(document.id)
         yield { type: 'deleted', documentId: document.id }
       }
       break
@@ -113,13 +116,6 @@ async function* executeOperation(
         await updateDocument(document.id, updates)
       }
       break
-
-    case 'complete':
-      for (const document of affected) {
-        await softDeleteDocument(document.id)
-        yield { type: 'deleted', documentId: document.id }
-      }
-      break
   }
 }
 
@@ -128,7 +124,6 @@ function buildConfirmationMessage(results: ExecutionResult[]): string {
 
   const deletedDocuments = results.filter((result) => result.action === 'delete').flatMap((result) => result.documents)
   const updatedDocuments = results.filter((result) => result.action === 'update').flatMap((result) => result.documents)
-  const completedDocuments = results.filter((result) => result.action === 'complete').flatMap((result) => result.documents)
 
   const parts: string[] = []
 
@@ -138,10 +133,6 @@ function buildConfirmationMessage(results: ExecutionResult[]): string {
 
   if (updatedDocuments.length > 0) {
     parts.push(formatUpdatedSummary(updatedDocuments))
-  }
-
-  if (completedDocuments.length > 0) {
-    parts.push(formatCompletedSummary(completedDocuments))
   }
 
   return `Done! I've ${parts.join(', and ')}.`
@@ -160,14 +151,6 @@ function formatUpdatedSummary(documents: LoreDocument[]): string {
     return `updated "${truncateContent(documents[0].content, 60)}"`
   }
   return `updated ${documents.length} documents`
-}
-
-function formatCompletedSummary(documents: LoreDocument[]): string {
-  if (documents.length <= 3) {
-    const previews = documents.map((document) => `"${truncateContent(document.content, 60)}"`)
-    return `marked ${previews.join(' and ')} as complete`
-  }
-  return `marked ${documents.length} items as complete`
 }
 
 function truncateContent(text: string, maxLength: number): string {

@@ -175,6 +175,11 @@ export async function softDeleteDocument(id: string): Promise<void> {
   await updateDocument(id, { isDeleted: true })
 }
 
+export async function hardDeleteDocument(id: string): Promise<void> {
+  const table = getTable()
+  await table.delete(`id = '${escapeSql(id)}'`)
+}
+
 export async function hardDeleteDocuments(): Promise<void> {
   const table = getTable()
   await table.delete('isDeleted = true')
