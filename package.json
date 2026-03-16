@@ -19,6 +19,25 @@
   },
   "author": "",
   "license": "MIT",
+  "build": {
+    "appId": "com.lore.app",
+    "productName": "Lore",
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "resources/icon.icns",
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "artifactName": "${productName}-${version}.${ext}"
+    }
+  },
   "dependencies": {
     "@lancedb/lancedb": "^0.26.2",
     "apache-arrow": "^18.1.0",
