@@ -47,7 +47,13 @@ Download the latest release from the [Releases](https://github.com/ErezShahaf/lo
 - **macOS** — `Lore-x.x.x.dmg`
 - **Linux** — `Lore-x.x.x.AppImage`
 
-## Usage
+### Install the Software
+You’ll be prompted to choose directories for your LLM models and for Ollama.
+
+### Choose Your Models
+After installation, open the settings by clicking the Lore icon in the system tray → Settings.
+Navigate to Models, then download both an embedding model and an LLM.
+For best performance, follow Lore’s recommendations based on your system.
 
 ### Global shortcut
 
