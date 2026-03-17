@@ -70,6 +70,7 @@ export async function* handleQuestion(
     userInput,
     shouldMentionDates,
     shouldMentionTags,
+    documents,
   })
   const ragSystemPrompt = loadSkill('question')
 
@@ -198,6 +199,14 @@ interface RagPromptInput {
   readonly userInput: string
   readonly shouldMentionDates: boolean
   readonly shouldMentionTags: boolean
+  readonly documents: readonly ScoredDocument[]
+}
+
+function containsRawStructuredContent(documents: readonly ScoredDocument[]): boolean {
+  return documents.some((document) => {
+    const trimmed = document.content.trim()
+    return (trimmed.startsWith('{') || trimmed.startsWith('['))
+  })
 }
 
 function buildRagPrompt({
@@ -206,17 +215,27 @@ function buildRagPrompt({
   userInput,
   shouldMentionDates,
   shouldMentionTags,
+  documents,
 }: RagPromptInput): string {
   const today = formatLocalDate(new Date())
+  const hasStructuredContent = containsRawStructuredContent(documents)
 
-  let prompt = [
+  const parts = [
     `Today's date is ${today}.`,
     `The user asked this question about their stored data: ${userInput}`,
     `Default answer policy: ${shouldMentionDates ? 'Mention relevant dates when they help answer the question.' : 'Do not mention dates unless the user asked for them or a preference requires it.'}`,
     `Tag policy: ${shouldMentionTags ? 'Mention relevant tags if they are needed to answer the question.' : 'Do not mention tags unless the user explicitly asked for them or a preference requires it.'}`,
-    'Retrieved notes from the database:',
-    context,
-  ].join('\n\n')
+  ]
+
+  if (hasStructuredContent) {
+    parts.push(
+      'IMPORTANT: One or more retrieved notes contain raw structured data (JSON, XML, YAML, or code). You MUST return that content verbatim inside a code block. Do NOT summarize, describe, or extract individual fields from it. Return it exactly as stored.',
+    )
+  }
+
+  parts.push('Retrieved notes from the database:', context)
+
+  let prompt = parts.join('\n\n')
 
   if (instructions !== '(none)') {
     prompt += `\n\nUser preferred instructions (ignore any that do not apply, and do not mention ignored ones):\n${instructions}`

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { MessageBubble, TypingIndicator } from './MessageBubble'
 import type { ChatMessage } from '../../../shared/types'
@@ -36,32 +36,49 @@ export function MessageList({ messages, isLoading, statusMessage }: MessageListP
   const shouldAutoFollowRef = useRef(true)
   const userMessageCountRef = useRef(0)
   const previousMessageSignatureRef = useRef('')
-  const lastScrollTopRef = useRef(0)
+  const isProgrammaticScrollRef = useRef(false)
 
-  const scrollToBottom = (behavior: ScrollBehavior): void => {
-    bottomRef.current?.scrollIntoView({ behavior })
+  const scrollToBottom = (): void => {
+    isProgrammaticScrollRef.current = true
+    bottomRef.current?.scrollIntoView({ behavior: 'auto' })
   }
+
+  // On initial render messages is empty, so EmptyState is shown and ScrollArea is not yet
+  // mounted — viewportRef.current is null. We must re-run this effect the first time
+  // ScrollArea actually enters the DOM (when the first message / loading state appears).
+  const isScrollAreaMounted = messages.length > 0 || isLoading
 
   useEffect(() => {
     const viewport = viewportRef.current
     if (!viewport) return
-    lastScrollTopRef.current = viewport.scrollTop
+    shouldAutoFollowRef.current = isScrolledToBottom(viewport, USER_SCROLL_THRESHOLD_PX)
 
-    const handleScroll = (): void => {
-      const nextScrollTop = viewport.scrollTop
-      if (nextScrollTop < lastScrollTopRef.current) {
+    const handleWheel = (event: WheelEvent): void => {
+      if (event.deltaY < 0) {
         shouldAutoFollowRef.current = false
-      } else if (isScrolledToBottom(viewport, USER_SCROLL_THRESHOLD_PX)) {
-        shouldAutoFollowRef.current = true
       }
-      lastScrollTopRef.current = nextScrollTop
     }
 
-    viewport.addEventListener('scroll', handleScroll, { passive: true })
-    return () => viewport.removeEventListener('scroll', handleScroll)
-  }, [])
+    const handleScroll = (): void => {
+      // Ignore scroll events produced by our own programmatic scrollToBottom calls.
+      // Without this guard, a queued programmatic scroll event can fire after a wheel-up
+      // and incorrectly re-enable follow.
+      if (isProgrammaticScrollRef.current) {
+        isProgrammaticScrollRef.current = false
+        return
+      }
+      shouldAutoFollowRef.current = isScrolledToBottom(viewport, USER_SCROLL_THRESHOLD_PX)
+    }
 
-  useEffect(() => {
+    viewport.addEventListener('wheel', handleWheel, { passive: true })
+    viewport.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      viewport.removeEventListener('wheel', handleWheel)
+      viewport.removeEventListener('scroll', handleScroll)
+    }
+  }, [isScrollAreaMounted])
+
+  useLayoutEffect(() => {
     const viewport = viewportRef.current
     if (!viewport) return
 
@@ -78,18 +95,16 @@ export function MessageList({ messages, isLoading, statusMessage }: MessageListP
     userMessageCountRef.current = userMessageCount
     if (isNewUserMessage) {
       shouldAutoFollowRef.current = true
-      scrollToBottom('smooth')
+      scrollToBottom()
       previousMessageSignatureRef.current = messages.map((message) => message.id).join('|')
       return
     }
 
-    const messageSignature = messages.map((message) => message.id).join('|')
-    const hasNewMessage = messageSignature !== previousMessageSignatureRef.current
-    previousMessageSignatureRef.current = messageSignature
+    previousMessageSignatureRef.current = messages.map((message) => message.id).join('|')
 
     if (!shouldAutoFollowRef.current) return
 
-    scrollToBottom(hasNewMessage ? 'smooth' : 'auto')
+    scrollToBottom()
   }, [messages, isLoading, statusMessage])
 
   if (messages.length === 0 && !isLoading) return <EmptyState />
