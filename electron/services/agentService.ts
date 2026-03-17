@@ -5,18 +5,33 @@ import { handleQuestion } from './handlers/questionHandler'
 import { handleCommand } from './handlers/commandHandler'
 import { handleInstruction } from './handlers/instructionHandler'
 import { handleConversational } from './handlers/conversationalHandler'
-import type { AgentEvent, ConversationEntry, RetrievalOptions } from '../../shared/types'
+import {
+  looksLikeExplicitStorageRequest,
+  looksLikeInstructionManagementRequest,
+  looksLikeReferentialCommandRequest,
+  looksLikeShortReaction,
+  looksLikeStoredDataQuestion,
+  looksLikeTodoQuery,
+} from './userIntentHeuristics'
+import type {
+  AgentEvent,
+  ConversationEntry,
+  InputClassification,
+  RetrievalOptions,
+} from '../../shared/types'
 
 interface SessionContext {
   history: ConversationEntry[]
   lastDocumentIds: string[]
   lastTopic: string | null
+  lastIntent: InputClassification | null
 }
 
 let session: SessionContext = {
   history: [],
   lastDocumentIds: [],
   lastTopic: null,
+  lastIntent: null,
 }
 
 export function clearConversation(): void {
@@ -24,6 +39,7 @@ export function clearConversation(): void {
     history: [],
     lastDocumentIds: [],
     lastTopic: null,
+    lastIntent: null,
   }
 }
 
@@ -37,6 +53,37 @@ const CLASSIFICATION_CONFIDENCE_THRESHOLD = 0.75
 
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'An unexpected error occurred'
+}
+
+export function applyDeterministicRoutingHints(
+  userInput: string,
+  classification: {
+    intent: 'thought' | 'question' | 'command' | 'instruction' | 'conversational'
+    confidence: number
+    reasoning: string
+  },
+): void {
+  if (classification.intent === 'conversational' && looksLikeStoredDataQuestion(userInput)) {
+    classification.intent = 'question'
+    classification.confidence = Math.max(classification.confidence, CLASSIFICATION_CONFIDENCE_THRESHOLD)
+    classification.reasoning = 'Heuristic override: explicit stored-data retrieval request.'
+  }
+
+  if (classification.intent === 'instruction' && looksLikeInstructionManagementRequest(userInput)) {
+    classification.intent = 'command'
+    classification.confidence = Math.max(classification.confidence, CLASSIFICATION_CONFIDENCE_THRESHOLD)
+    classification.reasoning = 'Heuristic override: instruction management request should use the command pipeline.'
+  }
+
+  if (
+    classification.intent === 'thought'
+    && looksLikeShortReaction(userInput)
+    && !looksLikeExplicitStorageRequest(userInput)
+  ) {
+    classification.intent = 'conversational'
+    classification.confidence = Math.max(classification.confidence, CLASSIFICATION_CONFIDENCE_THRESHOLD)
+    classification.reasoning = 'Heuristic override: short reaction-like input should not be stored by default.'
+  }
 }
 
 // ── Main processing loop ─────────────────────────────────────
@@ -56,6 +103,8 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
     yield { type: 'done' }
     return
   }
+
+  applyDeterministicRoutingHints(userInput, classification)
 
   logger.debug(
     { intent: classification.intent, subtype: classification.subtype, confidence: classification.confidence },
@@ -88,9 +137,8 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
           break
         }
         case 'question': {
-          const isTodoQuery = classification.extractedTags.some(
-            (tag) => tag.toLowerCase() === 'todo',
-          )
+          const isTodoQuery = looksLikeTodoQuery(userInput)
+            || classification.extractedTags.some((tag) => tag.toLowerCase() === 'todo')
           const todoOverrides: RetrievalOptions | undefined = isTodoQuery
             ? { type: 'todo' }
             : undefined
@@ -101,7 +149,8 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
           break
         }
         case 'command': {
-          for await (const event of handleCommand(userInput, classification, priorHistory)) {
+          const commandOverrides: RetrievalOptions | undefined = getCommandRetrievalOverrides(userInput)
+          for await (const event of handleCommand(userInput, classification, priorHistory, commandOverrides)) {
             if (event.type === 'chunk') assistantResponse += event.content
             yield event
           }
@@ -136,4 +185,18 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
   if (classification.extractedTags.length > 0) {
     session.lastTopic = classification.extractedTags[0]
   }
+
+  session.lastIntent = classification.intent
+}
+
+function getCommandRetrievalOverrides(userInput: string): RetrievalOptions | undefined {
+  if (looksLikeInstructionManagementRequest(userInput)) {
+    return { type: 'instruction' }
+  }
+
+  if (session.lastIntent === 'instruction' && looksLikeReferentialCommandRequest(userInput)) {
+    return { type: 'instruction' }
+  }
+
+  return undefined
 }

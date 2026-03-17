@@ -1,9 +1,16 @@
 import { ipcMain, BrowserWindow, dialog, app, shell } from 'electron'
 import { logger } from '../logger'
-import { resizeChatWindow, hideChatWindow, createChatWindow, showChatWindow } from '../windows/chatWindow'
+import {
+  resizeChatWindow,
+  hideChatWindow,
+  createChatWindow,
+  showChatWindow,
+  repositionChatWindow,
+} from '../windows/chatWindow'
 import { createSettingsWindow } from '../windows/settingsWindow'
 import { closeSetupWindow } from '../windows/setupWindow'
 import { getSettings, updateSettings } from '../services/settingsService'
+import { listDisplays } from '../services/displayService'
 import { setAutoStart } from '../services/autoStartService'
 import {
   checkConnection,
@@ -23,7 +30,7 @@ import {
   getLastUpdatePromptShownAt,
   setLastUpdatePromptShownAt,
 } from '../services/updateCheckService'
-import type { RetrievalOptions, PullProgress, AppSettings } from '../../shared/types'
+import type { RetrievalOptions, PullProgress, AppSettings, DisplayInfo } from '../../shared/types'
 
 const activePulls = new Map<string, PullProgress>()
 
@@ -230,6 +237,10 @@ export function registerIpcHandlers(): void {
     return getSettings()
   })
 
+  ipcMain.handle('window:list-displays', (): DisplayInfo[] => {
+    return listDisplays()
+  })
+
   ipcMain.handle('settings:update', async (_event, partial: unknown) => {
     if (!partial || typeof partial !== 'object') return getSettings()
 
@@ -253,6 +264,11 @@ export function registerIpcHandlers(): void {
       resetTable().catch(err => {
         logger.error({ err }, '[Lore] Failed to reset database after embedding model change')
       })
+    }
+
+    if ('preferredDisplayId' in (partial as Record<string, unknown>) &&
+        updated.preferredDisplayId !== prev.preferredDisplayId) {
+      repositionChatWindow()
     }
 
     for (const win of BrowserWindow.getAllWindows()) {

@@ -1,4 +1,4 @@
-ר<p align="center">
+<p align="center">
   <img src="https://github.com/ErezShahaf/lore/blob/main/icon.png?raw=true" width="80" height="80" />
 </p>
 
@@ -24,7 +24,9 @@
 
 ## What is Lore?
 
-Lore is a lightweight desktop app that sits in your system tray and lets you pop-up a hover chat with a button click to quickly capture thoughts, notes, and todos using natural language. It uses a local LLM (via [Ollama](https://ollama.com)) and a local vector database (LanceDB) to store, understand, and retrieve your information — no cloud services, no API keys, complete privacy.
+Lore is a lightweight desktop app that sits in your system tray and lets you pop-up a hover chat with a button click to quickly capture thoughts. It uses a local LLM (via [Ollama](https://ollama.com)) and a local vector database (LanceDB) to store, understand, and retrieve your information — no cloud services, no API keys, complete privacy.
+
+Think of it as your private second memory — a place to store anything you might need later. From long-form guides you’ve written for yourself, todo lists, decision summaries, urls, or even that exact curl you used to reproduce the bug in production. Everything stays organized and instantly searchable by simply describing it in plain language — even by date, or topic.
 
 ### Key features
 

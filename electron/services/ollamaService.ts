@@ -1,8 +1,29 @@
 import { getSettings } from './settingsService'
 import { logger } from '../logger'
-import type { OllamaModel, ChatRequest, PullProgress, OllamaStatus } from '../../shared/types'
+import type {
+  OllamaModel,
+  ChatRequest,
+  PullProgress,
+  OllamaStatus,
+  ChatRequestOptions,
+} from '../../shared/types'
 
 export const CHAT_NUM_CTX = 8192
+
+export interface ChatPromptMessage {
+  readonly role: 'system' | 'user' | 'assistant'
+  readonly content: string
+}
+
+interface StructuredResponseRequest<T> {
+  readonly model: string
+  readonly messages: readonly ChatPromptMessage[]
+  readonly schema: Record<string, unknown>
+  readonly validate: (parsed: Record<string, unknown>) => T
+  readonly maxAttempts?: number
+  readonly think?: boolean
+  readonly options?: ChatRequestOptions
+}
 
 let connectionStatus: OllamaStatus = { connected: false }
 let healthCheckTimer: ReturnType<typeof setInterval> | null = null
@@ -254,28 +275,112 @@ export async function* chat(request: ChatRequest): AsyncGenerator<string> {
   }
 }
 
-export async function generateStructuredResponse(
-  model: string,
-  prompt: string,
-  schema: object,
-  requestOptions?: { think?: boolean; options?: { num_ctx?: number } },
-): Promise<object> {
-  const res = await fetch(`${getHost()}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: 'user', content: prompt }],
-      stream: false,
-      format: schema,
-      keep_alive: -1,
-      ...requestOptions,
-      options: { num_ctx: CHAT_NUM_CTX, ...requestOptions?.options },
-    }),
-  })
+export async function generateStructuredResponse<T>(
+  request: StructuredResponseRequest<T>,
+): Promise<T> {
+  const {
+    model,
+    messages,
+    schema,
+    validate,
+    maxAttempts = 2,
+    think = false,
+    options,
+  } = request
 
-  if (!res.ok) throw new Error(`Structured response failed: ${res.statusText}`)
+  let lastError: unknown = null
+  let attemptMessages = [...messages]
 
-  const data = await res.json()
-  return JSON.parse(data.message?.content ?? '{}')
+  for (let attemptIndex = 0; attemptIndex < maxAttempts; attemptIndex += 1) {
+    let rawResponse = ''
+
+    try {
+      rawResponse = await collectChatResponse({
+        model,
+        messages: attemptMessages,
+        stream: false,
+        think,
+        format: schema,
+        options,
+      })
+
+      const parsed = parseStructuredResponse(rawResponse)
+      return validate(parsed)
+    } catch (error) {
+      lastError = error
+      logger.warn(
+        { error, attempt: attemptIndex + 1, maxAttempts },
+        '[StructuredResponse] Attempt failed',
+      )
+
+      if (attemptIndex === maxAttempts - 1) {
+        break
+      }
+
+      attemptMessages = [
+        ...messages,
+        { role: 'assistant', content: rawResponse },
+        {
+          role: 'user',
+          content: buildStructuredRepairPrompt(schema, rawResponse, error),
+        },
+      ]
+    }
+  }
+
+  throw new Error(
+    `Structured response failed after ${maxAttempts} attempts: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+  )
+}
+
+async function collectChatResponse(request: ChatRequest): Promise<string> {
+  let response = ''
+  for await (const chunk of chat(request)) {
+    response += chunk
+  }
+
+  return response
+}
+
+function parseStructuredResponse(rawResponse: string): Record<string, unknown> {
+  const sanitizedResponse = sanitizeStructuredJsonResponse(rawResponse)
+  const parsed: unknown = JSON.parse(sanitizedResponse)
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Structured response must be a JSON object')
+  }
+
+  return parsed as Record<string, unknown>
+}
+
+function sanitizeStructuredJsonResponse(rawResponse: string): string {
+  let cleaned = rawResponse.trim()
+  cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/g, '')
+
+  const firstBraceIndex = cleaned.indexOf('{')
+  const lastBraceIndex = cleaned.lastIndexOf('}')
+  if (firstBraceIndex !== -1 && lastBraceIndex !== -1 && lastBraceIndex > firstBraceIndex) {
+    cleaned = cleaned.slice(firstBraceIndex, lastBraceIndex + 1)
+  }
+
+  return cleaned
+}
+
+function buildStructuredRepairPrompt(
+  schema: Record<string, unknown>,
+  rawResponse: string,
+  error: unknown,
+): string {
+  const errorMessage = error instanceof Error ? error.message : String(error)
+
+  return [
+    'Your previous response was invalid for the required JSON schema.',
+    'Reply again with exactly one valid JSON object and no other text.',
+    'Do not use markdown or code fences.',
+    `Validation error: ${errorMessage}`,
+    'Required schema:',
+    JSON.stringify(schema, null, 2),
+    'Previous invalid response:',
+    rawResponse || '(empty response)',
+  ].join('\n')
 }

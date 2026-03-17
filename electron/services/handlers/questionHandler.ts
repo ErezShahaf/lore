@@ -1,11 +1,19 @@
 import { chat } from '../ollamaService'
 import { logger } from '../../logger'
 import {
+  retrieveByFilters,
   retrieveWithAdaptiveThreshold,
   retrieveRelevantDocuments,
 } from '../documentPipeline'
+import { formatLocalDate, getLocalDateRangeForDay, getLocalDateRangeForWeek } from '../localDate'
 import { getSettings } from '../settingsService'
 import { loadSkill } from '../skillLoader'
+import {
+  looksLikeStructuralRetrievalQuery,
+  userAskedForDateInformation,
+  userAskedForTagInformation,
+  usesCreatedAtSemantics,
+} from '../userIntentHeuristics'
 import type {
   ClassificationResult,
   AgentEvent,
@@ -26,35 +34,41 @@ export async function* handleQuestion(
 
   const settings = getSettings()
 
-  const retrievalOpts: RetrievalOptions = { ...retrievalOverrides }
-  const dateRange = resolveDateRange(classification)
-  if (dateRange) {
-    retrievalOpts.dateFrom = dateRange.from
-    retrievalOpts.dateTo = dateRange.to
-  }
-  if (classification.extractedTags.length > 0) {
-    retrievalOpts.tags = classification.extractedTags
-  }
+  const retrievalOpts = buildRetrievalOptions(userInput, classification, retrievalOverrides)
+  const shouldUseMetadataOnlyRetrieval = looksLikeStructuralRetrievalQuery(userInput)
+    && (retrievalOpts.type !== undefined
+      || retrievalOpts.createdAtFrom !== undefined
+      || retrievalOpts.dateFrom !== undefined)
 
   logger.debug({ userInput, tags: classification.extractedTags }, '[question] searching')
 
-  const result = await retrieveWithAdaptiveThreshold(userInput, retrievalOpts)
+  const result = shouldUseMetadataOnlyRetrieval
+    ? await retrieveByFilters(retrievalOpts)
+    : await retrieveWithAdaptiveThreshold(userInput, retrievalOpts)
   const documents = result.documents
 
-  const instructions = await retrieveRelevantDocuments(userInput, { type: 'instruction' })
-
-  if (documents.length === 0 && instructions.length === 0) {
+  if (documents.length === 0) {
     yield { type: 'chunk', content: EMPTY_RESULT_RESPONSE }
     yield { type: 'done' }
     return
   }
 
+  const instructions = await retrieveRelevantDocuments(userInput, { type: 'instruction' })
+
   yield { type: 'status', message: `Found ${documents.length} relevant notes. Generating answer...` }
 
-  const contextBlock = formatGroupedDocuments(documents)
+  const contextBlock = formatRetrievedDocuments(documents)
   const instructionBlock = formatInstructions(instructions)
+  const shouldMentionDates = userAskedForDateInformation(userInput)
+  const shouldMentionTags = userAskedForTagInformation(userInput)
 
-  const ragPrompt = buildRagPrompt(contextBlock, instructionBlock, userInput)
+  const ragPrompt = buildRagPrompt({
+    context: contextBlock,
+    instructions: instructionBlock,
+    userInput,
+    shouldMentionDates,
+    shouldMentionTags,
+  })
   const ragSystemPrompt = loadSkill('question')
 
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -95,13 +109,18 @@ export async function* handleQuestion(
 interface DateRange {
   from: string
   to: string
+  usesCreatedAt: boolean
 }
 
-function resolveDateRange(classification: ClassificationResult): DateRange | null {
+function resolveDateRange(
+  userInput: string,
+  classification: ClassificationResult,
+): DateRange | null {
   if (!classification.extractedDate) return null
 
   const date = classification.extractedDate
   const tags = classification.extractedTags.map((t) => t.toLowerCase())
+  const usesCreatedAt = usesCreatedAtSemantics(userInput)
 
   if (tags.includes('week') || tags.includes('this week') || tags.includes('last week')) {
     const ref = new Date(date)
@@ -109,76 +128,96 @@ function resolveDateRange(classification: ClassificationResult): DateRange | nul
     endOfWeek.setDate(ref.getDate() + 6)
     return {
       from: date,
-      to: endOfWeek.toISOString().split('T')[0],
+      to: formatLocalDate(endOfWeek),
+      usesCreatedAt,
     }
   }
 
-  return { from: date, to: date }
+  return { from: date, to: date, usesCreatedAt }
 }
 
-// ── Smart document grouping ──────────────────────────────────
+function buildRetrievalOptions(
+  userInput: string,
+  classification: ClassificationResult,
+  retrievalOverrides?: RetrievalOptions,
+): RetrievalOptions {
+  const retrievalOptions: RetrievalOptions = { ...retrievalOverrides }
+  const dateRange = resolveDateRange(userInput, classification)
 
-function formatGroupedDocuments(docs: ScoredDocument[]): string {
+  if (dateRange) {
+    if (dateRange.usesCreatedAt) {
+      const createdAtRange = dateRange.from === dateRange.to
+        ? getLocalDateRangeForDay(dateRange.from)
+        : getLocalDateRangeForWeek(dateRange.from)
+      retrievalOptions.createdAtFrom = createdAtRange.fromIso
+      retrievalOptions.createdAtTo = createdAtRange.toIso
+    } else {
+      retrievalOptions.dateFrom = dateRange.from
+      retrievalOptions.dateTo = dateRange.to
+    }
+  }
+
+  if (classification.extractedTags.length > 0) {
+    retrievalOptions.tags = classification.extractedTags
+  }
+
+  return retrievalOptions
+}
+
+function formatRetrievedDocuments(docs: ScoredDocument[]): string {
   if (docs.length === 0) return '(none)'
 
-  const byDate = new Map<string, ScoredDocument[]>()
-  for (const doc of docs) {
-    const dateKey = doc.date || 'Unknown date'
-    if (!byDate.has(dateKey)) byDate.set(dateKey, [])
-    byDate.get(dateKey)!.push(doc)
-  }
+  return docs.map((document, index) => {
+    const metadataLines = [
+      `document_id: ${document.id}`,
+      `document_type: ${document.type}`,
+      `semantic_date: ${document.date || 'unknown'}`,
+      `tags: ${document.tags || '(none)'}`,
+    ]
 
-  if (byDate.size <= 1) {
-    return docs
-      .map((d) =>
-        `[${d.type}] (${d.date || 'no date'}) ${d.tags ? `[tags: ${d.tags}]` : ''}\n${d.content}`,
-      )
-      .join('\n---\n')
-  }
-
-  const sortedDates = [...byDate.keys()].sort()
-  const sections: string[] = []
-
-  for (const date of sortedDates) {
-    const dateDocs = byDate.get(date)!
-    const formatted = dateDocs.map((d) =>
-      `  [${d.type}] ${d.tags ? `[tags: ${d.tags}]` : ''}\n  ${d.content}`,
-    )
-    sections.push(`**${formatDateLabel(date)}:**\n${formatted.join('\n  ---\n')}`)
-  }
-
-  return sections.join('\n\n')
-}
-
-function formatDateLabel(dateStr: string): string {
-  try {
-    const date = new Date(dateStr + 'T00:00:00')
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-    const months = ['January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December']
-    return `${days[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}`
-  } catch {
-    return dateStr
-  }
+    return [
+      `=== DOCUMENT ${index + 1} ===`,
+      ...metadataLines,
+      'content:',
+      document.content,
+      `=== END DOCUMENT ${index + 1} ===`,
+    ].join('\n')
+  }).join('\n\n')
 }
 
 function formatInstructions(docs: LoreDocument[]): string {
   if (docs.length === 0) return '(none)'
-  return docs.map((d) => d.content).join('\n- ')
+  return docs.map((d) => `- ${d.content}`).join('\n')
 }
 
-function buildRagPrompt(
-  context: string,
-  instructions: string,
-  userInput: string,
-): string {
-  const today = new Date().toISOString().split('T')[0]
-  let prompt = `
-  Today's date is ${today}.
-  The user currently has a question for you about their stored data : === USER INPUT === ${userInput} === END OF USER INPUT ===`
-  prompt += `we looked for relevant notes in the vector database and found these: === RETRIEVED NOTES FROM DATABASE === ${context} === END OF RETRIEVED NOTES ===`
+interface RagPromptInput {
+  readonly context: string
+  readonly instructions: string
+  readonly userInput: string
+  readonly shouldMentionDates: boolean
+  readonly shouldMentionTags: boolean
+}
+
+function buildRagPrompt({
+  context,
+  instructions,
+  userInput,
+  shouldMentionDates,
+  shouldMentionTags,
+}: RagPromptInput): string {
+  const today = formatLocalDate(new Date())
+
+  let prompt = [
+    `Today's date is ${today}.`,
+    `The user asked this question about their stored data: ${userInput}`,
+    `Default answer policy: ${shouldMentionDates ? 'Mention relevant dates when they help answer the question.' : 'Do not mention dates unless the user asked for them or a preference requires it.'}`,
+    `Tag policy: ${shouldMentionTags ? 'Mention relevant tags if they are needed to answer the question.' : 'Do not mention tags unless the user explicitly asked for them or a preference requires it.'}`,
+    'Retrieved notes from the database:',
+    context,
+  ].join('\n\n')
+
   if (instructions !== '(none)') {
-    prompt += `=== User preferred instructions (if you can't do some of these, safely ignore them, and don't even mention them in the answer): ===- ${instructions} === END OF USER PREFERRED INSTRUCTIONS ===`
+    prompt += `\n\nUser preferred instructions (ignore any that do not apply, and do not mention ignored ones):\n${instructions}`
   }
 
   return prompt

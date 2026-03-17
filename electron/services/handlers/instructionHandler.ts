@@ -1,5 +1,6 @@
 import { storeThought } from '../documentPipeline'
 import { retrieveRelevantDocuments } from '../documentPipeline'
+import { formatLocalDate } from '../localDate'
 import type { ClassificationResult, AgentEvent } from '../../../shared/types'
 
 export async function* handleInstruction(
@@ -13,7 +14,7 @@ export async function* handleInstruction(
     similarityThreshold: 0.8,
   })
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = formatLocalDate(new Date())
 
   const doc = await storeThought({
     content: userInput,
@@ -31,7 +32,7 @@ export async function* handleInstruction(
     const previews = existing
       .map((d) => `"${d.content.slice(0, 60)}${d.content.length > 60 ? '...' : ''}"`)
       .join(', ')
-    response += `\n\nNote: I found similar existing instructions: ${previews}. Both will be active — if you want to replace the old one, just ask me to delete it.`
+    response += `\n\nNote: I found similar existing instructions: ${previews}. Both will stay active unless you ask me to delete or replace that instruction explicitly.`
   }
 
   yield { type: 'chunk', content: response }

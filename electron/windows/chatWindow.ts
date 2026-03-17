@@ -1,4 +1,4 @@
-import { BrowserWindow, screen } from 'electron'
+import { BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 
 import {
@@ -8,13 +8,58 @@ import {
   CHAT_WINDOW_MAX_HEIGHT,
   SCREEN_MARGIN,
 } from '../../shared/chatWindowConstants'
+import { getPreferredDisplay } from '../services/displayService'
 
 let chatWindow: BrowserWindow | null = null
+
+function isHttpUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url)
+}
+
+function isAppUrl(url: string): boolean {
+  if (process.env.VITE_DEV_SERVER_URL) {
+    return url.startsWith(process.env.VITE_DEV_SERVER_URL)
+  }
+
+  return url.startsWith('file://')
+}
+
+function openExternalUrl(url: string): void {
+  if (!isHttpUrl(url)) return
+  void shell.openExternal(url)
+}
+
+function protectWindowNavigation(window: BrowserWindow): void {
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    if (isHttpUrl(url)) {
+      openExternalUrl(url)
+      return { action: 'deny' }
+    }
+
+    return { action: 'allow' }
+  })
+
+  window.webContents.on('will-navigate', (event, url) => {
+    if (isAppUrl(url)) return
+    if (isHttpUrl(url)) {
+      event.preventDefault()
+      openExternalUrl(url)
+    }
+  })
+}
+
+function positionChatWindow(window: BrowserWindow): void {
+  const { workArea } = getPreferredDisplay()
+  const [, height] = window.getSize()
+  const x = workArea.x + SCREEN_MARGIN
+  const y = workArea.y + workArea.height - height - SCREEN_MARGIN
+  window.setPosition(x, y)
+}
 
 export function createChatWindow(): BrowserWindow {
   if (chatWindow && !chatWindow.isDestroyed()) return chatWindow
 
-  const { workArea } = screen.getPrimaryDisplay()
+  const { workArea } = getPreferredDisplay()
 
   const x = workArea.x + SCREEN_MARGIN
   const y = workArea.y + workArea.height - CHAT_WINDOW_DEFAULT_HEIGHT - SCREEN_MARGIN
@@ -44,6 +89,7 @@ export function createChatWindow(): BrowserWindow {
   }
 
   chatWindow = new BrowserWindow(windowOptions)
+  protectWindowNavigation(chatWindow)
 
   if (process.env.VITE_DEV_SERVER_URL) {
     chatWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
@@ -66,12 +112,7 @@ export function showChatWindow(): void {
   const win = getChatWindow()
   if (!win) return
 
-  const { workArea } = screen.getPrimaryDisplay()
-  const [, height] = win.getSize()
-  const x = workArea.x + SCREEN_MARGIN
-  const y = workArea.y + workArea.height - height - SCREEN_MARGIN
-  win.setPosition(x, y)
-
+  positionChatWindow(win)
   win.show()
   win.focus()
   win.webContents.send('chat:shown')
@@ -97,6 +138,13 @@ export function hideChatWindowAnimated(): void {
       hideChatWindow()
     }
   }, 300)
+}
+
+export function repositionChatWindow(): void {
+  const win = getChatWindow()
+  if (!win) return
+
+  positionChatWindow(win)
 }
 
 export function toggleChatWindow(): void {

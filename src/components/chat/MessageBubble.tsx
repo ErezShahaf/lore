@@ -1,3 +1,4 @@
+import type { MouseEvent } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cn } from '@/lib/utils'
@@ -9,6 +10,15 @@ interface MessageBubbleProps {
 
 export function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === 'user'
+
+  const handleLinkClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    href: string | undefined,
+  ): void => {
+    event.preventDefault()
+    if (!href || !/^https?:\/\//i.test(href)) return
+    window.loreAPI.openExternal(href)
+  }
 
   return (
     <div className={cn('animate-slide-up flex min-w-0 w-full', isUser ? 'justify-end' : 'justify-start')}>
@@ -36,6 +46,15 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                     <ol className="mb-2 list-decimal pl-4 last:mb-0 break-words">{children}</ol>
                   ),
                   li: ({ children }) => <li className="mb-0.5 break-words">{children}</li>,
+                  a: ({ href, children }) => (
+                    <a
+                      href={href}
+                      onClick={(event) => handleLinkClick(event, href)}
+                      className="break-all text-primary underline underline-offset-2 hover:text-primary/80"
+                    >
+                      {children}
+                    </a>
+                  ),
                   code: ({ children, className }) => {
                     const isBlock = className?.includes('language-')
                     if (isBlock) {

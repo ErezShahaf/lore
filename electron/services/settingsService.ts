@@ -7,6 +7,7 @@ const DEFAULTS: AppSettings = {
   shortcut: 'CommandOrControl+Shift+Space',
   startOnLogin: true,
   hideOnBlur: true,
+  preferredDisplayId: null,
   selectedModel: '',
   embeddingModel: '',
   ollamaHost: 'http://127.0.0.1:11434',

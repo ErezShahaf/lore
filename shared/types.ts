@@ -11,6 +11,7 @@ export interface ThoughtDocument {
 // ── Vector database types ─────────────────────────────────────
 
 export type DocumentType = 'thought' | 'todo' | 'instruction' | 'meeting' | 'note'
+export type DecomposedDocumentType = Exclude<DocumentType, 'instruction'>
 
 export interface LoreDocument {
   id: string
@@ -48,6 +49,8 @@ export interface RetrievalOptions {
   type?: DocumentType
   dateFrom?: string
   dateTo?: string
+  createdAtFrom?: string
+  createdAtTo?: string
   tags?: string[]
   maxResults?: number
   similarityThreshold?: number
@@ -76,12 +79,19 @@ export interface AppSettings {
   shortcut: string
   startOnLogin: boolean
   hideOnBlur: boolean
+  preferredDisplayId: number | null
   selectedModel: string
   embeddingModel: string
   ollamaHost: string
   ollamaPath: string
   ollamaModelsPath: string
   ollamaSetupComplete: boolean
+}
+
+export interface DisplayInfo {
+  id: number
+  label: string
+  isPrimary: boolean
 }
 
 export interface OllamaModel {
@@ -138,6 +148,7 @@ export type InputClassification =
 
 export interface DecomposedItem {
   readonly content: string
+  readonly type: DecomposedDocumentType
   readonly tags: readonly string[]
 }
 

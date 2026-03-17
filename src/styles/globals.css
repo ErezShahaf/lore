@@ -72,10 +72,6 @@
   100% { transform: translateX(250%); }
 }
 
-* {
-  scroll-behavior: smooth;
-}
-
 select option {
   background: var(--color-secondary);
   color: var(--color-foreground);

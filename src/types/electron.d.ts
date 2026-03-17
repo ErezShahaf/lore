@@ -5,6 +5,7 @@ import type {
   OllamaSetupProgress,
   PullProgress,
   ActivePullProgress,
+  DisplayInfo,
   DatabaseStats,
   RetrievalOptions,
   SystemInfo,
@@ -52,6 +53,7 @@ declare global {
       setupComplete: () => Promise<void>
 
       getSettings: () => Promise<AppSettings>
+      getDisplays: () => Promise<DisplayInfo[]>
       updateSettings: (settings: Partial<AppSettings>) => Promise<AppSettings>
       onSettingsChanged: (callback: (settings: AppSettings) => void) => () => void
 

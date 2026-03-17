@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 import { storeThought, storeThoughtWithMetadata, checkForDuplicate } from '../documentPipeline'
+import { formatLocalDate } from '../localDate'
 import { decomposeForStorage } from '../saveDecompositionService'
 import type { ClassificationResult, AgentEvent, DecomposedItem, DocumentType, ConversationEntry } from '../../../shared/types'
 
@@ -11,14 +12,13 @@ export async function* handleThought(
   yield { type: 'status', message: 'Saving your thought...' }
 
   const { items } = await decomposeForStorage(userInput, conversationHistory)
-  const today = new Date().toISOString().split('T')[0]
+  const today = formatLocalDate(new Date())
   const date = classification.extractedDate ?? today
 
   if (items.length <= 1) {
-    const item = items[0] ?? { content: userInput, tags: [] }
+    const item = items[0] ?? { content: userInput, type: 'thought' as const, tags: [] }
     const tags = item.tags.length > 0 ? item.tags : classification.extractedTags
-    const docType = inferDocumentType(tags)
-    yield* storeSingleItem(item.content, userInput, docType, date, tags)
+    yield* storeSingleItem(item.content, userInput, item.type, date, tags)
   } else {
     yield* storeMultipleItems(items, userInput, date)
   }
@@ -75,7 +75,7 @@ async function* storeMultipleItems(
     const duplicate = await checkForDuplicate(item.content)
     if (duplicate) duplicateCount++
 
-    const itemDocType = inferDocumentType(item.tags)
+    const itemDocType = item.type
     if (itemDocType === 'todo') hasTodos = true
 
     const doc = await storeThoughtWithMetadata(
@@ -92,12 +92,6 @@ async function* storeMultipleItems(
     message += ` (${duplicateCount} seemed similar to notes you already have.)`
   }
   yield { type: 'chunk', content: message }
-}
-
-function inferDocumentType(tags: readonly string[]): DocumentType {
-  const lowerTags = tags.map((t) => t.toLowerCase())
-  if (lowerTags.includes('todo')) return 'todo'
-  return 'thought'
 }
 
 function summarizeTopic(input: string): string {

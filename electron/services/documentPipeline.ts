@@ -5,6 +5,7 @@ import {
   insertDocument,
   searchSimilar,
   getAllDocuments,
+  getDocumentsByFilter,
 } from './lanceService'
 import type {
   LoreDocument,
@@ -24,13 +25,19 @@ const TAG_BOOST_FACTOR = 0.2
 function buildFilter(options?: RetrievalOptions): string | undefined {
   const parts: string[] = []
   if (options?.type) {
-    parts.push(`type = '${options.type}'`)
+    parts.push(`type = '${escapeFilterValue(options.type)}'`)
   }
   if (options?.dateFrom) {
-    parts.push(`date >= '${options.dateFrom}'`)
+    parts.push(`date >= '${escapeFilterValue(options.dateFrom)}'`)
   }
   if (options?.dateTo) {
-    parts.push(`date <= '${options.dateTo}'`)
+    parts.push(`date <= '${escapeFilterValue(options.dateTo)}'`)
+  }
+  if (options?.createdAtFrom) {
+    parts.push(`createdAt >= '${escapeFilterValue(options.createdAtFrom)}'`)
+  }
+  if (options?.createdAtTo) {
+    parts.push(`createdAt < '${escapeFilterValue(options.createdAtTo)}'`)
   }
   return parts.length > 0 ? parts.join(' AND ') : undefined
 }
@@ -134,8 +141,18 @@ export async function retrieveRelevantDocuments(
 
   const limit = options?.maxResults ?? DEFAULT_MAX_RESULTS
   const filter = buildFilter(options)
+  const rawResults = await searchSimilar(queryVector, limit, filter)
 
-  return searchSimilar(queryVector, limit, filter)
+  if (typeof options?.similarityThreshold !== 'number') {
+    return rawResults
+  }
+
+  return rawResults.filter((document) => {
+    const distance = '_distance' in document
+      ? (document as Record<string, unknown>)._distance as number
+      : 1
+    return 1 - distance >= options.similarityThreshold!
+  })
 }
 
 // ── Adaptive retrieval ────────────────────────────────────────
@@ -177,6 +194,31 @@ export async function retrieveWithAdaptiveThreshold(
     documents: relevant,
     totalCandidates: boosted.length,
     cutoffScore: relevant.length > 0 ? relevant[relevant.length - 1].score : 0,
+  }
+}
+
+export async function retrieveByFilters(
+  options?: RetrievalOptions,
+): Promise<RetrievedDocumentSet> {
+  const filter = buildFilter(options)
+  const limit = options?.maxResults ?? DEFAULT_MAX_RESULTS
+  const documents = await getDocumentsByFilter(filter, limit)
+
+  const scoredDocuments: ScoredDocument[] = boostByTags(
+    documents.map((document) => ({ ...document, score: 1 })),
+    options?.tags ?? [],
+  ).sort((left, right) => {
+    if (right.score !== left.score) {
+      return right.score - left.score
+    }
+
+    return right.createdAt.localeCompare(left.createdAt)
+  })
+
+  return {
+    documents: scoredDocuments,
+    totalCandidates: scoredDocuments.length,
+    cutoffScore: scoredDocuments.length > 0 ? scoredDocuments[scoredDocuments.length - 1].score : 0,
   }
 }
 
@@ -259,4 +301,8 @@ export async function multiQueryRetrieve(
 export async function getDocumentCount(): Promise<number> {
   const docs = await getAllDocuments(false)
   return docs.length
+}
+
+function escapeFilterValue(value: string): string {
+  return value.replace(/'/g, "''")
 }

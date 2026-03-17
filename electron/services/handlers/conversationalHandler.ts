@@ -2,6 +2,7 @@ import { chat } from '../ollamaService'
 import { getSettings } from '../settingsService'
 import { loadSkill } from '../skillLoader'
 import { logger } from '../../logger'
+import { looksLikeStoredDataQuestion } from '../userIntentHeuristics'
 import type { ClassificationResult, ConversationEntry, AgentEvent } from '../../../shared/types'
 
 let cachedConversationalSystemPrompt: string | null = null
@@ -56,7 +57,7 @@ export async function* handleConversational(
       response = ''
     }
 
-    yield { type: 'chunk', content: normalizeConversationalResponse(response) }
+    yield { type: 'chunk', content: normalizeConversationalResponse(userInput, response) }
   } catch (err) {
     yield {
       type: 'error',
@@ -86,11 +87,16 @@ async function collectChatResponse(
   return response
 }
 
-function normalizeConversationalResponse(response: string): string {
+function normalizeConversationalResponse(userInput: string, response: string): string {
   const trimmedResponse = response.trim()
-  if (trimmedResponse.length > 0) return trimmedResponse
+  const fallbackHint = buildPotentialMisrouteHint(userInput)
 
-  return "I'm here to help explain how Lore works. Ask me about saving notes, searching your data, managing todos, or changing preferences."
+  if (trimmedResponse.length > 0) {
+    return fallbackHint ? `${trimmedResponse}\n\n${fallbackHint}` : trimmedResponse
+  }
+
+  const defaultResponse = "I'm here to help explain how Lore works. Ask me about saving notes, searching your data, managing todos, or changing preferences."
+  return fallbackHint ? `${defaultResponse}\n\n${fallbackHint}` : defaultResponse
 }
 
 function looksLikeStructuredAgentOutput(response: string): boolean {
@@ -130,4 +136,12 @@ function looksLikeJsonEnvelope(value: string): boolean {
   } catch {
     return false
   }
+}
+
+function buildPotentialMisrouteHint(userInput: string): string | null {
+  if (looksLikeStoredDataQuestion(userInput)) {
+    return 'If you meant that you want me to search your stored content, ask me directly about the notes, todos, or information you want me to find.'
+  }
+
+  return null
 }

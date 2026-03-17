@@ -2,12 +2,14 @@ import { retrieveRelevantDocuments } from '../documentPipeline'
 import { hardDeleteDocument, updateDocument } from '../lanceService'
 import { embedText } from '../embeddingService'
 import { resolveCommandTargets } from '../commandDecompositionService'
+import { looksLikeInstructionManagementRequest } from '../userIntentHeuristics'
 import type {
   ClassificationResult,
   ConversationEntry,
   AgentEvent,
   LoreDocument,
   CommandOperation,
+  RetrievalOptions,
 } from '../../../shared/types'
 
 interface ExecutionResult {
@@ -19,15 +21,23 @@ export async function* handleCommand(
   userInput: string,
   classification: ClassificationResult,
   conversationHistory: readonly ConversationEntry[] = [],
+  retrievalOverrides?: RetrievalOptions,
 ): AsyncGenerator<AgentEvent> {
   yield { type: 'status', message: 'Finding relevant documents...' }
 
   const isTodoCompletion = classification.extractedTags.some(
     (tag) => tag.toLowerCase() === 'todo',
   )
-  const retrievalOpts = isTodoCompletion
-    ? { type: 'todo' as const }
-    : undefined
+  const retrievalOpts: RetrievalOptions = { ...retrievalOverrides }
+
+  if (!retrievalOpts.type && isTodoCompletion) {
+    retrievalOpts.type = 'todo'
+  }
+
+  if (!retrievalOpts.type && looksLikeInstructionManagementRequest(userInput)) {
+    retrievalOpts.type = 'instruction'
+  }
+
   const documents = await retrieveRelevantDocuments(userInput, retrievalOpts)
 
   if (documents.length === 0) {

@@ -6,6 +6,7 @@ import type {
   OllamaSetupProgress,
   PullProgress,
   ActivePullProgress,
+  DisplayInfo,
   DatabaseStats,
   RetrievalOptions,
   SystemInfo,
@@ -149,6 +150,9 @@ const loreAPI = {
 
   getSettings: (): Promise<AppSettings> =>
     ipcRenderer.invoke('settings:get'),
+
+  getDisplays: (): Promise<DisplayInfo[]> =>
+    ipcRenderer.invoke('window:list-displays'),
 
   updateSettings: (settings: Partial<AppSettings>): Promise<AppSettings> =>
     ipcRenderer.invoke('settings:update', settings),

@@ -1,7 +1,8 @@
+import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { FolderOpen, X } from 'lucide-react'
-import type { AppSettings } from '../../../shared/types'
+import type { AppSettings, DisplayInfo } from '../../../shared/types'
 
 interface GeneralSettingsProps {
   settings: AppSettings
@@ -9,6 +10,22 @@ interface GeneralSettingsProps {
 }
 
 export function GeneralSettings({ settings, onUpdate }: GeneralSettingsProps) {
+  const [displays, setDisplays] = useState<DisplayInfo[]>([])
+
+  useEffect(() => {
+    let isMounted = true
+
+    void window.loreAPI.getDisplays().then((availableDisplays) => {
+      if (isMounted) {
+        setDisplays(availableDisplays)
+      }
+    })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   const handlePickModelsFolder = async () => {
     const folder = await window.loreAPI.setupPickModelsFolder()
     if (folder) onUpdate({ ollamaModelsPath: folder })
@@ -57,6 +74,30 @@ export function GeneralSettings({ settings, onUpdate }: GeneralSettingsProps) {
               }`}
             />
           </button>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-foreground">Chat Display</label>
+          <select
+            value={settings.preferredDisplayId === null ? 'auto' : String(settings.preferredDisplayId)}
+            onChange={(event) => {
+              const nextValue = event.target.value
+              onUpdate({
+                preferredDisplayId: nextValue === 'auto' ? null : Number(nextValue),
+              })
+            }}
+            className="max-w-sm rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+          >
+            <option value="auto">Auto (screen nearest to cursor)</option>
+            {displays.map((display) => (
+              <option key={display.id} value={String(display.id)}>
+                {display.label}{display.isPrimary ? ' - Primary' : ''}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Choose where the chat window appears. Auto follows the screen nearest to your cursor.
+          </p>
         </div>
 
         <div className="space-y-2">

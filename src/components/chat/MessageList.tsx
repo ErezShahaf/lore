@@ -33,20 +33,22 @@ function EmptyState() {
 export function MessageList({ messages, isLoading, statusMessage }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const viewportRef = useRef<HTMLDivElement | null>(null)
-  const userHasScrolledUpRef = useRef(false)
+  const shouldAutoFollowRef = useRef(true)
   const userMessageCountRef = useRef(0)
+  const previousMessageSignatureRef = useRef('')
+
+  const scrollToBottom = (behavior: ScrollBehavior): void => {
+    bottomRef.current?.scrollIntoView({ behavior })
+  }
 
   useEffect(() => {
     const viewport = viewportRef.current
     if (!viewport) return
 
     const handleScroll = (): void => {
-      if (isScrolledToBottom(viewport, USER_SCROLL_THRESHOLD_PX)) {
-        userHasScrolledUpRef.current = false
-      } else {
-        userHasScrolledUpRef.current = true
-      }
+      shouldAutoFollowRef.current = isScrolledToBottom(viewport, USER_SCROLL_THRESHOLD_PX)
     }
+
     viewport.addEventListener('scroll', handleScroll, { passive: true })
     return () => viewport.removeEventListener('scroll', handleScroll)
   }, [])
@@ -59,12 +61,19 @@ export function MessageList({ messages, isLoading, statusMessage }: MessageListP
     const isNewUserMessage = userMessageCount > userMessageCountRef.current
     if (isNewUserMessage) {
       userMessageCountRef.current = userMessageCount
-      userHasScrolledUpRef.current = false
+      shouldAutoFollowRef.current = true
+      scrollToBottom('smooth')
+      previousMessageSignatureRef.current = messages.map((message) => message.id).join('|')
+      return
     }
 
-    if (userHasScrolledUpRef.current) return
-    if (!isNewUserMessage && !isScrolledToBottom(viewport)) return
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const messageSignature = messages.map((message) => message.id).join('|')
+    const hasNewMessage = messageSignature !== previousMessageSignatureRef.current
+    previousMessageSignatureRef.current = messageSignature
+
+    if (!shouldAutoFollowRef.current) return
+
+    scrollToBottom(hasNewMessage ? 'smooth' : 'auto')
   }, [messages, isLoading, statusMessage])
 
   if (messages.length === 0 && !isLoading) return <EmptyState />

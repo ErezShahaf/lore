@@ -166,7 +166,7 @@ export async function updateDocument(
 
   const result = await table.update(valueUpdates, { where: `id = '${escapeSql(id)}'` })
   logger.debug(
-    { id: id.slice(0, 8), updatedColumns: Object.keys(valueUpdates), rowsUpdated: result?.rows_updated },
+    { id: id.slice(0, 8), updatedColumns: Object.keys(valueUpdates), rowsUpdated: result?.rowsUpdated },
     '[LanceDB] updateDocument',
   )
 }
@@ -243,6 +243,25 @@ export async function getDocumentsByDateRange(
     .toArray()
 
   return results.map((r: Record<string, unknown>) => rowToDoc(r))
+}
+
+export async function getDocumentsByFilter(
+  filter?: string,
+  limit?: number,
+): Promise<LoreDocument[]> {
+  const table = getTable()
+  let query = table.query()
+  const fullFilter = filter
+    ? `isDeleted = false AND (${filter})`
+    : 'isDeleted = false'
+
+  query = query.where(fullFilter)
+  if (typeof limit === 'number' && Number.isFinite(limit)) {
+    query = query.limit(limit)
+  }
+
+  const results = await query.toArray()
+  return results.map((row: Record<string, unknown>) => rowToDoc(row))
 }
 
 export async function getAllDocuments(includeDeleted = false): Promise<LoreDocument[]> {

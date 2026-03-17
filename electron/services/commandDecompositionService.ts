@@ -1,4 +1,4 @@
-import { chat } from './ollamaService'
+import { generateStructuredResponse } from './ollamaService'
 import { getSettings } from './settingsService'
 import { loadSkill } from './skillLoader'
 import { logger } from '../logger'
@@ -29,16 +29,22 @@ const COMMAND_RESOLUTION_SCHEMA = {
             type: 'string',
             enum: ['delete', 'update'],
           },
-          updatedContent: { type: 'string' },
+          updatedContent: {
+            anyOf: [{ type: 'string' }, { type: 'null' }],
+          },
           confidence: { type: 'number' },
           description: { type: 'string' },
         },
-        required: ['targetDocumentIds', 'action', 'confidence', 'description'],
+        required: ['targetDocumentIds', 'action', 'updatedContent', 'confidence', 'description'],
+        additionalProperties: false,
       },
     },
-    clarificationMessage: { type: 'string' },
+    clarificationMessage: {
+      anyOf: [{ type: 'string' }, { type: 'null' }],
+    },
   },
-  required: ['status'],
+  required: ['status', 'operations', 'clarificationMessage'],
+  additionalProperties: false,
 }
 
 const MAX_RETRIES = 2
@@ -70,51 +76,33 @@ export async function resolveCommandTargets(
     content: `User wants to: ${userInput}\n\nMatching documents from database:\n${docsForPrompt}`,
   })
 
-  let lastError: unknown
+  try {
+    const resolution = await generateStructuredResponse({
+      model: settings.selectedModel,
+      messages,
+      schema: COMMAND_RESOLUTION_SCHEMA,
+      maxAttempts: MAX_RETRIES,
+      validate: (parsed) => validateResolution(parsed, documents),
+    })
 
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    try {
-      const stream = chat({
-        model: settings.selectedModel,
-        messages,
-        stream: false,
-        format: COMMAND_RESOLUTION_SCHEMA,
-        think: false,
-      })
+    logger.debug(
+      {
+        status: resolution.status,
+        operationCount: resolution.status === 'execute' ? resolution.operations.length : 0,
+      },
+      '[CommandDecomposition] Resolved command',
+    )
 
-      let response = ''
-      for await (const chunk of stream) {
-        response += chunk
-      }
-
-      const parsed = JSON.parse(sanitizeJsonResponse(response))
-      const resolution = validateResolution(parsed, documents)
-
-      logger.debug(
-        {
-          status: resolution.status,
-          operationCount: resolution.status === 'execute' ? resolution.operations.length : 0,
-        },
-        '[CommandDecomposition] Resolved command',
-      )
-
-      return resolution
-    } catch (error) {
-      lastError = error
-      logger.warn(
-        { error, attempt: attempt + 1, maxRetries: MAX_RETRIES },
-        '[CommandDecomposition] Attempt failed',
-      )
-    }
+    return resolution
+  } catch (error) {
+    logger.error(
+      { error },
+      '[CommandDecomposition] All attempts failed',
+    )
+    throw new Error(
+      `Command decomposition failed after ${MAX_RETRIES} attempts: ${error instanceof Error ? error.message : String(error)}`,
+    )
   }
-
-  logger.error(
-    { lastError },
-    '[CommandDecomposition] All attempts failed',
-  )
-  throw new Error(
-    `Command decomposition failed after ${MAX_RETRIES} attempts: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
-  )
 }
 
 function validateResolution(
@@ -189,15 +177,4 @@ function validateAction(value: unknown): CommandOperation['action'] {
   return validActions.includes(value as CommandOperation['action'])
     ? (value as CommandOperation['action'])
     : 'delete'
-}
-
-function sanitizeJsonResponse(raw: string): string {
-  let cleaned = raw.trim()
-  cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/g, '')
-  const first = cleaned.indexOf('{')
-  const last = cleaned.lastIndexOf('}')
-  if (first !== -1 && last !== -1 && last > first) {
-    cleaned = cleaned.slice(first, last + 1)
-  }
-  return cleaned
 }

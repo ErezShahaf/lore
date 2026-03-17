@@ -31,7 +31,7 @@ export function createTray(): Tray {
   tray.setToolTip('Lore')
 
   if (process.platform === 'darwin') {
-    app.dock.hide()
+    app.dock?.hide()
   }
 
   const contextMenu = Menu.buildFromTemplate([
