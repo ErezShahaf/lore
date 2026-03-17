@@ -31,6 +31,18 @@ Example of a valid response:
 {"intent":"thought","subtype":"general","extractedDate":"2025-03-14","extractedTags":["work","meeting","project","standup"],"confidence":0.95,"reasoning":"User is sharing information to remember."}
 {"intent":"conversational","subtype":"reaction","extractedDate":null,"extractedTags":[],"confidence":0.95,"reasoning":"User is reacting to the previous assistant message with no actionable content."}
 
+Intent selection strategy:
+- Classify based on the PRIMARY SYSTEM ACTION required to satisfy the user's message, not on whether the wording sounds casual or conversational.
+- Ask yourself which subsystem would need to run:
+  - Store NEW information in the database → "thought"
+  - Retrieve/search/summarize EXISTING stored information → "question"
+  - Modify/delete/reorder EXISTING stored information → "command"
+  - Change future assistant behavior/preferences → "instruction"
+  - No database action and no preference change; only social chat, product-help, capability explanation, or reaction → "conversational"
+- CRITICAL: "conversational" is the fallback ONLY when the assistant should NOT store, retrieve, modify, or update preferences.
+- CRITICAL: Requests to list, show, find, recall, summarize, or answer something from stored data are ALWAYS "question" even if phrased casually. Examples: "show me my todos", "what's on my todo list", "what do I need to do?", "tell me what you know about my meetings".
+- CRITICAL: Questions about HOW Lore works or HOW TO use Lore are "conversational". Examples: "how do I add a todo?", "what can you do?", "how does search work?".
+
 Intent definitions:
 - "conversational": The user is engaging in conversation that does NOT contain actionable content (no data to save, no question about existing data to answer, no command to execute, no instruction to set). This intent covers THREE scenarios:
   1. Pure greetings with NO actionable content — e.g. "hello", "hi", "hey there", "good morning", "what's up".

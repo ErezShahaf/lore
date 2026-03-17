@@ -1,6 +1,8 @@
 import { getSettings } from './settingsService'
 
 const EMBEDDING_DIMENSIONS: Record<string, number> = {
+  'qwen3-embedding:0.6b': 1024,
+  'bge-m3': 1024,
   'nomic-embed-text': 768,
   'mxbai-embed-large': 1024,
   'all-minilm': 384,

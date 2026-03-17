@@ -53,6 +53,39 @@ export const RECOMMENDED_MODELS: RecommendedModel[] = [
   },
   // ── Embedding models ──────────────────────────────────────
   {
+    displayName: 'Qwen 3 Embedding 0.6B',
+    parametersBillions: 0.6,
+    tier: 'medium',
+    category: 'embedding',
+    description: 'Best quality small-model option for multilingual and code retrieval',
+    gpuRecommended: false,
+    variants: [
+      { tag: 'qwen3-embedding:0.6b', quantization: 'Default', sizeOnDisk: '~639 MB', minRAMGB: 6 },
+    ],
+  },
+  {
+    displayName: 'BGE-M3',
+    parametersBillions: 0.567,
+    tier: 'medium',
+    category: 'embedding',
+    description: 'Strong multilingual choice for longer documents and cross-language search',
+    gpuRecommended: false,
+    variants: [
+      { tag: 'bge-m3', quantization: 'Default', sizeOnDisk: '~1.2 GB', minRAMGB: 8 },
+    ],
+  },
+  {
+    displayName: 'MXBAI Embed Large',
+    parametersBillions: 0.335,
+    tier: 'small',
+    category: 'embedding',
+    description: 'High-quality general-purpose retrieval model with broad community adoption',
+    gpuRecommended: false,
+    variants: [
+      { tag: 'mxbai-embed-large', quantization: 'Default', sizeOnDisk: '~670 MB', minRAMGB: 6 },
+    ],
+  },
+  {
     displayName: 'Nomic Embed Text',
     parametersBillions: 0.137,
     tier: 'small',
@@ -61,17 +94,6 @@ export const RECOMMENDED_MODELS: RecommendedModel[] = [
     gpuRecommended: false,
     variants: [
       { tag: 'nomic-embed-text', quantization: 'Default', sizeOnDisk: '~274 MB', minRAMGB: 4 },
-    ],
-  },
-  {
-    displayName: 'All-MiniLM',
-    parametersBillions: 0.033,
-    tier: 'small',
-    category: 'embedding',
-    description: 'Ultra-lightweight embeddings for constrained systems',
-    gpuRecommended: false,
-    variants: [
-      { tag: 'all-minilm', quantization: 'Default', sizeOnDisk: '~67 MB', minRAMGB: 4 },
     ],
   },
 ]

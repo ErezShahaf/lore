@@ -494,7 +494,7 @@ function RecommendedModelCard({
     <div
       className={cn(
         'rounded-lg border px-4 py-3',
-        isBest && !installed ? 'border-primary/40 bg-primary/5' : 'border-border/50',
+        isBest ? 'border-primary/40 bg-primary/5' : 'border-border/50',
         !compatible && 'opacity-50',
       )}
     >
@@ -513,7 +513,7 @@ function RecommendedModelCard({
                 {variant.quantization}
               </span>
             )}
-            {isBest && !installed && (
+            {isBest && (
               <span className="flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
                 <Star className="size-2.5" />
                 Best for your system
