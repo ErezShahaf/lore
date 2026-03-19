@@ -1,5 +1,6 @@
 const HELP_QUERY_PATTERN = /\b(how do i|how can i|how does|what can you do|help|usage|capabilities?)\b/i
 const TODO_PATTERN = /\b(todo|todos|to-do|to dos|to do|task list|tasks?)\b/i
+const TODO_PLACEMENT_PATTERN = /\bput\b[\s\S]{0,160}\b(?:on|in)\s+(?:my\s+)?(?:todo(?:\s+list)?|task\s+list|tasks?|reminders?)\b/i
 const RETRIEVAL_VERB_PATTERN = /\b(show|list|find|search|recall|remember|summarize|tell|get|what|which)\b/i
 const DATA_REFERENCE_PATTERN = /\b(my|me|i|stored|saved|database|db|notes?|todos?|tasks?|documents?)\b/i
 const DATE_REQUEST_PATTERN = /\b(date|day|time|when|today|yesterday|tomorrow|week|month|year|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i
@@ -13,13 +14,17 @@ const COMPLETION_VERB_PATTERN = /\b(finished|finish|done|completed|complete)\b/i
 const REFERENTIAL_TARGET_PATTERN = /\b(it|that|this|one|them|those|these)\b/i
 const EXPLICIT_MULTI_TARGET_PATTERN = /\b(all|both|these|those|all of them|every|everything)\b/i
 const ORDINAL_REFERENCE_PATTERN = /\b(first|second|third|last|previous)\b/i
+const VAGUE_IMPERATIVE_PATTERN = /^(?:please\s+)?(?:do|handle|fix|solve|manage|deal with|take care of)\s+(?:it|this|that|the thing|the stuff|something)\b[.!?]*$/i
+const CLARIFICATION_FOLLOW_UP_PATTERN = /^(?:i mean|the one|the .* one|the first|the second|the third|from [a-z]+|it'?s|its)\b/i
 
 export function looksLikeTodoQuery(userInput: string): boolean {
   return TODO_PATTERN.test(userInput)
 }
 
 export function looksLikeExplicitStorageRequest(userInput: string): boolean {
-  return EXPLICIT_STORAGE_VERB_PATTERN.test(userInput) || looksLikeExplicitTypedList(userInput)
+  return EXPLICIT_STORAGE_VERB_PATTERN.test(userInput)
+    || TODO_PLACEMENT_PATTERN.test(userInput)
+    || looksLikeExplicitTypedList(userInput)
 }
 
 export function looksLikeExplicitTypedList(userInput: string): boolean {
@@ -131,4 +136,12 @@ export function looksLikeAmbiguousDocumentReference(userInput: string): boolean 
 
   const hasDisambiguatingLanguage = /\b(all|both|either|any|first|second|third|last|previous)\b/i.test(userInput)
   return !hasDisambiguatingLanguage
+}
+
+export function looksLikeVagueImperativeRequest(userInput: string): boolean {
+  return VAGUE_IMPERATIVE_PATTERN.test(userInput.trim())
+}
+
+export function looksLikeClarificationFollowUp(userInput: string): boolean {
+  return CLARIFICATION_FOLLOW_UP_PATTERN.test(userInput.trim())
 }

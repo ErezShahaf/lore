@@ -1,0 +1,2807 @@
+{
+  "evalId": "eval-ykh-2026-03-19T23:26:07",
+  "results": {
+    "version": 3,
+    "timestamp": "2026-03-19T23:26:07.232Z",
+    "prompts": [
+      {
+        "id": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "raw": "{{scenarioId}}",
+        "label": "{{scenarioId}}",
+        "provider": "qwen3.5:9b",
+        "metrics": {
+          "score": 5,
+          "testPassCount": 5,
+          "testFailCount": 0,
+          "testErrorCount": 0,
+          "assertPassCount": 5,
+          "assertFailCount": 0,
+          "totalLatencyMs": 228598,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 5,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0
+              }
+            }
+          },
+          "namedScores": {},
+          "namedScoresCount": {},
+          "cost": 0
+        }
+      }
+    ],
+    "results": [
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Clarification follow-up resolves the right todo"
+            }
+          ]
+        },
+        "id": "090f8de1-c213-45e6-a42d-ffac9319b9fd",
+        "latencyMs": 37751,
+        "namedScores": {},
+        "prompt": {
+          "raw": "clarification-resolves-ambiguous-update",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Clarification follow-up resolves the right todo",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Clarification follow-up resolves the right todo",
+            "scenarioId": "clarification-resolves-ambiguous-update",
+            "scenarioTitle": "Clarification follow-up resolves the right todo",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Todos: jump on the water, drink the water",
+                "finalUserInput": "Todos: jump on the water, drink the water",
+                "response": "Got it! I've saved 2 todos.",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Saving your thought..."
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "e8ea7713-282b-446b-9d84-8826e5240479"
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "b6227699-f7f4-4da8-9a27-31428b622e44"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Got it! I've saved 2 todos."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "jump on the water",
+                  "drink the water"
+                ],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Todos: jump on the water, drink the water",
+                    "response": "Got it! I've saved 2 todos.",
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the water"
+                    ],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              },
+              {
+                "stepIndex": 1,
+                "initialUserInput": "Edit the water to fire",
+                "finalUserInput": "The one about drinking. Change it to drink the fire.",
+                "response": "Done! I've updated \"drink the water\".",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Finding relevant documents..."
+                  },
+                  {
+                    "type": "retrieved",
+                    "documentIds": [
+                      "b6227699-f7f4-4da8-9a27-31428b622e44",
+                      "e8ea7713-282b-446b-9d84-8826e5240479"
+                    ],
+                    "totalRetrieved": 2
+                  },
+                  {
+                    "type": "status",
+                    "message": "Analyzing your request..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Executing update..."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Done! I've updated \"drink the water\"."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "jump on the water",
+                  "drink the fire"
+                ],
+                "retrievedContents": [
+                  "drink the fire",
+                  "jump on the water"
+                ],
+                "retrievedCount": 2,
+                "totalCandidates": 2,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Edit the water to fire",
+                    "response": "I found two todos that mention 'water'. Which one would you like to edit to 'fire'? \n1. 'drink the water'\n2. 'jump on the water'",
+                    "events": [
+                      {
+                        "type": "status",
+                        "message": "Classifying your input..."
+                      },
+                      {
+                        "type": "status",
+                        "message": "Finding relevant documents..."
+                      },
+                      {
+                        "type": "retrieved",
+                        "documentIds": [
+                          "b6227699-f7f4-4da8-9a27-31428b622e44",
+                          "e8ea7713-282b-446b-9d84-8826e5240479"
+                        ],
+                        "totalRetrieved": 2
+                      },
+                      {
+                        "type": "status",
+                        "message": "Analyzing your request..."
+                      },
+                      {
+                        "type": "chunk",
+                        "content": "I found two todos that mention 'water'. Which one would you like to edit to 'fire'? \n1. 'drink the water'\n2. 'jump on the water'"
+                      },
+                      {
+                        "type": "done"
+                      }
+                    ],
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the water"
+                    ],
+                    "retrievedContents": [
+                      "drink the water",
+                      "jump on the water"
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": {
+                      "candidateEvaluations": [
+                        {
+                          "id": "choose-drinking-todo",
+                          "label": "Choose the drinking todo",
+                          "userInput": "The one about drinking. Change it to drink the fire.",
+                          "pass": true,
+                          "reason": "The assistant correctly identified that multiple todos contain the word 'water' and explicitly asked the user to clarify which specific todo they intended to update. This aligns perfectly with the rubric requirement for the assistant to ask for clarification."
+                        }
+                      ],
+                      "selectedResponseId": "choose-drinking-todo",
+                      "selectedUserInput": "The one about drinking. Change it to drink the fire."
+                    }
+                  },
+                  {
+                    "turnIndex": 1,
+                    "userInput": "The one about drinking. Change it to drink the fire.",
+                    "response": "Done! I've updated \"drink the water\".",
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the fire"
+                    ],
+                    "retrievedContents": [
+                      "drink the fire",
+                      "jump on the water"
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": {
+                      "candidateEvaluations": [],
+                      "selectedResponseId": null,
+                      "selectedUserInput": null
+                    }
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [
+              {
+                "id": "e8ea7713-282b-446b-9d84-8826e5240479",
+                "content": "jump on the water",
+                "type": "todo",
+                "createdAt": "2026-03-19T23:26:11.029Z",
+                "updatedAt": "2026-03-19T23:26:11.029Z",
+                "date": "2026-03-20",
+                "tags": "todo",
+                "source": "Todos: jump on the water, drink the water",
+                "metadata": "{\"groupId\":\"36bf0600-86ea-4b67-958b-64ff45e0a728\"}",
+                "isDeleted": false
+              },
+              {
+                "id": "b6227699-f7f4-4da8-9a27-31428b622e44",
+                "content": "drink the fire",
+                "type": "todo",
+                "createdAt": "2026-03-19T23:26:11.181Z",
+                "updatedAt": "2026-03-19T23:26:36.749Z",
+                "date": "2026-03-20",
+                "tags": "todo",
+                "source": "Todos: jump on the water, drink the water",
+                "metadata": "{\"groupId\":\"36bf0600-86ea-4b67-958b-64ff45e0a728\"}",
+                "isDeleted": false
+              }
+            ],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "clarification-resolves-ambiguous-update"
+          },
+          "metadata": {
+            "scenarioId": "clarification-resolves-ambiguous-update",
+            "scenarioTitle": "Clarification follow-up resolves the right todo",
+            "topic": "todo-update",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Clarification follow-up resolves the right todo",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 0,
+        "vars": {
+          "scenarioId": "clarification-resolves-ambiguous-update"
+        },
+        "metadata": {
+          "scenarioId": "clarification-resolves-ambiguous-update",
+          "scenarioTitle": "Clarification follow-up resolves the right todo",
+          "topic": "todo-update",
+          "suites": [
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Clarification follow-up resolves the right todo",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Todos: jump on the water, drink the water",
+              "finalUserInput": "Todos: jump on the water, drink the water",
+              "response": "Got it! I've saved 2 todos.",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Saving your thought..."
+                },
+                {
+                  "type": "stored",
+                  "documentId": "e8ea7713-282b-446b-9d84-8826e5240479"
+                },
+                {
+                  "type": "stored",
+                  "documentId": "b6227699-f7f4-4da8-9a27-31428b622e44"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Got it! I've saved 2 todos."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "jump on the water",
+                "drink the water"
+              ],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Todos: jump on the water, drink the water",
+                  "response": "Got it! I've saved 2 todos.",
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the water"
+                  ],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            },
+            {
+              "stepIndex": 1,
+              "initialUserInput": "Edit the water to fire",
+              "finalUserInput": "The one about drinking. Change it to drink the fire.",
+              "response": "Done! I've updated \"drink the water\".",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Finding relevant documents..."
+                },
+                {
+                  "type": "retrieved",
+                  "documentIds": [
+                    "b6227699-f7f4-4da8-9a27-31428b622e44",
+                    "e8ea7713-282b-446b-9d84-8826e5240479"
+                  ],
+                  "totalRetrieved": 2
+                },
+                {
+                  "type": "status",
+                  "message": "Analyzing your request..."
+                },
+                {
+                  "type": "status",
+                  "message": "Executing update..."
+                },
+                {
+                  "type": "chunk",
+                  "content": "Done! I've updated \"drink the water\"."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "jump on the water",
+                "drink the fire"
+              ],
+              "retrievedContents": [
+                "drink the fire",
+                "jump on the water"
+              ],
+              "retrievedCount": 2,
+              "totalCandidates": 2,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Edit the water to fire",
+                  "response": "I found two todos that mention 'water'. Which one would you like to edit to 'fire'? \n1. 'drink the water'\n2. 'jump on the water'",
+                  "events": [
+                    {
+                      "type": "status",
+                      "message": "Classifying your input..."
+                    },
+                    {
+                      "type": "status",
+                      "message": "Finding relevant documents..."
+                    },
+                    {
+                      "type": "retrieved",
+                      "documentIds": [
+                        "b6227699-f7f4-4da8-9a27-31428b622e44",
+                        "e8ea7713-282b-446b-9d84-8826e5240479"
+                      ],
+                      "totalRetrieved": 2
+                    },
+                    {
+                      "type": "status",
+                      "message": "Analyzing your request..."
+                    },
+                    {
+                      "type": "chunk",
+                      "content": "I found two todos that mention 'water'. Which one would you like to edit to 'fire'? \n1. 'drink the water'\n2. 'jump on the water'"
+                    },
+                    {
+                      "type": "done"
+                    }
+                  ],
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the water"
+                  ],
+                  "retrievedContents": [
+                    "drink the water",
+                    "jump on the water"
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": {
+                    "candidateEvaluations": [
+                      {
+                        "id": "choose-drinking-todo",
+                        "label": "Choose the drinking todo",
+                        "userInput": "The one about drinking. Change it to drink the fire.",
+                        "pass": true,
+                        "reason": "The assistant correctly identified that multiple todos contain the word 'water' and explicitly asked the user to clarify which specific todo they intended to update. This aligns perfectly with the rubric requirement for the assistant to ask for clarification."
+                      }
+                    ],
+                    "selectedResponseId": "choose-drinking-todo",
+                    "selectedUserInput": "The one about drinking. Change it to drink the fire."
+                  }
+                },
+                {
+                  "turnIndex": 1,
+                  "userInput": "The one about drinking. Change it to drink the fire.",
+                  "response": "Done! I've updated \"drink the water\".",
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the fire"
+                  ],
+                  "retrievedContents": [
+                    "drink the fire",
+                    "jump on the water"
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": {
+                    "candidateEvaluations": [],
+                    "selectedResponseId": null,
+                    "selectedUserInput": null
+                  }
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [
+            {
+              "id": "e8ea7713-282b-446b-9d84-8826e5240479",
+              "content": "jump on the water",
+              "type": "todo",
+              "createdAt": "2026-03-19T23:26:11.029Z",
+              "updatedAt": "2026-03-19T23:26:11.029Z",
+              "date": "2026-03-20",
+              "tags": "todo",
+              "source": "Todos: jump on the water, drink the water",
+              "metadata": "{\"groupId\":\"36bf0600-86ea-4b67-958b-64ff45e0a728\"}",
+              "isDeleted": false
+            },
+            {
+              "id": "b6227699-f7f4-4da8-9a27-31428b622e44",
+              "content": "drink the fire",
+              "type": "todo",
+              "createdAt": "2026-03-19T23:26:11.181Z",
+              "updatedAt": "2026-03-19T23:26:36.749Z",
+              "date": "2026-03-20",
+              "tags": "todo",
+              "source": "Todos: jump on the water, drink the water",
+              "metadata": "{\"groupId\":\"36bf0600-86ea-4b67-958b-64ff45e0a728\"}",
+              "isDeleted": false
+            }
+          ],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Clarification follow-up resolves the right todo"
+            }
+          ]
+        },
+        "id": "ae8357e8-52e7-4990-852b-9980cb0dedd2",
+        "latencyMs": 51000,
+        "namedScores": {},
+        "prompt": {
+          "raw": "clarification-resolves-ambiguous-update",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Clarification follow-up resolves the right todo",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Clarification follow-up resolves the right todo",
+            "scenarioId": "clarification-resolves-ambiguous-update",
+            "scenarioTitle": "Clarification follow-up resolves the right todo",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Todos: jump on the water, drink the water",
+                "finalUserInput": "Todos: jump on the water, drink the water",
+                "response": "Got it! I've saved 2 todos.",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Saving your thought..."
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "350afed3-3f85-4371-be42-b5f9b9e90a3c"
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "cda6bdca-c28a-43c1-824d-a29b05bbae0b"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Got it! I've saved 2 todos."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "jump on the water",
+                  "drink the water"
+                ],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Todos: jump on the water, drink the water",
+                    "response": "Got it! I've saved 2 todos.",
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the water"
+                    ],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              },
+              {
+                "stepIndex": 1,
+                "initialUserInput": "Edit the water to fire",
+                "finalUserInput": "The one about drinking. Change it to drink the fire.",
+                "response": "Done! I've updated \"drink the water\".",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Finding relevant documents..."
+                  },
+                  {
+                    "type": "retrieved",
+                    "documentIds": [
+                      "cda6bdca-c28a-43c1-824d-a29b05bbae0b",
+                      "350afed3-3f85-4371-be42-b5f9b9e90a3c"
+                    ],
+                    "totalRetrieved": 2
+                  },
+                  {
+                    "type": "status",
+                    "message": "Analyzing your request..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Executing update..."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Done! I've updated \"drink the water\"."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "jump on the water",
+                  "drink the fire"
+                ],
+                "retrievedContents": [
+                  "drink the fire",
+                  "jump on the water"
+                ],
+                "retrievedCount": 2,
+                "totalCandidates": 2,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Edit the water to fire",
+                    "response": "I'm not confident about this: \"Edit water-related todos to 'fire'\". Could you be more specific about which document you mean?",
+                    "events": [
+                      {
+                        "type": "status",
+                        "message": "Classifying your input..."
+                      },
+                      {
+                        "type": "status",
+                        "message": "Finding relevant documents..."
+                      },
+                      {
+                        "type": "retrieved",
+                        "documentIds": [
+                          "cda6bdca-c28a-43c1-824d-a29b05bbae0b",
+                          "350afed3-3f85-4371-be42-b5f9b9e90a3c"
+                        ],
+                        "totalRetrieved": 2
+                      },
+                      {
+                        "type": "status",
+                        "message": "Analyzing your request..."
+                      },
+                      {
+                        "type": "chunk",
+                        "content": "I'm not confident about this: \"Edit water-related todos to 'fire'\". Could you be more specific about which document you mean?"
+                      },
+                      {
+                        "type": "done"
+                      }
+                    ],
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the water"
+                    ],
+                    "retrievedContents": [
+                      "drink the water",
+                      "jump on the water"
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": {
+                      "candidateEvaluations": [
+                        {
+                          "id": "choose-drinking-todo",
+                          "label": "Choose the drinking todo",
+                          "userInput": "The one about drinking. Change it to drink the fire.",
+                          "pass": true,
+                          "reason": "The assistant correctly identifies that the user's input 'Edit the water to fire' is ambiguous regarding which specific 'water-related todo' needs to be updated. It explicitly asks the user to clarify which document they mean, which aligns perfectly with the rubric requirement of asking for clarification on which water-related todo should be updated."
+                        }
+                      ],
+                      "selectedResponseId": "choose-drinking-todo",
+                      "selectedUserInput": "The one about drinking. Change it to drink the fire."
+                    }
+                  },
+                  {
+                    "turnIndex": 1,
+                    "userInput": "The one about drinking. Change it to drink the fire.",
+                    "response": "Done! I've updated \"drink the water\".",
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the fire"
+                    ],
+                    "retrievedContents": [
+                      "drink the fire",
+                      "jump on the water"
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": {
+                      "candidateEvaluations": [],
+                      "selectedResponseId": null,
+                      "selectedUserInput": null
+                    }
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [
+              {
+                "id": "350afed3-3f85-4371-be42-b5f9b9e90a3c",
+                "content": "jump on the water",
+                "type": "todo",
+                "createdAt": "2026-03-19T23:26:56.078Z",
+                "updatedAt": "2026-03-19T23:26:56.078Z",
+                "date": "2026-03-20",
+                "tags": "todo",
+                "source": "Todos: jump on the water, drink the water",
+                "metadata": "{\"groupId\":\"7063b384-b658-4c19-9aba-ba3d9a05fd2d\"}",
+                "isDeleted": false
+              },
+              {
+                "id": "cda6bdca-c28a-43c1-824d-a29b05bbae0b",
+                "content": "drink the fire",
+                "type": "todo",
+                "createdAt": "2026-03-19T23:26:56.217Z",
+                "updatedAt": "2026-03-19T23:27:23.661Z",
+                "date": "2026-03-20",
+                "tags": "todo",
+                "source": "Todos: jump on the water, drink the water",
+                "metadata": "{\"groupId\":\"7063b384-b658-4c19-9aba-ba3d9a05fd2d\"}",
+                "isDeleted": false
+              }
+            ],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "clarification-resolves-ambiguous-update"
+          },
+          "metadata": {
+            "scenarioId": "clarification-resolves-ambiguous-update",
+            "scenarioTitle": "Clarification follow-up resolves the right todo",
+            "topic": "todo-update",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Clarification follow-up resolves the right todo",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 1,
+        "vars": {
+          "scenarioId": "clarification-resolves-ambiguous-update"
+        },
+        "metadata": {
+          "scenarioId": "clarification-resolves-ambiguous-update",
+          "scenarioTitle": "Clarification follow-up resolves the right todo",
+          "topic": "todo-update",
+          "suites": [
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Clarification follow-up resolves the right todo",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Todos: jump on the water, drink the water",
+              "finalUserInput": "Todos: jump on the water, drink the water",
+              "response": "Got it! I've saved 2 todos.",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Saving your thought..."
+                },
+                {
+                  "type": "stored",
+                  "documentId": "350afed3-3f85-4371-be42-b5f9b9e90a3c"
+                },
+                {
+                  "type": "stored",
+                  "documentId": "cda6bdca-c28a-43c1-824d-a29b05bbae0b"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Got it! I've saved 2 todos."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "jump on the water",
+                "drink the water"
+              ],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Todos: jump on the water, drink the water",
+                  "response": "Got it! I've saved 2 todos.",
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the water"
+                  ],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            },
+            {
+              "stepIndex": 1,
+              "initialUserInput": "Edit the water to fire",
+              "finalUserInput": "The one about drinking. Change it to drink the fire.",
+              "response": "Done! I've updated \"drink the water\".",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Finding relevant documents..."
+                },
+                {
+                  "type": "retrieved",
+                  "documentIds": [
+                    "cda6bdca-c28a-43c1-824d-a29b05bbae0b",
+                    "350afed3-3f85-4371-be42-b5f9b9e90a3c"
+                  ],
+                  "totalRetrieved": 2
+                },
+                {
+                  "type": "status",
+                  "message": "Analyzing your request..."
+                },
+                {
+                  "type": "status",
+                  "message": "Executing update..."
+                },
+                {
+                  "type": "chunk",
+                  "content": "Done! I've updated \"drink the water\"."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "jump on the water",
+                "drink the fire"
+              ],
+              "retrievedContents": [
+                "drink the fire",
+                "jump on the water"
+              ],
+              "retrievedCount": 2,
+              "totalCandidates": 2,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Edit the water to fire",
+                  "response": "I'm not confident about this: \"Edit water-related todos to 'fire'\". Could you be more specific about which document you mean?",
+                  "events": [
+                    {
+                      "type": "status",
+                      "message": "Classifying your input..."
+                    },
+                    {
+                      "type": "status",
+                      "message": "Finding relevant documents..."
+                    },
+                    {
+                      "type": "retrieved",
+                      "documentIds": [
+                        "cda6bdca-c28a-43c1-824d-a29b05bbae0b",
+                        "350afed3-3f85-4371-be42-b5f9b9e90a3c"
+                      ],
+                      "totalRetrieved": 2
+                    },
+                    {
+                      "type": "status",
+                      "message": "Analyzing your request..."
+                    },
+                    {
+                      "type": "chunk",
+                      "content": "I'm not confident about this: \"Edit water-related todos to 'fire'\". Could you be more specific about which document you mean?"
+                    },
+                    {
+                      "type": "done"
+                    }
+                  ],
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the water"
+                  ],
+                  "retrievedContents": [
+                    "drink the water",
+                    "jump on the water"
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": {
+                    "candidateEvaluations": [
+                      {
+                        "id": "choose-drinking-todo",
+                        "label": "Choose the drinking todo",
+                        "userInput": "The one about drinking. Change it to drink the fire.",
+                        "pass": true,
+                        "reason": "The assistant correctly identifies that the user's input 'Edit the water to fire' is ambiguous regarding which specific 'water-related todo' needs to be updated. It explicitly asks the user to clarify which document they mean, which aligns perfectly with the rubric requirement of asking for clarification on which water-related todo should be updated."
+                      }
+                    ],
+                    "selectedResponseId": "choose-drinking-todo",
+                    "selectedUserInput": "The one about drinking. Change it to drink the fire."
+                  }
+                },
+                {
+                  "turnIndex": 1,
+                  "userInput": "The one about drinking. Change it to drink the fire.",
+                  "response": "Done! I've updated \"drink the water\".",
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the fire"
+                  ],
+                  "retrievedContents": [
+                    "drink the fire",
+                    "jump on the water"
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": {
+                    "candidateEvaluations": [],
+                    "selectedResponseId": null,
+                    "selectedUserInput": null
+                  }
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [
+            {
+              "id": "350afed3-3f85-4371-be42-b5f9b9e90a3c",
+              "content": "jump on the water",
+              "type": "todo",
+              "createdAt": "2026-03-19T23:26:56.078Z",
+              "updatedAt": "2026-03-19T23:26:56.078Z",
+              "date": "2026-03-20",
+              "tags": "todo",
+              "source": "Todos: jump on the water, drink the water",
+              "metadata": "{\"groupId\":\"7063b384-b658-4c19-9aba-ba3d9a05fd2d\"}",
+              "isDeleted": false
+            },
+            {
+              "id": "cda6bdca-c28a-43c1-824d-a29b05bbae0b",
+              "content": "drink the fire",
+              "type": "todo",
+              "createdAt": "2026-03-19T23:26:56.217Z",
+              "updatedAt": "2026-03-19T23:27:23.661Z",
+              "date": "2026-03-20",
+              "tags": "todo",
+              "source": "Todos: jump on the water, drink the water",
+              "metadata": "{\"groupId\":\"7063b384-b658-4c19-9aba-ba3d9a05fd2d\"}",
+              "isDeleted": false
+            }
+          ],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Clarification follow-up resolves the right todo"
+            }
+          ]
+        },
+        "id": "3f6f8178-5c86-47fc-a3db-6ca15a78b162",
+        "latencyMs": 45996,
+        "namedScores": {},
+        "prompt": {
+          "raw": "clarification-resolves-ambiguous-update",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Clarification follow-up resolves the right todo",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Clarification follow-up resolves the right todo",
+            "scenarioId": "clarification-resolves-ambiguous-update",
+            "scenarioTitle": "Clarification follow-up resolves the right todo",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Todos: jump on the water, drink the water",
+                "finalUserInput": "Todos: jump on the water, drink the water",
+                "response": "Got it! I've saved 2 todos.",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Saving your thought..."
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "20ec1fc1-3d74-4688-8a6c-a58444d3aeec"
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "5eecdb68-efba-46e1-814d-9893d58b992d"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Got it! I've saved 2 todos."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "jump on the water",
+                  "drink the water"
+                ],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Todos: jump on the water, drink the water",
+                    "response": "Got it! I've saved 2 todos.",
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the water"
+                    ],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              },
+              {
+                "stepIndex": 1,
+                "initialUserInput": "Edit the water to fire",
+                "finalUserInput": "The one about drinking. Change it to drink the fire.",
+                "response": "Done! I've updated \"drink the water\".",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Finding relevant documents..."
+                  },
+                  {
+                    "type": "retrieved",
+                    "documentIds": [
+                      "5eecdb68-efba-46e1-814d-9893d58b992d",
+                      "20ec1fc1-3d74-4688-8a6c-a58444d3aeec"
+                    ],
+                    "totalRetrieved": 2
+                  },
+                  {
+                    "type": "status",
+                    "message": "Analyzing your request..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Executing update..."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Done! I've updated \"drink the water\"."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "jump on the water",
+                  "drink the fire"
+                ],
+                "retrievedContents": [
+                  "drink the fire",
+                  "jump on the water"
+                ],
+                "retrievedCount": 2,
+                "totalCandidates": 2,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Edit the water to fire",
+                    "response": "You mentioned editing the water to fire. I found two todos involving water:\n1. \"drink the water\"\n2. \"jump on the water\"\n\nWhich one would you like to edit to \"fire\"?",
+                    "events": [
+                      {
+                        "type": "status",
+                        "message": "Classifying your input..."
+                      },
+                      {
+                        "type": "status",
+                        "message": "Finding relevant documents..."
+                      },
+                      {
+                        "type": "retrieved",
+                        "documentIds": [
+                          "5eecdb68-efba-46e1-814d-9893d58b992d",
+                          "20ec1fc1-3d74-4688-8a6c-a58444d3aeec"
+                        ],
+                        "totalRetrieved": 2
+                      },
+                      {
+                        "type": "status",
+                        "message": "Analyzing your request..."
+                      },
+                      {
+                        "type": "chunk",
+                        "content": "You mentioned editing the water to fire. I found two todos involving water:\n1. \"drink the water\"\n2. \"jump on the water\"\n\nWhich one would you like to edit to \"fire\"?"
+                      },
+                      {
+                        "type": "done"
+                      }
+                    ],
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the water"
+                    ],
+                    "retrievedContents": [
+                      "drink the water",
+                      "jump on the water"
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": {
+                      "candidateEvaluations": [
+                        {
+                          "id": "choose-drinking-todo",
+                          "label": "Choose the drinking todo",
+                          "userInput": "The one about drinking. Change it to drink the fire.",
+                          "pass": true,
+                          "reason": "The assistant correctly identified that the user's request to 'edit the water to fire' was ambiguous due to the existence of multiple water-related todos. The assistant explicitly listed the two found items ('drink the water' and 'jump on the water') and asked the user to specify which one they wanted to update, thereby fulfilling the rubric requirement to ask for clarification."
+                        }
+                      ],
+                      "selectedResponseId": "choose-drinking-todo",
+                      "selectedUserInput": "The one about drinking. Change it to drink the fire."
+                    }
+                  },
+                  {
+                    "turnIndex": 1,
+                    "userInput": "The one about drinking. Change it to drink the fire.",
+                    "response": "Done! I've updated \"drink the water\".",
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the fire"
+                    ],
+                    "retrievedContents": [
+                      "drink the fire",
+                      "jump on the water"
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": {
+                      "candidateEvaluations": [],
+                      "selectedResponseId": null,
+                      "selectedUserInput": null
+                    }
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [
+              {
+                "id": "20ec1fc1-3d74-4688-8a6c-a58444d3aeec",
+                "content": "jump on the water",
+                "type": "todo",
+                "createdAt": "2026-03-19T23:27:47.216Z",
+                "updatedAt": "2026-03-19T23:27:47.216Z",
+                "date": "2026-03-20",
+                "tags": "todo",
+                "source": "Todos: jump on the water, drink the water",
+                "metadata": "{\"groupId\":\"ec4e7001-88ef-4319-a6a2-9d7c32f0acbd\"}",
+                "isDeleted": false
+              },
+              {
+                "id": "5eecdb68-efba-46e1-814d-9893d58b992d",
+                "content": "drink the fire",
+                "type": "todo",
+                "createdAt": "2026-03-19T23:27:47.354Z",
+                "updatedAt": "2026-03-19T23:28:08.806Z",
+                "date": "2026-03-20",
+                "tags": "todo",
+                "source": "Todos: jump on the water, drink the water",
+                "metadata": "{\"groupId\":\"ec4e7001-88ef-4319-a6a2-9d7c32f0acbd\"}",
+                "isDeleted": false
+              }
+            ],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "clarification-resolves-ambiguous-update"
+          },
+          "metadata": {
+            "scenarioId": "clarification-resolves-ambiguous-update",
+            "scenarioTitle": "Clarification follow-up resolves the right todo",
+            "topic": "todo-update",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Clarification follow-up resolves the right todo",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 2,
+        "vars": {
+          "scenarioId": "clarification-resolves-ambiguous-update"
+        },
+        "metadata": {
+          "scenarioId": "clarification-resolves-ambiguous-update",
+          "scenarioTitle": "Clarification follow-up resolves the right todo",
+          "topic": "todo-update",
+          "suites": [
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Clarification follow-up resolves the right todo",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Todos: jump on the water, drink the water",
+              "finalUserInput": "Todos: jump on the water, drink the water",
+              "response": "Got it! I've saved 2 todos.",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Saving your thought..."
+                },
+                {
+                  "type": "stored",
+                  "documentId": "20ec1fc1-3d74-4688-8a6c-a58444d3aeec"
+                },
+                {
+                  "type": "stored",
+                  "documentId": "5eecdb68-efba-46e1-814d-9893d58b992d"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Got it! I've saved 2 todos."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "jump on the water",
+                "drink the water"
+              ],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Todos: jump on the water, drink the water",
+                  "response": "Got it! I've saved 2 todos.",
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the water"
+                  ],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            },
+            {
+              "stepIndex": 1,
+              "initialUserInput": "Edit the water to fire",
+              "finalUserInput": "The one about drinking. Change it to drink the fire.",
+              "response": "Done! I've updated \"drink the water\".",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Finding relevant documents..."
+                },
+                {
+                  "type": "retrieved",
+                  "documentIds": [
+                    "5eecdb68-efba-46e1-814d-9893d58b992d",
+                    "20ec1fc1-3d74-4688-8a6c-a58444d3aeec"
+                  ],
+                  "totalRetrieved": 2
+                },
+                {
+                  "type": "status",
+                  "message": "Analyzing your request..."
+                },
+                {
+                  "type": "status",
+                  "message": "Executing update..."
+                },
+                {
+                  "type": "chunk",
+                  "content": "Done! I've updated \"drink the water\"."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "jump on the water",
+                "drink the fire"
+              ],
+              "retrievedContents": [
+                "drink the fire",
+                "jump on the water"
+              ],
+              "retrievedCount": 2,
+              "totalCandidates": 2,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Edit the water to fire",
+                  "response": "You mentioned editing the water to fire. I found two todos involving water:\n1. \"drink the water\"\n2. \"jump on the water\"\n\nWhich one would you like to edit to \"fire\"?",
+                  "events": [
+                    {
+                      "type": "status",
+                      "message": "Classifying your input..."
+                    },
+                    {
+                      "type": "status",
+                      "message": "Finding relevant documents..."
+                    },
+                    {
+                      "type": "retrieved",
+                      "documentIds": [
+                        "5eecdb68-efba-46e1-814d-9893d58b992d",
+                        "20ec1fc1-3d74-4688-8a6c-a58444d3aeec"
+                      ],
+                      "totalRetrieved": 2
+                    },
+                    {
+                      "type": "status",
+                      "message": "Analyzing your request..."
+                    },
+                    {
+                      "type": "chunk",
+                      "content": "You mentioned editing the water to fire. I found two todos involving water:\n1. \"drink the water\"\n2. \"jump on the water\"\n\nWhich one would you like to edit to \"fire\"?"
+                    },
+                    {
+                      "type": "done"
+                    }
+                  ],
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the water"
+                  ],
+                  "retrievedContents": [
+                    "drink the water",
+                    "jump on the water"
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": {
+                    "candidateEvaluations": [
+                      {
+                        "id": "choose-drinking-todo",
+                        "label": "Choose the drinking todo",
+                        "userInput": "The one about drinking. Change it to drink the fire.",
+                        "pass": true,
+                        "reason": "The assistant correctly identified that the user's request to 'edit the water to fire' was ambiguous due to the existence of multiple water-related todos. The assistant explicitly listed the two found items ('drink the water' and 'jump on the water') and asked the user to specify which one they wanted to update, thereby fulfilling the rubric requirement to ask for clarification."
+                      }
+                    ],
+                    "selectedResponseId": "choose-drinking-todo",
+                    "selectedUserInput": "The one about drinking. Change it to drink the fire."
+                  }
+                },
+                {
+                  "turnIndex": 1,
+                  "userInput": "The one about drinking. Change it to drink the fire.",
+                  "response": "Done! I've updated \"drink the water\".",
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the fire"
+                  ],
+                  "retrievedContents": [
+                    "drink the fire",
+                    "jump on the water"
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": {
+                    "candidateEvaluations": [],
+                    "selectedResponseId": null,
+                    "selectedUserInput": null
+                  }
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [
+            {
+              "id": "20ec1fc1-3d74-4688-8a6c-a58444d3aeec",
+              "content": "jump on the water",
+              "type": "todo",
+              "createdAt": "2026-03-19T23:27:47.216Z",
+              "updatedAt": "2026-03-19T23:27:47.216Z",
+              "date": "2026-03-20",
+              "tags": "todo",
+              "source": "Todos: jump on the water, drink the water",
+              "metadata": "{\"groupId\":\"ec4e7001-88ef-4319-a6a2-9d7c32f0acbd\"}",
+              "isDeleted": false
+            },
+            {
+              "id": "5eecdb68-efba-46e1-814d-9893d58b992d",
+              "content": "drink the fire",
+              "type": "todo",
+              "createdAt": "2026-03-19T23:27:47.354Z",
+              "updatedAt": "2026-03-19T23:28:08.806Z",
+              "date": "2026-03-20",
+              "tags": "todo",
+              "source": "Todos: jump on the water, drink the water",
+              "metadata": "{\"groupId\":\"ec4e7001-88ef-4319-a6a2-9d7c32f0acbd\"}",
+              "isDeleted": false
+            }
+          ],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Clarification follow-up resolves the right todo"
+            }
+          ]
+        },
+        "id": "2ff9fbae-5b3d-4b83-83b1-2e0c81c89976",
+        "latencyMs": 48670,
+        "namedScores": {},
+        "prompt": {
+          "raw": "clarification-resolves-ambiguous-update",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Clarification follow-up resolves the right todo",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Clarification follow-up resolves the right todo",
+            "scenarioId": "clarification-resolves-ambiguous-update",
+            "scenarioTitle": "Clarification follow-up resolves the right todo",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Todos: jump on the water, drink the water",
+                "finalUserInput": "Todos: jump on the water, drink the water",
+                "response": "Got it! I've saved 2 todos.",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Saving your thought..."
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "00606c01-784c-4a91-b125-9844a7bdb7d4"
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "0842f4be-ca15-4482-b296-2ebabfee0d01"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Got it! I've saved 2 todos."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "jump on the water",
+                  "drink the water"
+                ],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Todos: jump on the water, drink the water",
+                    "response": "Got it! I've saved 2 todos.",
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the water"
+                    ],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              },
+              {
+                "stepIndex": 1,
+                "initialUserInput": "Edit the water to fire",
+                "finalUserInput": "The one about drinking. Change it to drink the fire.",
+                "response": "Done! I've updated \"drink the water\".",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Finding relevant documents..."
+                  },
+                  {
+                    "type": "retrieved",
+                    "documentIds": [
+                      "0842f4be-ca15-4482-b296-2ebabfee0d01",
+                      "00606c01-784c-4a91-b125-9844a7bdb7d4"
+                    ],
+                    "totalRetrieved": 2
+                  },
+                  {
+                    "type": "status",
+                    "message": "Analyzing your request..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Executing update..."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Done! I've updated \"drink the water\"."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "jump on the water",
+                  "drink the fire"
+                ],
+                "retrievedContents": [
+                  "drink the fire",
+                  "jump on the water"
+                ],
+                "retrievedCount": 2,
+                "totalCandidates": 2,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Edit the water to fire",
+                    "response": "You mentioned 'Edit the water to fire'. I found two todos related to water:\n1. \"drink the water\" (ID: 0842f4be-ca15-4482-b296-2ebabfee0d01)\n2. \"jump on the water\" (ID: 00606c01-784c-4a91-b125-9844a7bdb7d4)\n\nDo you want to change the content of *both* todos to something about fire, or just one of them? Please specify.",
+                    "events": [
+                      {
+                        "type": "status",
+                        "message": "Classifying your input..."
+                      },
+                      {
+                        "type": "status",
+                        "message": "Finding relevant documents..."
+                      },
+                      {
+                        "type": "retrieved",
+                        "documentIds": [
+                          "0842f4be-ca15-4482-b296-2ebabfee0d01",
+                          "00606c01-784c-4a91-b125-9844a7bdb7d4"
+                        ],
+                        "totalRetrieved": 2
+                      },
+                      {
+                        "type": "status",
+                        "message": "Analyzing your request..."
+                      },
+                      {
+                        "type": "chunk",
+                        "content": "You mentioned 'Edit the water to fire'. I found two todos related to water:\n1. \"drink the water\" (ID: 0842f4be-ca15-4482-b296-2ebabfee0d01)\n2. \"jump on the water\" (ID: 00606c01-784c-4a91-b125-9844a7bdb7d4)\n\nDo you want to change the content of *both* todos to something about fire, or just one of them? Please specify."
+                      },
+                      {
+                        "type": "done"
+                      }
+                    ],
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the water"
+                    ],
+                    "retrievedContents": [
+                      "drink the water",
+                      "jump on the water"
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": {
+                      "candidateEvaluations": [
+                        {
+                          "id": "choose-drinking-todo",
+                          "label": "Choose the drinking todo",
+                          "userInput": "The one about drinking. Change it to drink the fire.",
+                          "pass": true,
+                          "reason": "The assistant correctly identified the ambiguity in the user's request ('Edit the water to fire') by finding two specific water-related todos ('drink the water' and 'jump on the water'). It then asked the user to clarify whether they want to update one or both of these specific todos, which aligns perfectly with the rubric requirement to ask the user to clarify which water-related todo should be updated."
+                        }
+                      ],
+                      "selectedResponseId": "choose-drinking-todo",
+                      "selectedUserInput": "The one about drinking. Change it to drink the fire."
+                    }
+                  },
+                  {
+                    "turnIndex": 1,
+                    "userInput": "The one about drinking. Change it to drink the fire.",
+                    "response": "Done! I've updated \"drink the water\".",
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the fire"
+                    ],
+                    "retrievedContents": [
+                      "drink the fire",
+                      "jump on the water"
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": {
+                      "candidateEvaluations": [],
+                      "selectedResponseId": null,
+                      "selectedUserInput": null
+                    }
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [
+              {
+                "id": "00606c01-784c-4a91-b125-9844a7bdb7d4",
+                "content": "jump on the water",
+                "type": "todo",
+                "createdAt": "2026-03-19T23:28:33.073Z",
+                "updatedAt": "2026-03-19T23:28:33.073Z",
+                "date": "2026-03-20",
+                "tags": "todo",
+                "source": "Todos: jump on the water, drink the water",
+                "metadata": "{\"groupId\":\"e05359f6-8f9c-4be2-988c-18253db329bf\"}",
+                "isDeleted": false
+              },
+              {
+                "id": "0842f4be-ca15-4482-b296-2ebabfee0d01",
+                "content": "drink the fire",
+                "type": "todo",
+                "createdAt": "2026-03-19T23:28:33.219Z",
+                "updatedAt": "2026-03-19T23:29:02.226Z",
+                "date": "2026-03-20",
+                "tags": "todo",
+                "source": "Todos: jump on the water, drink the water",
+                "metadata": "{\"groupId\":\"e05359f6-8f9c-4be2-988c-18253db329bf\"}",
+                "isDeleted": false
+              }
+            ],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "clarification-resolves-ambiguous-update"
+          },
+          "metadata": {
+            "scenarioId": "clarification-resolves-ambiguous-update",
+            "scenarioTitle": "Clarification follow-up resolves the right todo",
+            "topic": "todo-update",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Clarification follow-up resolves the right todo",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 3,
+        "vars": {
+          "scenarioId": "clarification-resolves-ambiguous-update"
+        },
+        "metadata": {
+          "scenarioId": "clarification-resolves-ambiguous-update",
+          "scenarioTitle": "Clarification follow-up resolves the right todo",
+          "topic": "todo-update",
+          "suites": [
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Clarification follow-up resolves the right todo",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Todos: jump on the water, drink the water",
+              "finalUserInput": "Todos: jump on the water, drink the water",
+              "response": "Got it! I've saved 2 todos.",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Saving your thought..."
+                },
+                {
+                  "type": "stored",
+                  "documentId": "00606c01-784c-4a91-b125-9844a7bdb7d4"
+                },
+                {
+                  "type": "stored",
+                  "documentId": "0842f4be-ca15-4482-b296-2ebabfee0d01"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Got it! I've saved 2 todos."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "jump on the water",
+                "drink the water"
+              ],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Todos: jump on the water, drink the water",
+                  "response": "Got it! I've saved 2 todos.",
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the water"
+                  ],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            },
+            {
+              "stepIndex": 1,
+              "initialUserInput": "Edit the water to fire",
+              "finalUserInput": "The one about drinking. Change it to drink the fire.",
+              "response": "Done! I've updated \"drink the water\".",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Finding relevant documents..."
+                },
+                {
+                  "type": "retrieved",
+                  "documentIds": [
+                    "0842f4be-ca15-4482-b296-2ebabfee0d01",
+                    "00606c01-784c-4a91-b125-9844a7bdb7d4"
+                  ],
+                  "totalRetrieved": 2
+                },
+                {
+                  "type": "status",
+                  "message": "Analyzing your request..."
+                },
+                {
+                  "type": "status",
+                  "message": "Executing update..."
+                },
+                {
+                  "type": "chunk",
+                  "content": "Done! I've updated \"drink the water\"."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "jump on the water",
+                "drink the fire"
+              ],
+              "retrievedContents": [
+                "drink the fire",
+                "jump on the water"
+              ],
+              "retrievedCount": 2,
+              "totalCandidates": 2,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Edit the water to fire",
+                  "response": "You mentioned 'Edit the water to fire'. I found two todos related to water:\n1. \"drink the water\" (ID: 0842f4be-ca15-4482-b296-2ebabfee0d01)\n2. \"jump on the water\" (ID: 00606c01-784c-4a91-b125-9844a7bdb7d4)\n\nDo you want to change the content of *both* todos to something about fire, or just one of them? Please specify.",
+                  "events": [
+                    {
+                      "type": "status",
+                      "message": "Classifying your input..."
+                    },
+                    {
+                      "type": "status",
+                      "message": "Finding relevant documents..."
+                    },
+                    {
+                      "type": "retrieved",
+                      "documentIds": [
+                        "0842f4be-ca15-4482-b296-2ebabfee0d01",
+                        "00606c01-784c-4a91-b125-9844a7bdb7d4"
+                      ],
+                      "totalRetrieved": 2
+                    },
+                    {
+                      "type": "status",
+                      "message": "Analyzing your request..."
+                    },
+                    {
+                      "type": "chunk",
+                      "content": "You mentioned 'Edit the water to fire'. I found two todos related to water:\n1. \"drink the water\" (ID: 0842f4be-ca15-4482-b296-2ebabfee0d01)\n2. \"jump on the water\" (ID: 00606c01-784c-4a91-b125-9844a7bdb7d4)\n\nDo you want to change the content of *both* todos to something about fire, or just one of them? Please specify."
+                    },
+                    {
+                      "type": "done"
+                    }
+                  ],
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the water"
+                  ],
+                  "retrievedContents": [
+                    "drink the water",
+                    "jump on the water"
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": {
+                    "candidateEvaluations": [
+                      {
+                        "id": "choose-drinking-todo",
+                        "label": "Choose the drinking todo",
+                        "userInput": "The one about drinking. Change it to drink the fire.",
+                        "pass": true,
+                        "reason": "The assistant correctly identified the ambiguity in the user's request ('Edit the water to fire') by finding two specific water-related todos ('drink the water' and 'jump on the water'). It then asked the user to clarify whether they want to update one or both of these specific todos, which aligns perfectly with the rubric requirement to ask the user to clarify which water-related todo should be updated."
+                      }
+                    ],
+                    "selectedResponseId": "choose-drinking-todo",
+                    "selectedUserInput": "The one about drinking. Change it to drink the fire."
+                  }
+                },
+                {
+                  "turnIndex": 1,
+                  "userInput": "The one about drinking. Change it to drink the fire.",
+                  "response": "Done! I've updated \"drink the water\".",
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the fire"
+                  ],
+                  "retrievedContents": [
+                    "drink the fire",
+                    "jump on the water"
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": {
+                    "candidateEvaluations": [],
+                    "selectedResponseId": null,
+                    "selectedUserInput": null
+                  }
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [
+            {
+              "id": "00606c01-784c-4a91-b125-9844a7bdb7d4",
+              "content": "jump on the water",
+              "type": "todo",
+              "createdAt": "2026-03-19T23:28:33.073Z",
+              "updatedAt": "2026-03-19T23:28:33.073Z",
+              "date": "2026-03-20",
+              "tags": "todo",
+              "source": "Todos: jump on the water, drink the water",
+              "metadata": "{\"groupId\":\"e05359f6-8f9c-4be2-988c-18253db329bf\"}",
+              "isDeleted": false
+            },
+            {
+              "id": "0842f4be-ca15-4482-b296-2ebabfee0d01",
+              "content": "drink the fire",
+              "type": "todo",
+              "createdAt": "2026-03-19T23:28:33.219Z",
+              "updatedAt": "2026-03-19T23:29:02.226Z",
+              "date": "2026-03-20",
+              "tags": "todo",
+              "source": "Todos: jump on the water, drink the water",
+              "metadata": "{\"groupId\":\"e05359f6-8f9c-4be2-988c-18253db329bf\"}",
+              "isDeleted": false
+            }
+          ],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Clarification follow-up resolves the right todo"
+            }
+          ]
+        },
+        "id": "9f059824-6bd3-40b8-a3f5-6579ceb8fc32",
+        "latencyMs": 45181,
+        "namedScores": {},
+        "prompt": {
+          "raw": "clarification-resolves-ambiguous-update",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Clarification follow-up resolves the right todo",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Clarification follow-up resolves the right todo",
+            "scenarioId": "clarification-resolves-ambiguous-update",
+            "scenarioTitle": "Clarification follow-up resolves the right todo",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Todos: jump on the water, drink the water",
+                "finalUserInput": "Todos: jump on the water, drink the water",
+                "response": "Got it! I've saved 2 todos.",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Saving your thought..."
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "2369bc39-a35d-4278-b812-f3cdbb506ad2"
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "48b17471-7551-4d21-a8e6-e41bb261d0ec"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Got it! I've saved 2 todos."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "jump on the water",
+                  "drink the water"
+                ],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Todos: jump on the water, drink the water",
+                    "response": "Got it! I've saved 2 todos.",
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the water"
+                    ],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              },
+              {
+                "stepIndex": 1,
+                "initialUserInput": "Edit the water to fire",
+                "finalUserInput": "The one about drinking. Change it to drink the fire.",
+                "response": "Done! I've updated \"drink the water\".",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Finding relevant documents..."
+                  },
+                  {
+                    "type": "retrieved",
+                    "documentIds": [
+                      "48b17471-7551-4d21-a8e6-e41bb261d0ec",
+                      "2369bc39-a35d-4278-b812-f3cdbb506ad2"
+                    ],
+                    "totalRetrieved": 2
+                  },
+                  {
+                    "type": "status",
+                    "message": "Analyzing your request..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Executing update..."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Done! I've updated \"drink the water\"."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "jump on the water",
+                  "drink the fire"
+                ],
+                "retrievedContents": [
+                  "drink the fire",
+                  "jump on the water"
+                ],
+                "retrievedCount": 2,
+                "totalCandidates": 2,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Edit the water to fire",
+                    "response": "I found two todos mentioning 'water'. Which one would you like to edit to 'fire'?\n1. 'drink the water'\n2. 'jump on the water'",
+                    "events": [
+                      {
+                        "type": "status",
+                        "message": "Classifying your input..."
+                      },
+                      {
+                        "type": "status",
+                        "message": "Finding relevant documents..."
+                      },
+                      {
+                        "type": "retrieved",
+                        "documentIds": [
+                          "48b17471-7551-4d21-a8e6-e41bb261d0ec",
+                          "2369bc39-a35d-4278-b812-f3cdbb506ad2"
+                        ],
+                        "totalRetrieved": 2
+                      },
+                      {
+                        "type": "status",
+                        "message": "Analyzing your request..."
+                      },
+                      {
+                        "type": "chunk",
+                        "content": "I found two todos mentioning 'water'. Which one would you like to edit to 'fire'?\n1. 'drink the water'\n2. 'jump on the water'"
+                      },
+                      {
+                        "type": "done"
+                      }
+                    ],
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the water"
+                    ],
+                    "retrievedContents": [
+                      "drink the water",
+                      "jump on the water"
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": {
+                      "candidateEvaluations": [
+                        {
+                          "id": "choose-drinking-todo",
+                          "label": "Choose the drinking todo",
+                          "userInput": "The one about drinking. Change it to drink the fire.",
+                          "pass": true,
+                          "reason": "The user's goal is to change a specific water-related todo ('drink the water') to 'fire'. The assistant correctly identified that there are two ambiguous todos containing the word 'water' ('drink the water' and 'jump on the water') and asked the user to clarify which specific one to edit. This behavior strictly adheres to the rubric requirement of asking for clarification on which todo should be updated."
+                        }
+                      ],
+                      "selectedResponseId": "choose-drinking-todo",
+                      "selectedUserInput": "The one about drinking. Change it to drink the fire."
+                    }
+                  },
+                  {
+                    "turnIndex": 1,
+                    "userInput": "The one about drinking. Change it to drink the fire.",
+                    "response": "Done! I've updated \"drink the water\".",
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the fire"
+                    ],
+                    "retrievedContents": [
+                      "drink the fire",
+                      "jump on the water"
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": {
+                      "candidateEvaluations": [],
+                      "selectedResponseId": null,
+                      "selectedUserInput": null
+                    }
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [
+              {
+                "id": "2369bc39-a35d-4278-b812-f3cdbb506ad2",
+                "content": "jump on the water",
+                "type": "todo",
+                "createdAt": "2026-03-19T23:29:17.060Z",
+                "updatedAt": "2026-03-19T23:29:17.060Z",
+                "date": "2026-03-20",
+                "tags": "todo",
+                "source": "Todos: jump on the water, drink the water",
+                "metadata": "{\"groupId\":\"66c871c9-4fef-4c7d-8bd3-c502740253aa\"}",
+                "isDeleted": false
+              },
+              {
+                "id": "48b17471-7551-4d21-a8e6-e41bb261d0ec",
+                "content": "drink the fire",
+                "type": "todo",
+                "createdAt": "2026-03-19T23:29:17.200Z",
+                "updatedAt": "2026-03-19T23:29:43.298Z",
+                "date": "2026-03-20",
+                "tags": "todo",
+                "source": "Todos: jump on the water, drink the water",
+                "metadata": "{\"groupId\":\"66c871c9-4fef-4c7d-8bd3-c502740253aa\"}",
+                "isDeleted": false
+              }
+            ],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "clarification-resolves-ambiguous-update"
+          },
+          "metadata": {
+            "scenarioId": "clarification-resolves-ambiguous-update",
+            "scenarioTitle": "Clarification follow-up resolves the right todo",
+            "topic": "todo-update",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Clarification follow-up resolves the right todo",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 4,
+        "vars": {
+          "scenarioId": "clarification-resolves-ambiguous-update"
+        },
+        "metadata": {
+          "scenarioId": "clarification-resolves-ambiguous-update",
+          "scenarioTitle": "Clarification follow-up resolves the right todo",
+          "topic": "todo-update",
+          "suites": [
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Clarification follow-up resolves the right todo",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Todos: jump on the water, drink the water",
+              "finalUserInput": "Todos: jump on the water, drink the water",
+              "response": "Got it! I've saved 2 todos.",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Saving your thought..."
+                },
+                {
+                  "type": "stored",
+                  "documentId": "2369bc39-a35d-4278-b812-f3cdbb506ad2"
+                },
+                {
+                  "type": "stored",
+                  "documentId": "48b17471-7551-4d21-a8e6-e41bb261d0ec"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Got it! I've saved 2 todos."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "jump on the water",
+                "drink the water"
+              ],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Todos: jump on the water, drink the water",
+                  "response": "Got it! I've saved 2 todos.",
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the water"
+                  ],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            },
+            {
+              "stepIndex": 1,
+              "initialUserInput": "Edit the water to fire",
+              "finalUserInput": "The one about drinking. Change it to drink the fire.",
+              "response": "Done! I've updated \"drink the water\".",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Finding relevant documents..."
+                },
+                {
+                  "type": "retrieved",
+                  "documentIds": [
+                    "48b17471-7551-4d21-a8e6-e41bb261d0ec",
+                    "2369bc39-a35d-4278-b812-f3cdbb506ad2"
+                  ],
+                  "totalRetrieved": 2
+                },
+                {
+                  "type": "status",
+                  "message": "Analyzing your request..."
+                },
+                {
+                  "type": "status",
+                  "message": "Executing update..."
+                },
+                {
+                  "type": "chunk",
+                  "content": "Done! I've updated \"drink the water\"."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "jump on the water",
+                "drink the fire"
+              ],
+              "retrievedContents": [
+                "drink the fire",
+                "jump on the water"
+              ],
+              "retrievedCount": 2,
+              "totalCandidates": 2,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Edit the water to fire",
+                  "response": "I found two todos mentioning 'water'. Which one would you like to edit to 'fire'?\n1. 'drink the water'\n2. 'jump on the water'",
+                  "events": [
+                    {
+                      "type": "status",
+                      "message": "Classifying your input..."
+                    },
+                    {
+                      "type": "status",
+                      "message": "Finding relevant documents..."
+                    },
+                    {
+                      "type": "retrieved",
+                      "documentIds": [
+                        "48b17471-7551-4d21-a8e6-e41bb261d0ec",
+                        "2369bc39-a35d-4278-b812-f3cdbb506ad2"
+                      ],
+                      "totalRetrieved": 2
+                    },
+                    {
+                      "type": "status",
+                      "message": "Analyzing your request..."
+                    },
+                    {
+                      "type": "chunk",
+                      "content": "I found two todos mentioning 'water'. Which one would you like to edit to 'fire'?\n1. 'drink the water'\n2. 'jump on the water'"
+                    },
+                    {
+                      "type": "done"
+                    }
+                  ],
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the water"
+                  ],
+                  "retrievedContents": [
+                    "drink the water",
+                    "jump on the water"
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": {
+                    "candidateEvaluations": [
+                      {
+                        "id": "choose-drinking-todo",
+                        "label": "Choose the drinking todo",
+                        "userInput": "The one about drinking. Change it to drink the fire.",
+                        "pass": true,
+                        "reason": "The user's goal is to change a specific water-related todo ('drink the water') to 'fire'. The assistant correctly identified that there are two ambiguous todos containing the word 'water' ('drink the water' and 'jump on the water') and asked the user to clarify which specific one to edit. This behavior strictly adheres to the rubric requirement of asking for clarification on which todo should be updated."
+                      }
+                    ],
+                    "selectedResponseId": "choose-drinking-todo",
+                    "selectedUserInput": "The one about drinking. Change it to drink the fire."
+                  }
+                },
+                {
+                  "turnIndex": 1,
+                  "userInput": "The one about drinking. Change it to drink the fire.",
+                  "response": "Done! I've updated \"drink the water\".",
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the fire"
+                  ],
+                  "retrievedContents": [
+                    "drink the fire",
+                    "jump on the water"
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": {
+                    "candidateEvaluations": [],
+                    "selectedResponseId": null,
+                    "selectedUserInput": null
+                  }
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [
+            {
+              "id": "2369bc39-a35d-4278-b812-f3cdbb506ad2",
+              "content": "jump on the water",
+              "type": "todo",
+              "createdAt": "2026-03-19T23:29:17.060Z",
+              "updatedAt": "2026-03-19T23:29:17.060Z",
+              "date": "2026-03-20",
+              "tags": "todo",
+              "source": "Todos: jump on the water, drink the water",
+              "metadata": "{\"groupId\":\"66c871c9-4fef-4c7d-8bd3-c502740253aa\"}",
+              "isDeleted": false
+            },
+            {
+              "id": "48b17471-7551-4d21-a8e6-e41bb261d0ec",
+              "content": "drink the fire",
+              "type": "todo",
+              "createdAt": "2026-03-19T23:29:17.200Z",
+              "updatedAt": "2026-03-19T23:29:43.298Z",
+              "date": "2026-03-20",
+              "tags": "todo",
+              "source": "Todos: jump on the water, drink the water",
+              "metadata": "{\"groupId\":\"66c871c9-4fef-4c7d-8bd3-c502740253aa\"}",
+              "isDeleted": false
+            }
+          ],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      }
+    ],
+    "stats": {
+      "successes": 5,
+      "failures": 0,
+      "errors": 0,
+      "tokenUsage": {
+        "prompt": 0,
+        "completion": 0,
+        "cached": 0,
+        "total": 0,
+        "numRequests": 5,
+        "completionDetails": {
+          "reasoning": 0,
+          "acceptedPrediction": 0,
+          "rejectedPrediction": 0
+        },
+        "assertions": {
+          "total": 0,
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "numRequests": 0,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0
+          }
+        }
+      },
+      "durationMs": 228642,
+      "evaluationDurationMs": 228642
+    }
+  },
+  "config": {
+    "tags": {},
+    "description": "Lore promptfoo conversation evals",
+    "prompts": [
+      "{{scenarioId}}"
+    ],
+    "providers": [
+      {
+        "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+        "label": "qwen3.5:9b",
+        "config": {
+          "repositoryRoot": "R:\\lore",
+          "model": "qwen3.5:9b",
+          "embeddingModel": "qwen3-embedding:0.6b",
+          "ollamaHost": "http://127.0.0.1:11434",
+          "judgeModel": ""
+        }
+      }
+    ],
+    "tests": [
+      {
+        "vars": {
+          "scenarioId": "clarification-resolves-ambiguous-update"
+        },
+        "metadata": {
+          "scenarioId": "clarification-resolves-ambiguous-update",
+          "scenarioTitle": "Clarification follow-up resolves the right todo",
+          "topic": "todo-update",
+          "suites": [
+            "full"
+          ]
+        },
+        "description": "Clarification follow-up resolves the right todo"
+      }
+    ],
+    "scenarios": [],
+    "env": {},
+    "defaultTest": {
+      "assert": [
+        {
+          "type": "javascript",
+          "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+        }
+      ],
+      "vars": {},
+      "options": {},
+      "metadata": {}
+    },
+    "outputPath": [
+      "R:\\lore\\evals\\results\\promptfoo-full-2026-03-19T23-26-05-233Z.json"
+    ],
+    "extensions": [],
+    "metadata": {},
+    "evaluateOptions": {
+      "repeat": 5,
+      "cache": false,
+      "maxConcurrency": 1
+    }
+  },
+  "shareableUrl": null,
+  "metadata": {
+    "promptfooVersion": "0.121.2",
+    "nodeVersion": "v20.20.0",
+    "platform": "win32",
+    "arch": "x64",
+    "exportedAt": "2026-03-19T23:29:55.925Z",
+    "evaluationCreatedAt": "2026-03-19T23:26:07.232Z"
+  }
+}

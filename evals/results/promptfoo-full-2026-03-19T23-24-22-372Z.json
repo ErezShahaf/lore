@@ -1,0 +1,1307 @@
+{
+  "evalId": "eval-IQu-2026-03-19T23:24:24",
+  "results": {
+    "version": 3,
+    "timestamp": "2026-03-19T23:24:24.711Z",
+    "prompts": [
+      {
+        "id": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "raw": "{{scenarioId}}",
+        "label": "{{scenarioId}}",
+        "provider": "qwen3.5:9b",
+        "metrics": {
+          "score": 5,
+          "testPassCount": 5,
+          "testFailCount": 0,
+          "testErrorCount": 0,
+          "assertPassCount": 5,
+          "assertFailCount": 0,
+          "totalLatencyMs": 20939,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 5,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0
+              }
+            }
+          },
+          "namedScores": {},
+          "namedScoresCount": {},
+          "cost": 0
+        }
+      }
+    ],
+    "results": [
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Add a todo with alternate phrasing"
+            }
+          ]
+        },
+        "id": "5fc15a42-6250-446e-9b72-c45732a4a646",
+        "latencyMs": 5395,
+        "namedScores": {},
+        "prompt": {
+          "raw": "add-single-todo-variant-phrasing",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Add a todo with alternate phrasing",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Add a todo with alternate phrasing",
+            "scenarioId": "add-single-todo-variant-phrasing",
+            "scenarioTitle": "Add a todo with alternate phrasing",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Please put \"call mom\" on my todo list.",
+                "finalUserInput": "Please put \"call mom\" on my todo list.",
+                "response": "Got it! I've saved your todo about Please put \"call mom\" on my....",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Saving your thought..."
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "332c6e47-96e3-4534-9032-4f9d0ac93f45"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Got it! I've saved your todo about Please put \"call mom\" on my...."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "Please put \"call mom\" on my todo list."
+                ],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Please put \"call mom\" on my todo list.",
+                    "response": "Got it! I've saved your todo about Please put \"call mom\" on my....",
+                    "todoContents": [
+                      "Please put \"call mom\" on my todo list."
+                    ],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [
+              {
+                "id": "332c6e47-96e3-4534-9032-4f9d0ac93f45",
+                "content": "Please put \"call mom\" on my todo list.",
+                "type": "todo",
+                "createdAt": "2026-03-19T23:24:30.083Z",
+                "updatedAt": "2026-03-19T23:24:30.083Z",
+                "date": "2026-03-20",
+                "tags": "todo,family",
+                "source": "Please put \"call mom\" on my todo list.",
+                "metadata": "{}",
+                "isDeleted": false
+              }
+            ],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "add-single-todo-variant-phrasing"
+          },
+          "metadata": {
+            "scenarioId": "add-single-todo-variant-phrasing",
+            "scenarioTitle": "Add a todo with alternate phrasing",
+            "topic": "todo-creation",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Add a todo with alternate phrasing",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 0,
+        "vars": {
+          "scenarioId": "add-single-todo-variant-phrasing"
+        },
+        "metadata": {
+          "scenarioId": "add-single-todo-variant-phrasing",
+          "scenarioTitle": "Add a todo with alternate phrasing",
+          "topic": "todo-creation",
+          "suites": [
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Add a todo with alternate phrasing",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Please put \"call mom\" on my todo list.",
+              "finalUserInput": "Please put \"call mom\" on my todo list.",
+              "response": "Got it! I've saved your todo about Please put \"call mom\" on my....",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Saving your thought..."
+                },
+                {
+                  "type": "stored",
+                  "documentId": "332c6e47-96e3-4534-9032-4f9d0ac93f45"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Got it! I've saved your todo about Please put \"call mom\" on my...."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "Please put \"call mom\" on my todo list."
+              ],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Please put \"call mom\" on my todo list.",
+                  "response": "Got it! I've saved your todo about Please put \"call mom\" on my....",
+                  "todoContents": [
+                    "Please put \"call mom\" on my todo list."
+                  ],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [
+            {
+              "id": "332c6e47-96e3-4534-9032-4f9d0ac93f45",
+              "content": "Please put \"call mom\" on my todo list.",
+              "type": "todo",
+              "createdAt": "2026-03-19T23:24:30.083Z",
+              "updatedAt": "2026-03-19T23:24:30.083Z",
+              "date": "2026-03-20",
+              "tags": "todo,family",
+              "source": "Please put \"call mom\" on my todo list.",
+              "metadata": "{}",
+              "isDeleted": false
+            }
+          ],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Add a todo with alternate phrasing"
+            }
+          ]
+        },
+        "id": "f364bc84-c6e4-45d2-935c-b839915af4f6",
+        "latencyMs": 3920,
+        "namedScores": {},
+        "prompt": {
+          "raw": "add-single-todo-variant-phrasing",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Add a todo with alternate phrasing",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Add a todo with alternate phrasing",
+            "scenarioId": "add-single-todo-variant-phrasing",
+            "scenarioTitle": "Add a todo with alternate phrasing",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Please put \"call mom\" on my todo list.",
+                "finalUserInput": "Please put \"call mom\" on my todo list.",
+                "response": "Got it! I've saved your todo about Please put \"call mom\" on my....",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Saving your thought..."
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "8860e7c5-974b-44d3-bd56-d554f44e7e39"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Got it! I've saved your todo about Please put \"call mom\" on my...."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "Please put \"call mom\" on my todo list."
+                ],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Please put \"call mom\" on my todo list.",
+                    "response": "Got it! I've saved your todo about Please put \"call mom\" on my....",
+                    "todoContents": [
+                      "Please put \"call mom\" on my todo list."
+                    ],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [
+              {
+                "id": "8860e7c5-974b-44d3-bd56-d554f44e7e39",
+                "content": "Please put \"call mom\" on my todo list.",
+                "type": "todo",
+                "createdAt": "2026-03-19T23:24:34.047Z",
+                "updatedAt": "2026-03-19T23:24:34.047Z",
+                "date": "2026-03-20",
+                "tags": "todo,family",
+                "source": "Please put \"call mom\" on my todo list.",
+                "metadata": "{}",
+                "isDeleted": false
+              }
+            ],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "add-single-todo-variant-phrasing"
+          },
+          "metadata": {
+            "scenarioId": "add-single-todo-variant-phrasing",
+            "scenarioTitle": "Add a todo with alternate phrasing",
+            "topic": "todo-creation",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Add a todo with alternate phrasing",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 1,
+        "vars": {
+          "scenarioId": "add-single-todo-variant-phrasing"
+        },
+        "metadata": {
+          "scenarioId": "add-single-todo-variant-phrasing",
+          "scenarioTitle": "Add a todo with alternate phrasing",
+          "topic": "todo-creation",
+          "suites": [
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Add a todo with alternate phrasing",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Please put \"call mom\" on my todo list.",
+              "finalUserInput": "Please put \"call mom\" on my todo list.",
+              "response": "Got it! I've saved your todo about Please put \"call mom\" on my....",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Saving your thought..."
+                },
+                {
+                  "type": "stored",
+                  "documentId": "8860e7c5-974b-44d3-bd56-d554f44e7e39"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Got it! I've saved your todo about Please put \"call mom\" on my...."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "Please put \"call mom\" on my todo list."
+              ],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Please put \"call mom\" on my todo list.",
+                  "response": "Got it! I've saved your todo about Please put \"call mom\" on my....",
+                  "todoContents": [
+                    "Please put \"call mom\" on my todo list."
+                  ],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [
+            {
+              "id": "8860e7c5-974b-44d3-bd56-d554f44e7e39",
+              "content": "Please put \"call mom\" on my todo list.",
+              "type": "todo",
+              "createdAt": "2026-03-19T23:24:34.047Z",
+              "updatedAt": "2026-03-19T23:24:34.047Z",
+              "date": "2026-03-20",
+              "tags": "todo,family",
+              "source": "Please put \"call mom\" on my todo list.",
+              "metadata": "{}",
+              "isDeleted": false
+            }
+          ],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Add a todo with alternate phrasing"
+            }
+          ]
+        },
+        "id": "9b6f7a93-7d58-422e-9a84-427fc50dccaf",
+        "latencyMs": 3811,
+        "namedScores": {},
+        "prompt": {
+          "raw": "add-single-todo-variant-phrasing",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Add a todo with alternate phrasing",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Add a todo with alternate phrasing",
+            "scenarioId": "add-single-todo-variant-phrasing",
+            "scenarioTitle": "Add a todo with alternate phrasing",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Please put \"call mom\" on my todo list.",
+                "finalUserInput": "Please put \"call mom\" on my todo list.",
+                "response": "Got it! I've saved your todo about Please put \"call mom\" on my....",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Saving your thought..."
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "3bf2b26a-2d64-4de9-aea4-ebe74dbfdd2e"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Got it! I've saved your todo about Please put \"call mom\" on my...."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "Please put \"call mom\" on my todo list."
+                ],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Please put \"call mom\" on my todo list.",
+                    "response": "Got it! I've saved your todo about Please put \"call mom\" on my....",
+                    "todoContents": [
+                      "Please put \"call mom\" on my todo list."
+                    ],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [
+              {
+                "id": "3bf2b26a-2d64-4de9-aea4-ebe74dbfdd2e",
+                "content": "Please put \"call mom\" on my todo list.",
+                "type": "todo",
+                "createdAt": "2026-03-19T23:24:37.866Z",
+                "updatedAt": "2026-03-19T23:24:37.866Z",
+                "date": "2026-03-20",
+                "tags": "todo,family",
+                "source": "Please put \"call mom\" on my todo list.",
+                "metadata": "{}",
+                "isDeleted": false
+              }
+            ],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "add-single-todo-variant-phrasing"
+          },
+          "metadata": {
+            "scenarioId": "add-single-todo-variant-phrasing",
+            "scenarioTitle": "Add a todo with alternate phrasing",
+            "topic": "todo-creation",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Add a todo with alternate phrasing",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 2,
+        "vars": {
+          "scenarioId": "add-single-todo-variant-phrasing"
+        },
+        "metadata": {
+          "scenarioId": "add-single-todo-variant-phrasing",
+          "scenarioTitle": "Add a todo with alternate phrasing",
+          "topic": "todo-creation",
+          "suites": [
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Add a todo with alternate phrasing",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Please put \"call mom\" on my todo list.",
+              "finalUserInput": "Please put \"call mom\" on my todo list.",
+              "response": "Got it! I've saved your todo about Please put \"call mom\" on my....",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Saving your thought..."
+                },
+                {
+                  "type": "stored",
+                  "documentId": "3bf2b26a-2d64-4de9-aea4-ebe74dbfdd2e"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Got it! I've saved your todo about Please put \"call mom\" on my...."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "Please put \"call mom\" on my todo list."
+              ],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Please put \"call mom\" on my todo list.",
+                  "response": "Got it! I've saved your todo about Please put \"call mom\" on my....",
+                  "todoContents": [
+                    "Please put \"call mom\" on my todo list."
+                  ],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [
+            {
+              "id": "3bf2b26a-2d64-4de9-aea4-ebe74dbfdd2e",
+              "content": "Please put \"call mom\" on my todo list.",
+              "type": "todo",
+              "createdAt": "2026-03-19T23:24:37.866Z",
+              "updatedAt": "2026-03-19T23:24:37.866Z",
+              "date": "2026-03-20",
+              "tags": "todo,family",
+              "source": "Please put \"call mom\" on my todo list.",
+              "metadata": "{}",
+              "isDeleted": false
+            }
+          ],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Add a todo with alternate phrasing"
+            }
+          ]
+        },
+        "id": "a978ffce-4c64-48fb-abc7-a2b3fc00555b",
+        "latencyMs": 3998,
+        "namedScores": {},
+        "prompt": {
+          "raw": "add-single-todo-variant-phrasing",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Add a todo with alternate phrasing",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Add a todo with alternate phrasing",
+            "scenarioId": "add-single-todo-variant-phrasing",
+            "scenarioTitle": "Add a todo with alternate phrasing",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Please put \"call mom\" on my todo list.",
+                "finalUserInput": "Please put \"call mom\" on my todo list.",
+                "response": "Got it! I've saved your todo about Please put \"call mom\" on my....",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Saving your thought..."
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "e06a3037-ee1c-4972-9802-d7393f505056"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Got it! I've saved your todo about Please put \"call mom\" on my...."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "Please put \"call mom\" on my todo list."
+                ],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Please put \"call mom\" on my todo list.",
+                    "response": "Got it! I've saved your todo about Please put \"call mom\" on my....",
+                    "todoContents": [
+                      "Please put \"call mom\" on my todo list."
+                    ],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [
+              {
+                "id": "e06a3037-ee1c-4972-9802-d7393f505056",
+                "content": "Please put \"call mom\" on my todo list.",
+                "type": "todo",
+                "createdAt": "2026-03-19T23:24:41.869Z",
+                "updatedAt": "2026-03-19T23:24:41.869Z",
+                "date": "2026-03-20",
+                "tags": "todo,family",
+                "source": "Please put \"call mom\" on my todo list.",
+                "metadata": "{}",
+                "isDeleted": false
+              }
+            ],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "add-single-todo-variant-phrasing"
+          },
+          "metadata": {
+            "scenarioId": "add-single-todo-variant-phrasing",
+            "scenarioTitle": "Add a todo with alternate phrasing",
+            "topic": "todo-creation",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Add a todo with alternate phrasing",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 3,
+        "vars": {
+          "scenarioId": "add-single-todo-variant-phrasing"
+        },
+        "metadata": {
+          "scenarioId": "add-single-todo-variant-phrasing",
+          "scenarioTitle": "Add a todo with alternate phrasing",
+          "topic": "todo-creation",
+          "suites": [
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Add a todo with alternate phrasing",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Please put \"call mom\" on my todo list.",
+              "finalUserInput": "Please put \"call mom\" on my todo list.",
+              "response": "Got it! I've saved your todo about Please put \"call mom\" on my....",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Saving your thought..."
+                },
+                {
+                  "type": "stored",
+                  "documentId": "e06a3037-ee1c-4972-9802-d7393f505056"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Got it! I've saved your todo about Please put \"call mom\" on my...."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "Please put \"call mom\" on my todo list."
+              ],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Please put \"call mom\" on my todo list.",
+                  "response": "Got it! I've saved your todo about Please put \"call mom\" on my....",
+                  "todoContents": [
+                    "Please put \"call mom\" on my todo list."
+                  ],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [
+            {
+              "id": "e06a3037-ee1c-4972-9802-d7393f505056",
+              "content": "Please put \"call mom\" on my todo list.",
+              "type": "todo",
+              "createdAt": "2026-03-19T23:24:41.869Z",
+              "updatedAt": "2026-03-19T23:24:41.869Z",
+              "date": "2026-03-20",
+              "tags": "todo,family",
+              "source": "Please put \"call mom\" on my todo list.",
+              "metadata": "{}",
+              "isDeleted": false
+            }
+          ],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Add a todo with alternate phrasing"
+            }
+          ]
+        },
+        "id": "42b0884e-d92d-4fae-abec-b8279ea23e59",
+        "latencyMs": 3815,
+        "namedScores": {},
+        "prompt": {
+          "raw": "add-single-todo-variant-phrasing",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Add a todo with alternate phrasing",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Add a todo with alternate phrasing",
+            "scenarioId": "add-single-todo-variant-phrasing",
+            "scenarioTitle": "Add a todo with alternate phrasing",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Please put \"call mom\" on my todo list.",
+                "finalUserInput": "Please put \"call mom\" on my todo list.",
+                "response": "Got it! I've saved your todo about Please put \"call mom\" on my....",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Saving your thought..."
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "839bfd0d-d182-4259-bb70-2bab0832d640"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Got it! I've saved your todo about Please put \"call mom\" on my...."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "Please put \"call mom\" on my todo list."
+                ],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Please put \"call mom\" on my todo list.",
+                    "response": "Got it! I've saved your todo about Please put \"call mom\" on my....",
+                    "todoContents": [
+                      "Please put \"call mom\" on my todo list."
+                    ],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [
+              {
+                "id": "839bfd0d-d182-4259-bb70-2bab0832d640",
+                "content": "Please put \"call mom\" on my todo list.",
+                "type": "todo",
+                "createdAt": "2026-03-19T23:24:45.688Z",
+                "updatedAt": "2026-03-19T23:24:45.688Z",
+                "date": "2026-03-20",
+                "tags": "todo,family",
+                "source": "Please put \"call mom\" on my todo list.",
+                "metadata": "{}",
+                "isDeleted": false
+              }
+            ],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "add-single-todo-variant-phrasing"
+          },
+          "metadata": {
+            "scenarioId": "add-single-todo-variant-phrasing",
+            "scenarioTitle": "Add a todo with alternate phrasing",
+            "topic": "todo-creation",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Add a todo with alternate phrasing",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 4,
+        "vars": {
+          "scenarioId": "add-single-todo-variant-phrasing"
+        },
+        "metadata": {
+          "scenarioId": "add-single-todo-variant-phrasing",
+          "scenarioTitle": "Add a todo with alternate phrasing",
+          "topic": "todo-creation",
+          "suites": [
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Add a todo with alternate phrasing",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Please put \"call mom\" on my todo list.",
+              "finalUserInput": "Please put \"call mom\" on my todo list.",
+              "response": "Got it! I've saved your todo about Please put \"call mom\" on my....",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Saving your thought..."
+                },
+                {
+                  "type": "stored",
+                  "documentId": "839bfd0d-d182-4259-bb70-2bab0832d640"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Got it! I've saved your todo about Please put \"call mom\" on my...."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "Please put \"call mom\" on my todo list."
+              ],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Please put \"call mom\" on my todo list.",
+                  "response": "Got it! I've saved your todo about Please put \"call mom\" on my....",
+                  "todoContents": [
+                    "Please put \"call mom\" on my todo list."
+                  ],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [
+            {
+              "id": "839bfd0d-d182-4259-bb70-2bab0832d640",
+              "content": "Please put \"call mom\" on my todo list.",
+              "type": "todo",
+              "createdAt": "2026-03-19T23:24:45.688Z",
+              "updatedAt": "2026-03-19T23:24:45.688Z",
+              "date": "2026-03-20",
+              "tags": "todo,family",
+              "source": "Please put \"call mom\" on my todo list.",
+              "metadata": "{}",
+              "isDeleted": false
+            }
+          ],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      }
+    ],
+    "stats": {
+      "successes": 5,
+      "failures": 0,
+      "errors": 0,
+      "tokenUsage": {
+        "prompt": 0,
+        "completion": 0,
+        "cached": 0,
+        "total": 0,
+        "numRequests": 5,
+        "completionDetails": {
+          "reasoning": 0,
+          "acceptedPrediction": 0,
+          "rejectedPrediction": 0
+        },
+        "assertions": {
+          "total": 0,
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "numRequests": 0,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0
+          }
+        }
+      },
+      "durationMs": 20980,
+      "evaluationDurationMs": 20980
+    }
+  },
+  "config": {
+    "tags": {},
+    "description": "Lore promptfoo conversation evals",
+    "prompts": [
+      "{{scenarioId}}"
+    ],
+    "providers": [
+      {
+        "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+        "label": "qwen3.5:9b",
+        "config": {
+          "repositoryRoot": "R:\\lore",
+          "model": "qwen3.5:9b",
+          "embeddingModel": "qwen3-embedding:0.6b",
+          "ollamaHost": "http://127.0.0.1:11434",
+          "judgeModel": ""
+        }
+      }
+    ],
+    "tests": [
+      {
+        "vars": {
+          "scenarioId": "add-single-todo-variant-phrasing"
+        },
+        "metadata": {
+          "scenarioId": "add-single-todo-variant-phrasing",
+          "scenarioTitle": "Add a todo with alternate phrasing",
+          "topic": "todo-creation",
+          "suites": [
+            "full"
+          ]
+        },
+        "description": "Add a todo with alternate phrasing"
+      }
+    ],
+    "scenarios": [],
+    "env": {},
+    "defaultTest": {
+      "assert": [
+        {
+          "type": "javascript",
+          "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+        }
+      ],
+      "vars": {},
+      "options": {},
+      "metadata": {}
+    },
+    "outputPath": [
+      "R:\\lore\\evals\\results\\promptfoo-full-2026-03-19T23-24-22-372Z.json"
+    ],
+    "extensions": [],
+    "metadata": {},
+    "evaluateOptions": {
+      "repeat": 5,
+      "cache": false,
+      "maxConcurrency": 1
+    }
+  },
+  "shareableUrl": null,
+  "metadata": {
+    "promptfooVersion": "0.121.2",
+    "nodeVersion": "v20.20.0",
+    "platform": "win32",
+    "arch": "x64",
+    "exportedAt": "2026-03-19T23:24:45.743Z",
+    "evaluationCreatedAt": "2026-03-19T23:24:24.711Z"
+  }
+}

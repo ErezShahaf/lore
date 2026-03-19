@@ -1,0 +1,48 @@
+{
+  "description": "Lore promptfoo conversation evals",
+  "prompts": [
+    "{{scenarioId}}"
+  ],
+  "providers": [
+    {
+      "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+      "label": "qwen3.5:9b",
+      "config": {
+        "repositoryRoot": "R:\\lore",
+        "model": "qwen3.5:9b",
+        "embeddingModel": "qwen3-embedding:0.6b",
+        "ollamaHost": "http://127.0.0.1:11434",
+        "judgeModel": ""
+      }
+    }
+  ],
+  "defaultTest": {
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+      }
+    ]
+  },
+  "tests": [
+    {
+      "vars": {
+        "scenarioId": "clarification-resolves-ambiguous-update"
+      },
+      "metadata": {
+        "scenarioId": "clarification-resolves-ambiguous-update",
+        "scenarioTitle": "Clarification follow-up resolves the right todo",
+        "topic": "todo-update",
+        "suites": [
+          "full"
+        ]
+      },
+      "description": "Clarification follow-up resolves the right todo"
+    }
+  ],
+  "evaluateOptions": {
+    "repeat": 5,
+    "cache": false,
+    "maxConcurrency": 1
+  }
+}

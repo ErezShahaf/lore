@@ -1,0 +1,19 @@
+{
+  "resultPath": "R:\\lore\\evals\\results\\promptfoo-full-2026-03-19T23-24-22-372Z.json",
+  "generatedAt": "2026-03-19T23:24:46.894Z",
+  "scenarios": [
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "add-single-todo-variant-phrasing",
+      "scenarioTitle": "Add a todo with alternate phrasing",
+      "topic": "todo-creation",
+      "passCount": 5,
+      "totalCount": 5,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    }
+  ]
+}

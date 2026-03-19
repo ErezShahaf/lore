@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'fs'
 import { join, resolve } from 'path'
 import { fileURLToPath } from 'url'
 import { spawn } from 'child_process'
-import { scenarios } from '../evals/scenarios/catalog.mjs'
+import { scenarioTopics, scenarios } from '../evals/scenarios/catalog.mjs'
 
 const scriptDirectory = fileURLToPath(new URL('.', import.meta.url))
 const repositoryRoot = resolve(scriptDirectory, '..')
@@ -87,6 +87,17 @@ function parseScenarioIds() {
     .filter((value) => value.length > 0)
 
   return [...new Set(scenarioIds)]
+}
+
+function parseTopics() {
+  const rawTopicValues = getArgumentValues('--topic')
+
+  const topics = rawTopicValues
+    .flatMap((value) => value.split(','))
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+
+  return [...new Set(topics)]
 }
 
 function getScenariosForSuite(suiteName) {
@@ -204,6 +215,7 @@ function buildPromptfooConfig({
       metadata: {
         scenarioId: scenario.id,
         scenarioTitle: scenario.title,
+        topic: scenario.topic,
         suites: scenario.suites,
       },
       description: scenario.title,
@@ -238,24 +250,36 @@ async function main() {
   const skipBuild = hasFlag('--skip-build')
   const shouldWriteHtmlReport = hasFlag('--html-report')
   const requestedScenarioIds = parseScenarioIds()
+  const requestedTopics = parseTopics()
   const embeddingModel = await resolveEmbeddingModel(ollamaHost, requestedEmbeddingModel)
   const suiteScenarios = getScenariosForSuite(suiteName)
+  const unknownTopics = requestedTopics.filter((requestedTopic) => !scenarioTopics.includes(requestedTopic))
+
+  if (unknownTopics.length > 0) {
+    throw new Error(
+      `Unknown topics: ${unknownTopics.join(', ')}. Available topics: ${scenarioTopics.join(', ')}`,
+    )
+  }
+
+  const topicFilteredScenarios = requestedTopics.length === 0
+    ? suiteScenarios
+    : suiteScenarios.filter((scenario) => requestedTopics.includes(scenario.topic))
 
   const selectedScenarios = requestedScenarioIds.length === 0
-    ? suiteScenarios
-    : suiteScenarios.filter((scenario) => requestedScenarioIds.includes(scenario.id))
+    ? topicFilteredScenarios
+    : topicFilteredScenarios.filter((scenario) => requestedScenarioIds.includes(scenario.id))
 
   const missingScenarioIds = requestedScenarioIds.filter(
-    (requestedScenarioId) => !suiteScenarios.some((scenario) => scenario.id === requestedScenarioId),
+    (requestedScenarioId) => !topicFilteredScenarios.some((scenario) => scenario.id === requestedScenarioId),
   )
   if (missingScenarioIds.length > 0) {
     throw new Error(
-      `Unknown scenarios for suite "${suiteName}": ${missingScenarioIds.join(', ')}`,
+      `Unknown scenarios for suite "${suiteName}" and selected topics: ${missingScenarioIds.join(', ')}`,
     )
   }
 
   if (selectedScenarios.length === 0) {
-    throw new Error(`No scenarios are defined for suite "${suiteName}".`)
+    throw new Error(`No scenarios match suite "${suiteName}" with the selected filters.`)
   }
 
   mkdirSync(generatedDirectory, { recursive: true })
@@ -278,6 +302,9 @@ async function main() {
 
   console.log(`Running ${selectedScenarios.length} scenarios x ${repeatCount} repeats for models: ${selectedModels.join(', ')}`)
   console.log(`Using embedding model: ${embeddingModel}`)
+  if (requestedTopics.length > 0) {
+    console.log(`Selected topics: ${requestedTopics.join(', ')}`)
+  }
 
   if (!skipBuild) {
     await runCommand(getNpmCommand(), ['run', 'build:app'])

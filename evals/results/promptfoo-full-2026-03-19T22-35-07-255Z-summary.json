@@ -1,0 +1,466 @@
+{
+  "resultPath": "R:\\lore\\evals\\results\\promptfoo-full-2026-03-19T22-35-07-255Z.json",
+  "generatedAt": "2026-03-19T22:55:17.459Z",
+  "scenarios": [
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "smalltalk-random-question-then-add",
+      "scenarioTitle": "Random smalltalk before action",
+      "passCount": 1,
+      "totalCount": 3,
+      "passPercentage": 33.33333333333333,
+      "topFailureStages": [
+        [
+          "Step 2 @ No status emitted",
+          2
+        ]
+      ],
+      "topFailureReasons": [
+        [
+          "Step 2: expected 1 todos but found 0.",
+          1
+        ],
+        [
+          "Step 2: expected a todo containing \"buy new headphones\".",
+          1
+        ],
+        [
+          "Step 2: expected 1 stored events but saw 2.",
+          1
+        ]
+      ],
+      "topFailedCheckTypes": [
+        [
+          "todoCount",
+          1
+        ],
+        [
+          "todoContentsIncludeSubstrings",
+          1
+        ],
+        [
+          "storedCount",
+          1
+        ]
+      ],
+      "failureExamples": [
+        {
+          "failureReasons": [
+            "Step 2: expected 1 todos but found 0.",
+            "Step 2: expected a todo containing \"buy new headphones\"."
+          ],
+          "failedChecks": [
+            {
+              "stepIndex": 1,
+              "checkType": "todoCount",
+              "reason": "expected 1 todos but found 0.",
+              "expected": "1",
+              "actual": "0"
+            },
+            {
+              "stepIndex": 1,
+              "checkType": "todoContentsIncludeSubstrings",
+              "reason": "expected a todo containing \"buy new headphones\".",
+              "expected": "buy new headphones",
+              "actual": "[]"
+            }
+          ],
+          "attemptedConversation": [
+            {
+              "userInput": "Anyway, add to my todo list: buy new headphones",
+              "response": "Got it! I've saved your thought about Anyway, add to my todo list:...."
+            }
+          ]
+        },
+        {
+          "failureReasons": [
+            "Step 2: expected 1 stored events but saw 2."
+          ],
+          "failedChecks": [
+            {
+              "stepIndex": 1,
+              "checkType": "storedCount",
+              "reason": "expected 1 stored events but saw 2.",
+              "expected": "1",
+              "actual": "2"
+            }
+          ],
+          "attemptedConversation": [
+            {
+              "userInput": "Anyway, add to my todo list: buy new headphones",
+              "response": "Got it! I've saved 2 todos."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "add-single-todo-variant-phrasing",
+      "scenarioTitle": "Add a todo with alternate phrasing",
+      "passCount": 2,
+      "totalCount": 3,
+      "passPercentage": 66.66666666666666,
+      "topFailureStages": [
+        [
+          "Step 1 @ No status emitted",
+          1
+        ]
+      ],
+      "topFailureReasons": [
+        [
+          "Step 1: expected 1 todos but found 0.",
+          1
+        ],
+        [
+          "Step 1: expected a todo containing \"call mom\".",
+          1
+        ]
+      ],
+      "topFailedCheckTypes": [
+        [
+          "todoCount",
+          1
+        ],
+        [
+          "todoContentsIncludeSubstrings",
+          1
+        ]
+      ],
+      "failureExamples": [
+        {
+          "failureReasons": [
+            "Step 1: expected 1 todos but found 0.",
+            "Step 1: expected a todo containing \"call mom\"."
+          ],
+          "failedChecks": [
+            {
+              "stepIndex": 0,
+              "checkType": "todoCount",
+              "reason": "expected 1 todos but found 0.",
+              "expected": "1",
+              "actual": "0"
+            },
+            {
+              "stepIndex": 0,
+              "checkType": "todoContentsIncludeSubstrings",
+              "reason": "expected a todo containing \"call mom\".",
+              "expected": "call mom",
+              "actual": "[]"
+            }
+          ],
+          "attemptedConversation": [
+            {
+              "userInput": "Please put \"call mom\" on my todo list.",
+              "response": "Got it! I've saved your thought about Please put \"call mom\" on my...."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "clarification-resolves-ambiguous-update",
+      "scenarioTitle": "Clarification follow-up resolves the right todo",
+      "passCount": 2,
+      "totalCount": 3,
+      "passPercentage": 66.66666666666666,
+      "topFailureStages": [
+        [
+          "Step 2 @ No status emitted",
+          1
+        ]
+      ],
+      "topFailureReasons": [
+        [
+          "Step 2: did not expect todo \"drink the water\" to exist.",
+          1
+        ],
+        [
+          "Step 2: expected a todo containing \"drink the fire\".",
+          1
+        ]
+      ],
+      "topFailedCheckTypes": [
+        [
+          "todoContentsExcludeExact",
+          1
+        ],
+        [
+          "todoContentsIncludeSubstrings",
+          1
+        ]
+      ],
+      "failureExamples": [
+        {
+          "failureReasons": [
+            "Step 2: did not expect todo \"drink the water\" to exist.",
+            "Step 2: expected a todo containing \"drink the fire\"."
+          ],
+          "failedChecks": [
+            {
+              "stepIndex": 1,
+              "checkType": "todoContentsExcludeExact",
+              "reason": "did not expect todo \"drink the water\" to exist.",
+              "expected": "Todo list must exclude \"drink the water\"",
+              "actual": "[\n  \"jump on the water\",\n  \"drink the water\"\n]"
+            },
+            {
+              "stepIndex": 1,
+              "checkType": "todoContentsIncludeSubstrings",
+              "reason": "expected a todo containing \"drink the fire\".",
+              "expected": "drink the fire",
+              "actual": "undefined"
+            }
+          ],
+          "attemptedConversation": [
+            {
+              "userInput": "Edit the water to fire",
+              "response": "I'm not confident about this: \"Update both water-related todos to 'fire the water' as another interpretation of 'edit the water to fire'. Confidence is very low due to semantic ambiguity.\". Could you be more specific about which document you mean?"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "add-single-todo-explicit",
+      "scenarioTitle": "Add a single explicit todo",
+      "passCount": 3,
+      "totalCount": 3,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "add-multiple-todos-inline-list",
+      "scenarioTitle": "Add multiple todos in one message",
+      "passCount": 3,
+      "totalCount": 3,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "add-multiple-todos-multiline",
+      "scenarioTitle": "Add todos from a multiline list",
+      "passCount": 3,
+      "totalCount": 3,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "ambiguous-delete-needs-clarification",
+      "scenarioTitle": "Ambiguous delete does not act immediately",
+      "passCount": 3,
+      "totalCount": 3,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "ambiguous-update-needs-clarification",
+      "scenarioTitle": "Ambiguous update asks for clarification",
+      "passCount": 3,
+      "totalCount": 3,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "clarification-resolves-ambiguous-delete",
+      "scenarioTitle": "Clarification follow-up deletes the intended todo",
+      "passCount": 3,
+      "totalCount": 3,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "delete-specific-todo",
+      "scenarioTitle": "Delete one matching todo",
+      "passCount": 3,
+      "totalCount": 3,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "explicit-edit-similar-todos",
+      "scenarioTitle": "Explicit edit of one similar todo",
+      "passCount": 3,
+      "totalCount": 3,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "pure-greeting-does-not-store",
+      "scenarioTitle": "Greeting alone does not create data",
+      "passCount": 3,
+      "totalCount": 3,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "greeting-then-add-todo",
+      "scenarioTitle": "Greeting before task creation",
+      "passCount": 3,
+      "totalCount": 3,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "instruction-does-not-become-todo",
+      "scenarioTitle": "Instruction stays separate from todos",
+      "passCount": 3,
+      "totalCount": 3,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "duplicate-todo-still-persists-separately",
+      "scenarioTitle": "Near-duplicate todo requests still store separately",
+      "passCount": 3,
+      "totalCount": 3,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "seeded-large-db-targeted-retrieval",
+      "scenarioTitle": "Retrieve the right fact from seeded large data",
+      "passCount": 3,
+      "totalCount": 3,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "retrieve-todos-after-creation",
+      "scenarioTitle": "Retrieve todos after creating them",
+      "passCount": 3,
+      "totalCount": 3,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "retrieve-todos-with-casual-phrasing",
+      "scenarioTitle": "Retrieve todos with casual wording",
+      "passCount": 3,
+      "totalCount": 3,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "seeded-ambiguous-retrieval-needs-clarification",
+      "scenarioTitle": "Seeded retrieval ambiguity asks for clarification",
+      "passCount": 3,
+      "totalCount": 3,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "seeded-ambiguous-retrieval-clarification-resolves",
+      "scenarioTitle": "Seeded retrieval clarification leads to the right Alex",
+      "passCount": 3,
+      "totalCount": 3,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "seeded-retrieval-threshold-discipline",
+      "scenarioTitle": "Seeded retrieval keeps the result set focused",
+      "passCount": 3,
+      "totalCount": 3,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "update-specific-todo",
+      "scenarioTitle": "Update a specific todo by description",
+      "passCount": 3,
+      "totalCount": 3,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    },
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "low-confidence-vague-request",
+      "scenarioTitle": "Vague request does not mutate state",
+      "passCount": 3,
+      "totalCount": 3,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    }
+  ]
+}

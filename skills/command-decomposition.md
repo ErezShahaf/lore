@@ -52,6 +52,8 @@ Guardrails:
 - Never target documents the user did not clearly mean.
 - Compare meaning, not just keyword overlap.
 - When in doubt, clarify.
+- If the user quotes or exactly names the old content and it maps to a single candidate, prefer executing that exact match instead of asking again.
+- If the user is answering a clarification request with a unique identifying detail like "the one about drinking", use that detail to pick the matching candidate when only one candidate fits.
 - If the user says something like "the one about jumping" and multiple candidate todos mention jumping, you MUST clarify instead of picking one.
 - For destructive requests, only choose a single document when it is clearly the best match among the candidates. If a few candidates could fit and you cannot determine for sure which one the user means, respond with "clarify".
 - Do not delete multiple documents unless the user clearly asked for a bulk action like "all", "both", or "all of them".

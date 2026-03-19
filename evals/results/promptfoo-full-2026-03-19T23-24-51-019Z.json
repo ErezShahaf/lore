@@ -1,0 +1,3883 @@
+{
+  "evalId": "eval-yUf-2026-03-19T23:24:52",
+  "results": {
+    "version": 3,
+    "timestamp": "2026-03-19T23:24:52.989Z",
+    "prompts": [
+      {
+        "id": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "raw": "{{scenarioId}}",
+        "label": "{{scenarioId}}",
+        "provider": "qwen3.5:9b",
+        "metrics": {
+          "score": 5,
+          "testPassCount": 5,
+          "testFailCount": 0,
+          "testErrorCount": 0,
+          "assertPassCount": 5,
+          "assertFailCount": 0,
+          "totalLatencyMs": 45545,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 5,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0
+              }
+            }
+          },
+          "namedScores": {},
+          "namedScoresCount": {},
+          "cost": 0
+        }
+      }
+    ],
+    "results": [
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Random smalltalk before action"
+            }
+          ]
+        },
+        "id": "6fb47682-d419-4c90-abd6-e96d93cb806f",
+        "latencyMs": 10667,
+        "namedScores": {},
+        "prompt": {
+          "raw": "smalltalk-random-question-then-add",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Random smalltalk before action",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Random smalltalk before action",
+            "scenarioId": "smalltalk-random-question-then-add",
+            "scenarioTitle": "Random smalltalk before action",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Hello! Quick question, what is your favorite color?",
+                "finalUserInput": "Hello! Quick question, what is your favorite color?",
+                "response": "Hello! I don't have personal feelings, so I don't have a favorite color myself. But I'm here to help you manage your life!\n\nI can save notes, ideas, reminders, meetings, and todos for you, search your stored data to answer questions, and even help you remove finished tasks.\n\nIs there anything specific you'd like to save or organize today?",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Thinking..."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Hello"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "!"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " I"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " don"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "'t"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " have"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " personal"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " feelings"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " so"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " I"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " don"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "'t"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " have"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " a"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " favorite"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " color"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " myself"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " But"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " I"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "'m"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " here"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " to"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " help"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " you"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " manage"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " your"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " life"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "!"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "\n\nI"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " can"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " save"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " notes"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " ideas"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " reminders"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " meetings"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " and"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " todos"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " for"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " you"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " search"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " your"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " stored"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " data"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " to"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " answer"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " questions"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " and"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " even"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " help"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " you"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " remove"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " finished"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " tasks"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "\n\nIs"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " there"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " anything"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " specific"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " you"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "'d"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " like"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " to"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " save"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " or"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " organize"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " today"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "?"
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Hello! Quick question, what is your favorite color?",
+                    "response": "Hello! I don't have personal feelings, so I don't have a favorite color myself. But I'm here to help you manage your life!\n\nI can save notes, ideas, reminders, meetings, and todos for you, search your stored data to answer questions, and even help you remove finished tasks.\n\nIs there anything specific you'd like to save or organize today?",
+                    "todoContents": [],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              },
+              {
+                "stepIndex": 1,
+                "initialUserInput": "Anyway, add to my todo list: buy new headphones",
+                "finalUserInput": "Anyway, add to my todo list: buy new headphones",
+                "response": "Got it! I've saved your todo about Anyway, add to my todo list:....",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Saving your thought..."
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "686dcae5-9de8-481e-99a8-498c50d14271"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Got it! I've saved your todo about Anyway, add to my todo list:...."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "Anyway, add to my todo list: buy new headphones"
+                ],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Anyway, add to my todo list: buy new headphones",
+                    "response": "Got it! I've saved your todo about Anyway, add to my todo list:....",
+                    "todoContents": [
+                      "Anyway, add to my todo list: buy new headphones"
+                    ],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [
+              {
+                "id": "686dcae5-9de8-481e-99a8-498c50d14271",
+                "content": "Anyway, add to my todo list: buy new headphones",
+                "type": "todo",
+                "createdAt": "2026-03-19T23:25:03.664Z",
+                "updatedAt": "2026-03-19T23:25:03.664Z",
+                "date": "2026-03-20",
+                "tags": "todo,shopping,headphones",
+                "source": "Anyway, add to my todo list: buy new headphones",
+                "metadata": "{}",
+                "isDeleted": false
+              }
+            ],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "smalltalk-random-question-then-add"
+          },
+          "metadata": {
+            "scenarioId": "smalltalk-random-question-then-add",
+            "scenarioTitle": "Random smalltalk before action",
+            "topic": "conversation-robustness",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Random smalltalk before action",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 0,
+        "vars": {
+          "scenarioId": "smalltalk-random-question-then-add"
+        },
+        "metadata": {
+          "scenarioId": "smalltalk-random-question-then-add",
+          "scenarioTitle": "Random smalltalk before action",
+          "topic": "conversation-robustness",
+          "suites": [
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Random smalltalk before action",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Hello! Quick question, what is your favorite color?",
+              "finalUserInput": "Hello! Quick question, what is your favorite color?",
+              "response": "Hello! I don't have personal feelings, so I don't have a favorite color myself. But I'm here to help you manage your life!\n\nI can save notes, ideas, reminders, meetings, and todos for you, search your stored data to answer questions, and even help you remove finished tasks.\n\nIs there anything specific you'd like to save or organize today?",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Thinking..."
+                },
+                {
+                  "type": "chunk",
+                  "content": "Hello"
+                },
+                {
+                  "type": "chunk",
+                  "content": "!"
+                },
+                {
+                  "type": "chunk",
+                  "content": " I"
+                },
+                {
+                  "type": "chunk",
+                  "content": " don"
+                },
+                {
+                  "type": "chunk",
+                  "content": "'t"
+                },
+                {
+                  "type": "chunk",
+                  "content": " have"
+                },
+                {
+                  "type": "chunk",
+                  "content": " personal"
+                },
+                {
+                  "type": "chunk",
+                  "content": " feelings"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " so"
+                },
+                {
+                  "type": "chunk",
+                  "content": " I"
+                },
+                {
+                  "type": "chunk",
+                  "content": " don"
+                },
+                {
+                  "type": "chunk",
+                  "content": "'t"
+                },
+                {
+                  "type": "chunk",
+                  "content": " have"
+                },
+                {
+                  "type": "chunk",
+                  "content": " a"
+                },
+                {
+                  "type": "chunk",
+                  "content": " favorite"
+                },
+                {
+                  "type": "chunk",
+                  "content": " color"
+                },
+                {
+                  "type": "chunk",
+                  "content": " myself"
+                },
+                {
+                  "type": "chunk",
+                  "content": "."
+                },
+                {
+                  "type": "chunk",
+                  "content": " But"
+                },
+                {
+                  "type": "chunk",
+                  "content": " I"
+                },
+                {
+                  "type": "chunk",
+                  "content": "'m"
+                },
+                {
+                  "type": "chunk",
+                  "content": " here"
+                },
+                {
+                  "type": "chunk",
+                  "content": " to"
+                },
+                {
+                  "type": "chunk",
+                  "content": " help"
+                },
+                {
+                  "type": "chunk",
+                  "content": " you"
+                },
+                {
+                  "type": "chunk",
+                  "content": " manage"
+                },
+                {
+                  "type": "chunk",
+                  "content": " your"
+                },
+                {
+                  "type": "chunk",
+                  "content": " life"
+                },
+                {
+                  "type": "chunk",
+                  "content": "!"
+                },
+                {
+                  "type": "chunk",
+                  "content": "\n\nI"
+                },
+                {
+                  "type": "chunk",
+                  "content": " can"
+                },
+                {
+                  "type": "chunk",
+                  "content": " save"
+                },
+                {
+                  "type": "chunk",
+                  "content": " notes"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " ideas"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " reminders"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " meetings"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " and"
+                },
+                {
+                  "type": "chunk",
+                  "content": " todos"
+                },
+                {
+                  "type": "chunk",
+                  "content": " for"
+                },
+                {
+                  "type": "chunk",
+                  "content": " you"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " search"
+                },
+                {
+                  "type": "chunk",
+                  "content": " your"
+                },
+                {
+                  "type": "chunk",
+                  "content": " stored"
+                },
+                {
+                  "type": "chunk",
+                  "content": " data"
+                },
+                {
+                  "type": "chunk",
+                  "content": " to"
+                },
+                {
+                  "type": "chunk",
+                  "content": " answer"
+                },
+                {
+                  "type": "chunk",
+                  "content": " questions"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " and"
+                },
+                {
+                  "type": "chunk",
+                  "content": " even"
+                },
+                {
+                  "type": "chunk",
+                  "content": " help"
+                },
+                {
+                  "type": "chunk",
+                  "content": " you"
+                },
+                {
+                  "type": "chunk",
+                  "content": " remove"
+                },
+                {
+                  "type": "chunk",
+                  "content": " finished"
+                },
+                {
+                  "type": "chunk",
+                  "content": " tasks"
+                },
+                {
+                  "type": "chunk",
+                  "content": "."
+                },
+                {
+                  "type": "chunk",
+                  "content": "\n\nIs"
+                },
+                {
+                  "type": "chunk",
+                  "content": " there"
+                },
+                {
+                  "type": "chunk",
+                  "content": " anything"
+                },
+                {
+                  "type": "chunk",
+                  "content": " specific"
+                },
+                {
+                  "type": "chunk",
+                  "content": " you"
+                },
+                {
+                  "type": "chunk",
+                  "content": "'d"
+                },
+                {
+                  "type": "chunk",
+                  "content": " like"
+                },
+                {
+                  "type": "chunk",
+                  "content": " to"
+                },
+                {
+                  "type": "chunk",
+                  "content": " save"
+                },
+                {
+                  "type": "chunk",
+                  "content": " or"
+                },
+                {
+                  "type": "chunk",
+                  "content": " organize"
+                },
+                {
+                  "type": "chunk",
+                  "content": " today"
+                },
+                {
+                  "type": "chunk",
+                  "content": "?"
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Hello! Quick question, what is your favorite color?",
+                  "response": "Hello! I don't have personal feelings, so I don't have a favorite color myself. But I'm here to help you manage your life!\n\nI can save notes, ideas, reminders, meetings, and todos for you, search your stored data to answer questions, and even help you remove finished tasks.\n\nIs there anything specific you'd like to save or organize today?",
+                  "todoContents": [],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            },
+            {
+              "stepIndex": 1,
+              "initialUserInput": "Anyway, add to my todo list: buy new headphones",
+              "finalUserInput": "Anyway, add to my todo list: buy new headphones",
+              "response": "Got it! I've saved your todo about Anyway, add to my todo list:....",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Saving your thought..."
+                },
+                {
+                  "type": "stored",
+                  "documentId": "686dcae5-9de8-481e-99a8-498c50d14271"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Got it! I've saved your todo about Anyway, add to my todo list:...."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "Anyway, add to my todo list: buy new headphones"
+              ],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Anyway, add to my todo list: buy new headphones",
+                  "response": "Got it! I've saved your todo about Anyway, add to my todo list:....",
+                  "todoContents": [
+                    "Anyway, add to my todo list: buy new headphones"
+                  ],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [
+            {
+              "id": "686dcae5-9de8-481e-99a8-498c50d14271",
+              "content": "Anyway, add to my todo list: buy new headphones",
+              "type": "todo",
+              "createdAt": "2026-03-19T23:25:03.664Z",
+              "updatedAt": "2026-03-19T23:25:03.664Z",
+              "date": "2026-03-20",
+              "tags": "todo,shopping,headphones",
+              "source": "Anyway, add to my todo list: buy new headphones",
+              "metadata": "{}",
+              "isDeleted": false
+            }
+          ],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Random smalltalk before action"
+            }
+          ]
+        },
+        "id": "6789aee0-69f6-4775-8e92-1502bddbefa8",
+        "latencyMs": 8717,
+        "namedScores": {},
+        "prompt": {
+          "raw": "smalltalk-random-question-then-add",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Random smalltalk before action",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Random smalltalk before action",
+            "scenarioId": "smalltalk-random-question-then-add",
+            "scenarioTitle": "Random smalltalk before action",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Hello! Quick question, what is your favorite color?",
+                "finalUserInput": "Hello! Quick question, what is your favorite color?",
+                "response": "Hey there! While I don't have a personal favorite color, I love seeing what colors you enjoy. Do you have a go-to color you like to use for notes or just for fun?",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Thinking..."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Hey"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " there"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "!"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " While"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " I"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " don"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "'t"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " have"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " a"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " personal"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " favorite"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " color"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " I"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " love"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " seeing"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " what"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " colors"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " you"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " enjoy"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " Do"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " you"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " have"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " a"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " go"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "-to"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " color"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " you"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " like"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " to"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " use"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " for"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " notes"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " or"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " just"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " for"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " fun"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "?"
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Hello! Quick question, what is your favorite color?",
+                    "response": "Hey there! While I don't have a personal favorite color, I love seeing what colors you enjoy. Do you have a go-to color you like to use for notes or just for fun?",
+                    "todoContents": [],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              },
+              {
+                "stepIndex": 1,
+                "initialUserInput": "Anyway, add to my todo list: buy new headphones",
+                "finalUserInput": "Anyway, add to my todo list: buy new headphones",
+                "response": "Got it! I've saved your todo about Anyway, add to my todo list:....",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Saving your thought..."
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "9b684915-d08d-4ee1-98f2-1f5570f8959d"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Got it! I've saved your todo about Anyway, add to my todo list:...."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "Anyway, add to my todo list: buy new headphones"
+                ],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Anyway, add to my todo list: buy new headphones",
+                    "response": "Got it! I've saved your todo about Anyway, add to my todo list:....",
+                    "todoContents": [
+                      "Anyway, add to my todo list: buy new headphones"
+                    ],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [
+              {
+                "id": "9b684915-d08d-4ee1-98f2-1f5570f8959d",
+                "content": "Anyway, add to my todo list: buy new headphones",
+                "type": "todo",
+                "createdAt": "2026-03-19T23:25:12.402Z",
+                "updatedAt": "2026-03-19T23:25:12.402Z",
+                "date": "2026-03-20",
+                "tags": "todo,shopping,headphones",
+                "source": "Anyway, add to my todo list: buy new headphones",
+                "metadata": "{}",
+                "isDeleted": false
+              }
+            ],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "smalltalk-random-question-then-add"
+          },
+          "metadata": {
+            "scenarioId": "smalltalk-random-question-then-add",
+            "scenarioTitle": "Random smalltalk before action",
+            "topic": "conversation-robustness",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Random smalltalk before action",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 1,
+        "vars": {
+          "scenarioId": "smalltalk-random-question-then-add"
+        },
+        "metadata": {
+          "scenarioId": "smalltalk-random-question-then-add",
+          "scenarioTitle": "Random smalltalk before action",
+          "topic": "conversation-robustness",
+          "suites": [
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Random smalltalk before action",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Hello! Quick question, what is your favorite color?",
+              "finalUserInput": "Hello! Quick question, what is your favorite color?",
+              "response": "Hey there! While I don't have a personal favorite color, I love seeing what colors you enjoy. Do you have a go-to color you like to use for notes or just for fun?",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Thinking..."
+                },
+                {
+                  "type": "chunk",
+                  "content": "Hey"
+                },
+                {
+                  "type": "chunk",
+                  "content": " there"
+                },
+                {
+                  "type": "chunk",
+                  "content": "!"
+                },
+                {
+                  "type": "chunk",
+                  "content": " While"
+                },
+                {
+                  "type": "chunk",
+                  "content": " I"
+                },
+                {
+                  "type": "chunk",
+                  "content": " don"
+                },
+                {
+                  "type": "chunk",
+                  "content": "'t"
+                },
+                {
+                  "type": "chunk",
+                  "content": " have"
+                },
+                {
+                  "type": "chunk",
+                  "content": " a"
+                },
+                {
+                  "type": "chunk",
+                  "content": " personal"
+                },
+                {
+                  "type": "chunk",
+                  "content": " favorite"
+                },
+                {
+                  "type": "chunk",
+                  "content": " color"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " I"
+                },
+                {
+                  "type": "chunk",
+                  "content": " love"
+                },
+                {
+                  "type": "chunk",
+                  "content": " seeing"
+                },
+                {
+                  "type": "chunk",
+                  "content": " what"
+                },
+                {
+                  "type": "chunk",
+                  "content": " colors"
+                },
+                {
+                  "type": "chunk",
+                  "content": " you"
+                },
+                {
+                  "type": "chunk",
+                  "content": " enjoy"
+                },
+                {
+                  "type": "chunk",
+                  "content": "."
+                },
+                {
+                  "type": "chunk",
+                  "content": " Do"
+                },
+                {
+                  "type": "chunk",
+                  "content": " you"
+                },
+                {
+                  "type": "chunk",
+                  "content": " have"
+                },
+                {
+                  "type": "chunk",
+                  "content": " a"
+                },
+                {
+                  "type": "chunk",
+                  "content": " go"
+                },
+                {
+                  "type": "chunk",
+                  "content": "-to"
+                },
+                {
+                  "type": "chunk",
+                  "content": " color"
+                },
+                {
+                  "type": "chunk",
+                  "content": " you"
+                },
+                {
+                  "type": "chunk",
+                  "content": " like"
+                },
+                {
+                  "type": "chunk",
+                  "content": " to"
+                },
+                {
+                  "type": "chunk",
+                  "content": " use"
+                },
+                {
+                  "type": "chunk",
+                  "content": " for"
+                },
+                {
+                  "type": "chunk",
+                  "content": " notes"
+                },
+                {
+                  "type": "chunk",
+                  "content": " or"
+                },
+                {
+                  "type": "chunk",
+                  "content": " just"
+                },
+                {
+                  "type": "chunk",
+                  "content": " for"
+                },
+                {
+                  "type": "chunk",
+                  "content": " fun"
+                },
+                {
+                  "type": "chunk",
+                  "content": "?"
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Hello! Quick question, what is your favorite color?",
+                  "response": "Hey there! While I don't have a personal favorite color, I love seeing what colors you enjoy. Do you have a go-to color you like to use for notes or just for fun?",
+                  "todoContents": [],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            },
+            {
+              "stepIndex": 1,
+              "initialUserInput": "Anyway, add to my todo list: buy new headphones",
+              "finalUserInput": "Anyway, add to my todo list: buy new headphones",
+              "response": "Got it! I've saved your todo about Anyway, add to my todo list:....",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Saving your thought..."
+                },
+                {
+                  "type": "stored",
+                  "documentId": "9b684915-d08d-4ee1-98f2-1f5570f8959d"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Got it! I've saved your todo about Anyway, add to my todo list:...."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "Anyway, add to my todo list: buy new headphones"
+              ],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Anyway, add to my todo list: buy new headphones",
+                  "response": "Got it! I've saved your todo about Anyway, add to my todo list:....",
+                  "todoContents": [
+                    "Anyway, add to my todo list: buy new headphones"
+                  ],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [
+            {
+              "id": "9b684915-d08d-4ee1-98f2-1f5570f8959d",
+              "content": "Anyway, add to my todo list: buy new headphones",
+              "type": "todo",
+              "createdAt": "2026-03-19T23:25:12.402Z",
+              "updatedAt": "2026-03-19T23:25:12.402Z",
+              "date": "2026-03-20",
+              "tags": "todo,shopping,headphones",
+              "source": "Anyway, add to my todo list: buy new headphones",
+              "metadata": "{}",
+              "isDeleted": false
+            }
+          ],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Random smalltalk before action"
+            }
+          ]
+        },
+        "id": "2eceafd2-078d-408d-8b10-c013a14888a4",
+        "latencyMs": 8702,
+        "namedScores": {},
+        "prompt": {
+          "raw": "smalltalk-random-question-then-add",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Random smalltalk before action",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Random smalltalk before action",
+            "scenarioId": "smalltalk-random-question-then-add",
+            "scenarioTitle": "Random smalltalk before action",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Hello! Quick question, what is your favorite color?",
+                "finalUserInput": "Hello! Quick question, what is your favorite color?",
+                "response": "Hi there! I don't have a favorite color since I'm an AI, but I love helping you organize your notes, ideas, meetings, and todos. Feel free to ask me to search your stored data, save a new reminder, or update your preferences anytime! 🎨✨",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Thinking..."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Hi"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " there"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "!"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " I"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " don"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "'t"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " have"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " a"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " favorite"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " color"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " since"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " I"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "'m"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " an"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " AI"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " but"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " I"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " love"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " helping"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " you"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " organize"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " your"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " notes"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " ideas"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " meetings"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " and"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " todos"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " Feel"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " free"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " to"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " ask"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " me"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " to"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " search"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " your"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " stored"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " data"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " save"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " a"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " new"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " reminder"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " or"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " update"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " your"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " preferences"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " anytime"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "!"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " 🎨"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "✨"
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Hello! Quick question, what is your favorite color?",
+                    "response": "Hi there! I don't have a favorite color since I'm an AI, but I love helping you organize your notes, ideas, meetings, and todos. Feel free to ask me to search your stored data, save a new reminder, or update your preferences anytime! 🎨✨",
+                    "todoContents": [],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              },
+              {
+                "stepIndex": 1,
+                "initialUserInput": "Anyway, add to my todo list: buy new headphones",
+                "finalUserInput": "Anyway, add to my todo list: buy new headphones",
+                "response": "Got it! I've saved your todo about Anyway, add to my todo list:....",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Saving your thought..."
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "0d772cd2-6700-4368-be67-11663c38de91"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Got it! I've saved your todo about Anyway, add to my todo list:...."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "Anyway, add to my todo list: buy new headphones"
+                ],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Anyway, add to my todo list: buy new headphones",
+                    "response": "Got it! I've saved your todo about Anyway, add to my todo list:....",
+                    "todoContents": [
+                      "Anyway, add to my todo list: buy new headphones"
+                    ],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [
+              {
+                "id": "0d772cd2-6700-4368-be67-11663c38de91",
+                "content": "Anyway, add to my todo list: buy new headphones",
+                "type": "todo",
+                "createdAt": "2026-03-19T23:25:21.111Z",
+                "updatedAt": "2026-03-19T23:25:21.111Z",
+                "date": "2026-03-20",
+                "tags": "todo,shopping,headphones",
+                "source": "Anyway, add to my todo list: buy new headphones",
+                "metadata": "{}",
+                "isDeleted": false
+              }
+            ],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "smalltalk-random-question-then-add"
+          },
+          "metadata": {
+            "scenarioId": "smalltalk-random-question-then-add",
+            "scenarioTitle": "Random smalltalk before action",
+            "topic": "conversation-robustness",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Random smalltalk before action",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 2,
+        "vars": {
+          "scenarioId": "smalltalk-random-question-then-add"
+        },
+        "metadata": {
+          "scenarioId": "smalltalk-random-question-then-add",
+          "scenarioTitle": "Random smalltalk before action",
+          "topic": "conversation-robustness",
+          "suites": [
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Random smalltalk before action",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Hello! Quick question, what is your favorite color?",
+              "finalUserInput": "Hello! Quick question, what is your favorite color?",
+              "response": "Hi there! I don't have a favorite color since I'm an AI, but I love helping you organize your notes, ideas, meetings, and todos. Feel free to ask me to search your stored data, save a new reminder, or update your preferences anytime! 🎨✨",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Thinking..."
+                },
+                {
+                  "type": "chunk",
+                  "content": "Hi"
+                },
+                {
+                  "type": "chunk",
+                  "content": " there"
+                },
+                {
+                  "type": "chunk",
+                  "content": "!"
+                },
+                {
+                  "type": "chunk",
+                  "content": " I"
+                },
+                {
+                  "type": "chunk",
+                  "content": " don"
+                },
+                {
+                  "type": "chunk",
+                  "content": "'t"
+                },
+                {
+                  "type": "chunk",
+                  "content": " have"
+                },
+                {
+                  "type": "chunk",
+                  "content": " a"
+                },
+                {
+                  "type": "chunk",
+                  "content": " favorite"
+                },
+                {
+                  "type": "chunk",
+                  "content": " color"
+                },
+                {
+                  "type": "chunk",
+                  "content": " since"
+                },
+                {
+                  "type": "chunk",
+                  "content": " I"
+                },
+                {
+                  "type": "chunk",
+                  "content": "'m"
+                },
+                {
+                  "type": "chunk",
+                  "content": " an"
+                },
+                {
+                  "type": "chunk",
+                  "content": " AI"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " but"
+                },
+                {
+                  "type": "chunk",
+                  "content": " I"
+                },
+                {
+                  "type": "chunk",
+                  "content": " love"
+                },
+                {
+                  "type": "chunk",
+                  "content": " helping"
+                },
+                {
+                  "type": "chunk",
+                  "content": " you"
+                },
+                {
+                  "type": "chunk",
+                  "content": " organize"
+                },
+                {
+                  "type": "chunk",
+                  "content": " your"
+                },
+                {
+                  "type": "chunk",
+                  "content": " notes"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " ideas"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " meetings"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " and"
+                },
+                {
+                  "type": "chunk",
+                  "content": " todos"
+                },
+                {
+                  "type": "chunk",
+                  "content": "."
+                },
+                {
+                  "type": "chunk",
+                  "content": " Feel"
+                },
+                {
+                  "type": "chunk",
+                  "content": " free"
+                },
+                {
+                  "type": "chunk",
+                  "content": " to"
+                },
+                {
+                  "type": "chunk",
+                  "content": " ask"
+                },
+                {
+                  "type": "chunk",
+                  "content": " me"
+                },
+                {
+                  "type": "chunk",
+                  "content": " to"
+                },
+                {
+                  "type": "chunk",
+                  "content": " search"
+                },
+                {
+                  "type": "chunk",
+                  "content": " your"
+                },
+                {
+                  "type": "chunk",
+                  "content": " stored"
+                },
+                {
+                  "type": "chunk",
+                  "content": " data"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " save"
+                },
+                {
+                  "type": "chunk",
+                  "content": " a"
+                },
+                {
+                  "type": "chunk",
+                  "content": " new"
+                },
+                {
+                  "type": "chunk",
+                  "content": " reminder"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " or"
+                },
+                {
+                  "type": "chunk",
+                  "content": " update"
+                },
+                {
+                  "type": "chunk",
+                  "content": " your"
+                },
+                {
+                  "type": "chunk",
+                  "content": " preferences"
+                },
+                {
+                  "type": "chunk",
+                  "content": " anytime"
+                },
+                {
+                  "type": "chunk",
+                  "content": "!"
+                },
+                {
+                  "type": "chunk",
+                  "content": " 🎨"
+                },
+                {
+                  "type": "chunk",
+                  "content": "✨"
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Hello! Quick question, what is your favorite color?",
+                  "response": "Hi there! I don't have a favorite color since I'm an AI, but I love helping you organize your notes, ideas, meetings, and todos. Feel free to ask me to search your stored data, save a new reminder, or update your preferences anytime! 🎨✨",
+                  "todoContents": [],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            },
+            {
+              "stepIndex": 1,
+              "initialUserInput": "Anyway, add to my todo list: buy new headphones",
+              "finalUserInput": "Anyway, add to my todo list: buy new headphones",
+              "response": "Got it! I've saved your todo about Anyway, add to my todo list:....",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Saving your thought..."
+                },
+                {
+                  "type": "stored",
+                  "documentId": "0d772cd2-6700-4368-be67-11663c38de91"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Got it! I've saved your todo about Anyway, add to my todo list:...."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "Anyway, add to my todo list: buy new headphones"
+              ],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Anyway, add to my todo list: buy new headphones",
+                  "response": "Got it! I've saved your todo about Anyway, add to my todo list:....",
+                  "todoContents": [
+                    "Anyway, add to my todo list: buy new headphones"
+                  ],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [
+            {
+              "id": "0d772cd2-6700-4368-be67-11663c38de91",
+              "content": "Anyway, add to my todo list: buy new headphones",
+              "type": "todo",
+              "createdAt": "2026-03-19T23:25:21.111Z",
+              "updatedAt": "2026-03-19T23:25:21.111Z",
+              "date": "2026-03-20",
+              "tags": "todo,shopping,headphones",
+              "source": "Anyway, add to my todo list: buy new headphones",
+              "metadata": "{}",
+              "isDeleted": false
+            }
+          ],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Random smalltalk before action"
+            }
+          ]
+        },
+        "id": "14f977b3-18f0-42d2-b236-87e63910ac88",
+        "latencyMs": 8595,
+        "namedScores": {},
+        "prompt": {
+          "raw": "smalltalk-random-question-then-add",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Random smalltalk before action",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Random smalltalk before action",
+            "scenarioId": "smalltalk-random-question-then-add",
+            "scenarioTitle": "Random smalltalk before action",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Hello! Quick question, what is your favorite color?",
+                "finalUserInput": "Hello! Quick question, what is your favorite color?",
+                "response": "Hi there! I'm an AI, so I don't have personal preferences like a favorite color. But I love helping users with their notes, ideas, reminders, meetings, and todos! What can I help you with today?",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Thinking..."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Hi"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " there"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "!"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " I"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "'m"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " an"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " AI"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " so"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " I"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " don"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "'t"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " have"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " personal"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " preferences"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " like"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " a"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " favorite"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " color"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " But"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " I"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " love"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " helping"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " users"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " with"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " their"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " notes"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " ideas"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " reminders"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " meetings"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " and"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " todos"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "!"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " What"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " can"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " I"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " help"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " you"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " with"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " today"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "?"
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Hello! Quick question, what is your favorite color?",
+                    "response": "Hi there! I'm an AI, so I don't have personal preferences like a favorite color. But I love helping users with their notes, ideas, reminders, meetings, and todos! What can I help you with today?",
+                    "todoContents": [],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              },
+              {
+                "stepIndex": 1,
+                "initialUserInput": "Anyway, add to my todo list: buy new headphones",
+                "finalUserInput": "Anyway, add to my todo list: buy new headphones",
+                "response": "Got it! I've saved your todo about Anyway, add to my todo list:....",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Saving your thought..."
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "b4d35b1f-033a-4ade-99ff-80cb8f1295bb"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Got it! I've saved your todo about Anyway, add to my todo list:...."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "Anyway, add to my todo list: buy new headphones"
+                ],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Anyway, add to my todo list: buy new headphones",
+                    "response": "Got it! I've saved your todo about Anyway, add to my todo list:....",
+                    "todoContents": [
+                      "Anyway, add to my todo list: buy new headphones"
+                    ],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [
+              {
+                "id": "b4d35b1f-033a-4ade-99ff-80cb8f1295bb",
+                "content": "Anyway, add to my todo list: buy new headphones",
+                "type": "todo",
+                "createdAt": "2026-03-19T23:25:29.709Z",
+                "updatedAt": "2026-03-19T23:25:29.709Z",
+                "date": "2026-03-20",
+                "tags": "todo,shopping,headphones",
+                "source": "Anyway, add to my todo list: buy new headphones",
+                "metadata": "{}",
+                "isDeleted": false
+              }
+            ],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "smalltalk-random-question-then-add"
+          },
+          "metadata": {
+            "scenarioId": "smalltalk-random-question-then-add",
+            "scenarioTitle": "Random smalltalk before action",
+            "topic": "conversation-robustness",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Random smalltalk before action",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 3,
+        "vars": {
+          "scenarioId": "smalltalk-random-question-then-add"
+        },
+        "metadata": {
+          "scenarioId": "smalltalk-random-question-then-add",
+          "scenarioTitle": "Random smalltalk before action",
+          "topic": "conversation-robustness",
+          "suites": [
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Random smalltalk before action",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Hello! Quick question, what is your favorite color?",
+              "finalUserInput": "Hello! Quick question, what is your favorite color?",
+              "response": "Hi there! I'm an AI, so I don't have personal preferences like a favorite color. But I love helping users with their notes, ideas, reminders, meetings, and todos! What can I help you with today?",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Thinking..."
+                },
+                {
+                  "type": "chunk",
+                  "content": "Hi"
+                },
+                {
+                  "type": "chunk",
+                  "content": " there"
+                },
+                {
+                  "type": "chunk",
+                  "content": "!"
+                },
+                {
+                  "type": "chunk",
+                  "content": " I"
+                },
+                {
+                  "type": "chunk",
+                  "content": "'m"
+                },
+                {
+                  "type": "chunk",
+                  "content": " an"
+                },
+                {
+                  "type": "chunk",
+                  "content": " AI"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " so"
+                },
+                {
+                  "type": "chunk",
+                  "content": " I"
+                },
+                {
+                  "type": "chunk",
+                  "content": " don"
+                },
+                {
+                  "type": "chunk",
+                  "content": "'t"
+                },
+                {
+                  "type": "chunk",
+                  "content": " have"
+                },
+                {
+                  "type": "chunk",
+                  "content": " personal"
+                },
+                {
+                  "type": "chunk",
+                  "content": " preferences"
+                },
+                {
+                  "type": "chunk",
+                  "content": " like"
+                },
+                {
+                  "type": "chunk",
+                  "content": " a"
+                },
+                {
+                  "type": "chunk",
+                  "content": " favorite"
+                },
+                {
+                  "type": "chunk",
+                  "content": " color"
+                },
+                {
+                  "type": "chunk",
+                  "content": "."
+                },
+                {
+                  "type": "chunk",
+                  "content": " But"
+                },
+                {
+                  "type": "chunk",
+                  "content": " I"
+                },
+                {
+                  "type": "chunk",
+                  "content": " love"
+                },
+                {
+                  "type": "chunk",
+                  "content": " helping"
+                },
+                {
+                  "type": "chunk",
+                  "content": " users"
+                },
+                {
+                  "type": "chunk",
+                  "content": " with"
+                },
+                {
+                  "type": "chunk",
+                  "content": " their"
+                },
+                {
+                  "type": "chunk",
+                  "content": " notes"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " ideas"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " reminders"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " meetings"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " and"
+                },
+                {
+                  "type": "chunk",
+                  "content": " todos"
+                },
+                {
+                  "type": "chunk",
+                  "content": "!"
+                },
+                {
+                  "type": "chunk",
+                  "content": " What"
+                },
+                {
+                  "type": "chunk",
+                  "content": " can"
+                },
+                {
+                  "type": "chunk",
+                  "content": " I"
+                },
+                {
+                  "type": "chunk",
+                  "content": " help"
+                },
+                {
+                  "type": "chunk",
+                  "content": " you"
+                },
+                {
+                  "type": "chunk",
+                  "content": " with"
+                },
+                {
+                  "type": "chunk",
+                  "content": " today"
+                },
+                {
+                  "type": "chunk",
+                  "content": "?"
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Hello! Quick question, what is your favorite color?",
+                  "response": "Hi there! I'm an AI, so I don't have personal preferences like a favorite color. But I love helping users with their notes, ideas, reminders, meetings, and todos! What can I help you with today?",
+                  "todoContents": [],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            },
+            {
+              "stepIndex": 1,
+              "initialUserInput": "Anyway, add to my todo list: buy new headphones",
+              "finalUserInput": "Anyway, add to my todo list: buy new headphones",
+              "response": "Got it! I've saved your todo about Anyway, add to my todo list:....",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Saving your thought..."
+                },
+                {
+                  "type": "stored",
+                  "documentId": "b4d35b1f-033a-4ade-99ff-80cb8f1295bb"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Got it! I've saved your todo about Anyway, add to my todo list:...."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "Anyway, add to my todo list: buy new headphones"
+              ],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Anyway, add to my todo list: buy new headphones",
+                  "response": "Got it! I've saved your todo about Anyway, add to my todo list:....",
+                  "todoContents": [
+                    "Anyway, add to my todo list: buy new headphones"
+                  ],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [
+            {
+              "id": "b4d35b1f-033a-4ade-99ff-80cb8f1295bb",
+              "content": "Anyway, add to my todo list: buy new headphones",
+              "type": "todo",
+              "createdAt": "2026-03-19T23:25:29.709Z",
+              "updatedAt": "2026-03-19T23:25:29.709Z",
+              "date": "2026-03-20",
+              "tags": "todo,shopping,headphones",
+              "source": "Anyway, add to my todo list: buy new headphones",
+              "metadata": "{}",
+              "isDeleted": false
+            }
+          ],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Random smalltalk before action"
+            }
+          ]
+        },
+        "id": "e2014e62-b943-4b65-9a27-649eb95924e1",
+        "latencyMs": 8864,
+        "namedScores": {},
+        "prompt": {
+          "raw": "smalltalk-random-question-then-add",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Random smalltalk before action",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Random smalltalk before action",
+            "scenarioId": "smalltalk-random-question-then-add",
+            "scenarioTitle": "Random smalltalk before action",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Hello! Quick question, what is your favorite color?",
+                "finalUserInput": "Hello! Quick question, what is your favorite color?",
+                "response": "Hey there! I don't actually have personal preferences, so I don't have a favorite color—but I love helping you organize your life in whatever color scheme you prefer! 😊\n\nIs there anything specific you'd like to store, like a note, meeting, or to-do list?",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Thinking..."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Hey"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " there"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "!"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " I"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " don"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "'t"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " actually"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " have"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " personal"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " preferences"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " so"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " I"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " don"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "'t"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " have"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " a"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " favorite"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " color"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "—but"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " I"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " love"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " helping"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " you"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " organize"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " your"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " life"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " in"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " whatever"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " color"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " scheme"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " you"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " prefer"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "!"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " 😊"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "\n\nIs"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " there"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " anything"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " specific"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " you"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "'d"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " like"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " to"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " store"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " like"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " a"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " note"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " meeting"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ","
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " or"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " to"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "-do"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " list"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "?"
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Hello! Quick question, what is your favorite color?",
+                    "response": "Hey there! I don't actually have personal preferences, so I don't have a favorite color—but I love helping you organize your life in whatever color scheme you prefer! 😊\n\nIs there anything specific you'd like to store, like a note, meeting, or to-do list?",
+                    "todoContents": [],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              },
+              {
+                "stepIndex": 1,
+                "initialUserInput": "Anyway, add to my todo list: buy new headphones",
+                "finalUserInput": "Anyway, add to my todo list: buy new headphones",
+                "response": "Got it! I've saved your todo about Anyway, add to my todo list:....",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Saving your thought..."
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "91434694-2763-4e84-bd9b-9b5dce2cf714"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Got it! I've saved your todo about Anyway, add to my todo list:...."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "Anyway, add to my todo list: buy new headphones"
+                ],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Anyway, add to my todo list: buy new headphones",
+                    "response": "Got it! I've saved your todo about Anyway, add to my todo list:....",
+                    "todoContents": [
+                      "Anyway, add to my todo list: buy new headphones"
+                    ],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [
+              {
+                "id": "91434694-2763-4e84-bd9b-9b5dce2cf714",
+                "content": "Anyway, add to my todo list: buy new headphones",
+                "type": "todo",
+                "createdAt": "2026-03-19T23:25:38.580Z",
+                "updatedAt": "2026-03-19T23:25:38.580Z",
+                "date": "2026-03-20",
+                "tags": "todo,shopping,headphones",
+                "source": "Anyway, add to my todo list: buy new headphones",
+                "metadata": "{}",
+                "isDeleted": false
+              }
+            ],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "smalltalk-random-question-then-add"
+          },
+          "metadata": {
+            "scenarioId": "smalltalk-random-question-then-add",
+            "scenarioTitle": "Random smalltalk before action",
+            "topic": "conversation-robustness",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Random smalltalk before action",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 4,
+        "vars": {
+          "scenarioId": "smalltalk-random-question-then-add"
+        },
+        "metadata": {
+          "scenarioId": "smalltalk-random-question-then-add",
+          "scenarioTitle": "Random smalltalk before action",
+          "topic": "conversation-robustness",
+          "suites": [
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Random smalltalk before action",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Hello! Quick question, what is your favorite color?",
+              "finalUserInput": "Hello! Quick question, what is your favorite color?",
+              "response": "Hey there! I don't actually have personal preferences, so I don't have a favorite color—but I love helping you organize your life in whatever color scheme you prefer! 😊\n\nIs there anything specific you'd like to store, like a note, meeting, or to-do list?",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Thinking..."
+                },
+                {
+                  "type": "chunk",
+                  "content": "Hey"
+                },
+                {
+                  "type": "chunk",
+                  "content": " there"
+                },
+                {
+                  "type": "chunk",
+                  "content": "!"
+                },
+                {
+                  "type": "chunk",
+                  "content": " I"
+                },
+                {
+                  "type": "chunk",
+                  "content": " don"
+                },
+                {
+                  "type": "chunk",
+                  "content": "'t"
+                },
+                {
+                  "type": "chunk",
+                  "content": " actually"
+                },
+                {
+                  "type": "chunk",
+                  "content": " have"
+                },
+                {
+                  "type": "chunk",
+                  "content": " personal"
+                },
+                {
+                  "type": "chunk",
+                  "content": " preferences"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " so"
+                },
+                {
+                  "type": "chunk",
+                  "content": " I"
+                },
+                {
+                  "type": "chunk",
+                  "content": " don"
+                },
+                {
+                  "type": "chunk",
+                  "content": "'t"
+                },
+                {
+                  "type": "chunk",
+                  "content": " have"
+                },
+                {
+                  "type": "chunk",
+                  "content": " a"
+                },
+                {
+                  "type": "chunk",
+                  "content": " favorite"
+                },
+                {
+                  "type": "chunk",
+                  "content": " color"
+                },
+                {
+                  "type": "chunk",
+                  "content": "—but"
+                },
+                {
+                  "type": "chunk",
+                  "content": " I"
+                },
+                {
+                  "type": "chunk",
+                  "content": " love"
+                },
+                {
+                  "type": "chunk",
+                  "content": " helping"
+                },
+                {
+                  "type": "chunk",
+                  "content": " you"
+                },
+                {
+                  "type": "chunk",
+                  "content": " organize"
+                },
+                {
+                  "type": "chunk",
+                  "content": " your"
+                },
+                {
+                  "type": "chunk",
+                  "content": " life"
+                },
+                {
+                  "type": "chunk",
+                  "content": " in"
+                },
+                {
+                  "type": "chunk",
+                  "content": " whatever"
+                },
+                {
+                  "type": "chunk",
+                  "content": " color"
+                },
+                {
+                  "type": "chunk",
+                  "content": " scheme"
+                },
+                {
+                  "type": "chunk",
+                  "content": " you"
+                },
+                {
+                  "type": "chunk",
+                  "content": " prefer"
+                },
+                {
+                  "type": "chunk",
+                  "content": "!"
+                },
+                {
+                  "type": "chunk",
+                  "content": " 😊"
+                },
+                {
+                  "type": "chunk",
+                  "content": "\n\nIs"
+                },
+                {
+                  "type": "chunk",
+                  "content": " there"
+                },
+                {
+                  "type": "chunk",
+                  "content": " anything"
+                },
+                {
+                  "type": "chunk",
+                  "content": " specific"
+                },
+                {
+                  "type": "chunk",
+                  "content": " you"
+                },
+                {
+                  "type": "chunk",
+                  "content": "'d"
+                },
+                {
+                  "type": "chunk",
+                  "content": " like"
+                },
+                {
+                  "type": "chunk",
+                  "content": " to"
+                },
+                {
+                  "type": "chunk",
+                  "content": " store"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " like"
+                },
+                {
+                  "type": "chunk",
+                  "content": " a"
+                },
+                {
+                  "type": "chunk",
+                  "content": " note"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " meeting"
+                },
+                {
+                  "type": "chunk",
+                  "content": ","
+                },
+                {
+                  "type": "chunk",
+                  "content": " or"
+                },
+                {
+                  "type": "chunk",
+                  "content": " to"
+                },
+                {
+                  "type": "chunk",
+                  "content": "-do"
+                },
+                {
+                  "type": "chunk",
+                  "content": " list"
+                },
+                {
+                  "type": "chunk",
+                  "content": "?"
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Hello! Quick question, what is your favorite color?",
+                  "response": "Hey there! I don't actually have personal preferences, so I don't have a favorite color—but I love helping you organize your life in whatever color scheme you prefer! 😊\n\nIs there anything specific you'd like to store, like a note, meeting, or to-do list?",
+                  "todoContents": [],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            },
+            {
+              "stepIndex": 1,
+              "initialUserInput": "Anyway, add to my todo list: buy new headphones",
+              "finalUserInput": "Anyway, add to my todo list: buy new headphones",
+              "response": "Got it! I've saved your todo about Anyway, add to my todo list:....",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Saving your thought..."
+                },
+                {
+                  "type": "stored",
+                  "documentId": "91434694-2763-4e84-bd9b-9b5dce2cf714"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Got it! I've saved your todo about Anyway, add to my todo list:...."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "Anyway, add to my todo list: buy new headphones"
+              ],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Anyway, add to my todo list: buy new headphones",
+                  "response": "Got it! I've saved your todo about Anyway, add to my todo list:....",
+                  "todoContents": [
+                    "Anyway, add to my todo list: buy new headphones"
+                  ],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [
+            {
+              "id": "91434694-2763-4e84-bd9b-9b5dce2cf714",
+              "content": "Anyway, add to my todo list: buy new headphones",
+              "type": "todo",
+              "createdAt": "2026-03-19T23:25:38.580Z",
+              "updatedAt": "2026-03-19T23:25:38.580Z",
+              "date": "2026-03-20",
+              "tags": "todo,shopping,headphones",
+              "source": "Anyway, add to my todo list: buy new headphones",
+              "metadata": "{}",
+              "isDeleted": false
+            }
+          ],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      }
+    ],
+    "stats": {
+      "successes": 5,
+      "failures": 0,
+      "errors": 0,
+      "tokenUsage": {
+        "prompt": 0,
+        "completion": 0,
+        "cached": 0,
+        "total": 0,
+        "numRequests": 5,
+        "completionDetails": {
+          "reasoning": 0,
+          "acceptedPrediction": 0,
+          "rejectedPrediction": 0
+        },
+        "assertions": {
+          "total": 0,
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "numRequests": 0,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0
+          }
+        }
+      },
+      "durationMs": 45586,
+      "evaluationDurationMs": 45586
+    }
+  },
+  "config": {
+    "tags": {},
+    "description": "Lore promptfoo conversation evals",
+    "prompts": [
+      "{{scenarioId}}"
+    ],
+    "providers": [
+      {
+        "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+        "label": "qwen3.5:9b",
+        "config": {
+          "repositoryRoot": "R:\\lore",
+          "model": "qwen3.5:9b",
+          "embeddingModel": "qwen3-embedding:0.6b",
+          "ollamaHost": "http://127.0.0.1:11434",
+          "judgeModel": ""
+        }
+      }
+    ],
+    "tests": [
+      {
+        "vars": {
+          "scenarioId": "smalltalk-random-question-then-add"
+        },
+        "metadata": {
+          "scenarioId": "smalltalk-random-question-then-add",
+          "scenarioTitle": "Random smalltalk before action",
+          "topic": "conversation-robustness",
+          "suites": [
+            "full"
+          ]
+        },
+        "description": "Random smalltalk before action"
+      }
+    ],
+    "scenarios": [],
+    "env": {},
+    "defaultTest": {
+      "assert": [
+        {
+          "type": "javascript",
+          "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+        }
+      ],
+      "vars": {},
+      "options": {},
+      "metadata": {}
+    },
+    "outputPath": [
+      "R:\\lore\\evals\\results\\promptfoo-full-2026-03-19T23-24-51-019Z.json"
+    ],
+    "extensions": [],
+    "metadata": {},
+    "evaluateOptions": {
+      "repeat": 5,
+      "cache": false,
+      "maxConcurrency": 1
+    }
+  },
+  "shareableUrl": null,
+  "metadata": {
+    "promptfooVersion": "0.121.2",
+    "nodeVersion": "v20.20.0",
+    "platform": "win32",
+    "arch": "x64",
+    "exportedAt": "2026-03-19T23:25:38.632Z",
+    "evaluationCreatedAt": "2026-03-19T23:24:52.989Z"
+  }
+}

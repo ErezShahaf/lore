@@ -54,6 +54,12 @@ function getScenarioTitle(row) {
     || getScenarioId(row)
 }
 
+function getScenarioTopic(row) {
+  return row.metadata?.topic
+    || row.response?.metadata?.topic
+    || 'unknown-topic'
+}
+
 function getProviderLabel(row) {
   return row.provider?.label || row.provider?.id || 'unknown-provider'
 }
@@ -189,6 +195,7 @@ function summarizeResults(rows) {
     const providerLabel = getProviderLabel(row)
     const scenarioId = getScenarioId(row)
     const scenarioTitle = getScenarioTitle(row)
+    const topic = getScenarioTopic(row)
     const groupingKey = `${providerLabel}::${scenarioId}`
 
     if (!summaryByScenario.has(groupingKey)) {
@@ -196,6 +203,7 @@ function summarizeResults(rows) {
         providerLabel,
         scenarioId,
         scenarioTitle,
+        topic,
         passCount: 0,
         totalCount: 0,
         failureReasons: new Map(),
@@ -356,6 +364,7 @@ function writeSummaryArtifacts(resultPath, summaryRows) {
       providerLabel: summaryRow.providerLabel,
       scenarioId: summaryRow.scenarioId,
       scenarioTitle: summaryRow.scenarioTitle,
+      topic: summaryRow.topic,
       passCount: summaryRow.passCount,
       totalCount: summaryRow.totalCount,
       passPercentage: summaryRow.totalCount === 0
@@ -383,6 +392,8 @@ function writeSummaryArtifacts(resultPath, summaryRows) {
     markdownLines.push(`## [${summaryRow.providerLabel}] ${summaryRow.scenarioId}`)
     markdownLines.push('')
     markdownLines.push(`${summaryRow.scenarioTitle}`)
+    markdownLines.push('')
+    markdownLines.push(`Topic: \`${summaryRow.topic}\``)
     markdownLines.push('')
     markdownLines.push(`Pass rate: ${summaryRow.passCount}/${summaryRow.totalCount} (${passPercentage.toFixed(1)}%)`)
     markdownLines.push('')

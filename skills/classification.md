@@ -49,6 +49,7 @@ Critical routing rules:
 - If the user says they finished or completed a stored todo/task, classify as command subtype "delete".
 - If "finished/done/completed" sounds like sharing a real-life experience instead of removing a stored item, classify as "thought".
 - If task completion vs. life update is ambiguous, lower confidence so the app can ask for clarification.
+- Vague imperative requests like "do the thing", "handle it", "fix this", or "take care of that" without a clear object must get LOW confidence so Lore asks the user to clarify instead of confidently treating them as normal conversation.
 
 Confidence rules:
 - High: clear single intent with enough detail to act.

@@ -15,6 +15,13 @@ import type {
 
 const DECOMPOSED_DOCUMENT_TYPES = ['thought', 'todo', 'meeting', 'note'] as const
 const EXPLICIT_TYPED_LIST_PATTERN = /^\s*(?:add\s+to\s+(?:my\s+)?(todos?|todo\s+list|tasks?|notes?|ideas?|reminders?|meetings?)|(todos?|tasks?|notes?|ideas?|reminders?|meetings?))\s*:\s*(.+)$/is
+const EMBEDDED_TYPED_LIST_PATTERN = /\b(?:add\s+to\s+(?:my\s+)?(todos?|todo\s+list|tasks?|notes?|ideas?|reminders?|meetings?)|(todos?|tasks?|notes?|ideas?|reminders?|meetings?))\s*:\s*(.+)$/is
+const QUOTED_TODO_REQUEST_PATTERN = /\b(?:please\s+)?(?:put|add|save|store|remember|track)\s+["“]([^"”]+)["”]\s+(?:on|to)\s+(?:my\s+)?(?:todo(?:\s+list)?|task\s+list|tasks?|reminders?)\b/i
+const TODO_REQUEST_PATTERNS = [
+  /\b(?:add|save|store|remember|track)\b[\s\S]{0,160}\b(?:to\s+(?:my\s+)?(?:todo(?:\s+list)?|task\s+list|tasks?|reminders?))\b/i,
+  /\bput\b[\s\S]{0,160}\b(?:on|in)\s+(?:my\s+)?(?:todo(?:\s+list)?|task\s+list|tasks?|reminders?)\b/i,
+  /\bremind me to\b/i,
+] as const
 
 const DECOMPOSITION_SCHEMA = {
   type: 'object',
@@ -45,6 +52,16 @@ export async function decomposeForStorage(
   const parsedTypedList = tryParseExplicitTypedList(userInput)
   if (parsedTypedList) {
     return parsedTypedList
+  }
+
+  const parsedEmbeddedTypedList = tryParseEmbeddedTypedList(userInput)
+  if (parsedEmbeddedTypedList) {
+    return parsedEmbeddedTypedList
+  }
+
+  const parsedQuotedTodoRequest = tryParseQuotedTodoRequest(userInput)
+  if (parsedQuotedTodoRequest) {
+    return parsedQuotedTodoRequest
   }
 
   const settings = getSettings()
@@ -97,13 +114,18 @@ function validateItems(rawItems: unknown, originalInput: string): DecomposedItem
     .filter((item): item is Record<string, unknown> =>
       typeof item === 'object' && item !== null && typeof (item as Record<string, unknown>).content === 'string',
     )
-    .map((item) => ({
-      content: (item.content as string).trim(),
-      type: resolveDocumentType(item.type, originalInput, Array.isArray(item.tags) ? item.tags : []),
-      tags: Array.isArray(item.tags)
-        ? (item.tags as unknown[]).filter((t): t is string => typeof t === 'string')
-        : [],
-    }))
+    .map((item) => {
+      const rawTags = Array.isArray(item.tags)
+        ? (item.tags as unknown[]).filter((tag): tag is string => typeof tag === 'string')
+        : []
+      const type = resolveDocumentType(item.type, originalInput, rawTags)
+
+      return {
+        content: (item.content as string).trim(),
+        type,
+        tags: ensureDefaultTags(type, rawTags),
+      }
+    })
     .filter((item) => item.content.length > 0)
 
   if (items.length === 0) {
@@ -166,6 +188,10 @@ function inferDocumentTypeFromInput(userInput: string): DecomposedDocumentType {
     return 'todo'
   }
 
+  if (TODO_REQUEST_PATTERNS.some((pattern) => pattern.test(normalizedInput))) {
+    return 'todo'
+  }
+
   if (/^\s*meetings?\s*:/.test(normalizedInput)) {
     return 'meeting'
   }
@@ -183,6 +209,18 @@ function getDefaultTags(type: DecomposedDocumentType): string[] {
   }
 
   return [type]
+}
+
+function ensureDefaultTags(type: DecomposedDocumentType, tags: readonly string[]): string[] {
+  const normalizedTags = tags
+    .map((tag) => tag.trim().toLowerCase())
+    .filter((tag) => tag.length > 0)
+
+  if (normalizedTags.length > 0) {
+    return [...new Set(normalizedTags)]
+  }
+
+  return getDefaultTags(type)
 }
 
 function isDecomposedDocumentType(value: string): value is DecomposedDocumentType {
@@ -210,6 +248,45 @@ function tryParseExplicitTypedList(userInput: string): SaveDecompositionResult |
     }))
 
   return items.length > 0 ? { items } : null
+}
+
+function tryParseEmbeddedTypedList(userInput: string): SaveDecompositionResult | null {
+  const match = EMBEDDED_TYPED_LIST_PATTERN.exec(userInput)
+  if (!match) {
+    return null
+  }
+
+  const prefix = match[1] || match[2]
+  const rawListContent = match[3].trim()
+  const type = inferDocumentTypeFromPrefix(prefix)
+  const items = splitExplicitListContent(rawListContent)
+    .map((content) => ({
+      content,
+      type,
+      tags: getDefaultTags(type),
+    }))
+
+  return items.length > 0 ? { items } : null
+}
+
+function tryParseQuotedTodoRequest(userInput: string): SaveDecompositionResult | null {
+  const match = QUOTED_TODO_REQUEST_PATTERN.exec(userInput.trim())
+  if (!match) {
+    return null
+  }
+
+  const content = match[1].trim()
+  if (content.length === 0) {
+    return null
+  }
+
+  return {
+    items: [{
+      content,
+      type: 'todo',
+      tags: getDefaultTags('todo'),
+    }],
+  }
 }
 
 function inferDocumentTypeFromPrefix(prefix: string): DecomposedDocumentType {

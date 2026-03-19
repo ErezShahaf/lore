@@ -6,6 +6,7 @@ import { handleCommand } from './handlers/commandHandler'
 import { handleInstruction } from './handlers/instructionHandler'
 import { handleConversational } from './handlers/conversationalHandler'
 import {
+  looksLikeClarificationFollowUp,
   looksLikeExplicitStorageRequest,
   looksLikeExplicitModificationRequest,
   looksLikeInstructionManagementRequest,
@@ -13,6 +14,7 @@ import {
   looksLikeShortReaction,
   looksLikeStoredDataQuestion,
   looksLikeTodoQuery,
+  looksLikeVagueImperativeRequest,
 } from './userIntentHeuristics'
 import type {
   AgentEvent,
@@ -64,6 +66,7 @@ export function applyDeterministicRoutingHints(
     confidence: number
     reasoning: string
   },
+  conversationHistory: readonly ConversationEntry[] = [],
 ): void {
   if (classification.intent === 'conversational' && looksLikeStoredDataQuestion(userInput)) {
     classification.intent = 'question'
@@ -97,6 +100,28 @@ export function applyDeterministicRoutingHints(
     classification.confidence = Math.max(classification.confidence, CLASSIFICATION_CONFIDENCE_THRESHOLD)
     classification.reasoning = 'Heuristic override: short reaction-like input should not be stored by default.'
   }
+
+  if (looksLikeVagueImperativeRequest(userInput)) {
+    classification.confidence = Math.min(classification.confidence, 0.35)
+    classification.reasoning = 'Heuristic override: vague imperative request lacks enough detail to act safely.'
+  }
+
+  const lastAssistantMessage = [...conversationHistory]
+    .reverse()
+    .find((entry) => entry.role === 'assistant')
+    ?.content
+
+  if (
+    lastAssistantMessage
+    && lastAssistantAskedForClarification(lastAssistantMessage)
+    && looksLikeClarificationFollowUp(userInput)
+    && session.lastIntent !== null
+  ) {
+    classification.intent = session.lastIntent
+    classification.subtype = 'general'
+    classification.confidence = Math.max(classification.confidence, CLASSIFICATION_CONFIDENCE_THRESHOLD)
+    classification.reasoning = 'Heuristic override: clarification follow-up should stay on the previous intent.'
+  }
 }
 
 // ── Main processing loop ─────────────────────────────────────
@@ -117,7 +142,7 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
     return
   }
 
-  applyDeterministicRoutingHints(userInput, classification)
+  applyDeterministicRoutingHints(userInput, classification, priorHistory)
 
   logger.debug(
     { intent: classification.intent, subtype: classification.subtype, confidence: classification.confidence },
@@ -167,6 +192,7 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
           const commandOverrides: RetrievalOptions | undefined = getCommandRetrievalOverrides(userInput)
           for await (const event of handleCommand(userInput, classification, priorHistory, commandOverrides)) {
             if (event.type === 'chunk') assistantResponse += event.content
+            if (event.type === 'retrieved') session.lastDocumentIds = [...event.documentIds]
             yield event
           }
           break
@@ -216,9 +242,29 @@ function getCommandRetrievalOverrides(userInput: string): RetrievalOptions | und
     }
   }
 
+  if (
+    session.lastIntent === 'command'
+    && session.lastDocumentIds.length > 0
+    && (looksLikeReferentialCommandRequest(userInput) || looksLikeClarificationFollowUp(userInput))
+  ) {
+    return {
+      ids: [...session.lastDocumentIds],
+      maxResults: session.lastDocumentIds.length,
+    }
+  }
+
   if (session.lastIntent === 'instruction' && looksLikeReferentialCommandRequest(userInput)) {
     return { type: 'instruction' }
   }
 
   return undefined
+}
+
+function lastAssistantAskedForClarification(message: string): boolean {
+  return /\bwhich one did you mean\b/i.test(message)
+    || /\bwhich one\b/i.test(message)
+    || /\bwhich document\b/i.test(message)
+    || /\bmultiple matches\b/i.test(message)
+    || /\bi found (?:a few|multiple)\b/i.test(message)
+    || /\bcould you be more specific\b/i.test(message)
 }

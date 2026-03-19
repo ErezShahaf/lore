@@ -37,6 +37,8 @@ Content rules:
 
 Type rules:
 - Use "todo" only for explicit tasks, todos, reminders, or actionable checklist items.
+- Requests such as "add to my todo list: buy milk", "put \"call mom\" on my todo list", "add buy milk to my tasks", or "remind me to stretch" should be typed as "todo".
+- If the message contains smalltalk before a clear todo request, ignore the chatter and type the stored item as "todo" when the actionable part is a todo request.
 - Use "meeting" for explicit meeting notes or meeting-specific captures.
 - Use "note" for explicit note-like labels such as "note:", "notes:", or "idea:" / "ideas:".
 - Use "thought" for everything else that should be stored.
@@ -54,6 +56,14 @@ Example valid output:
 Example list input:
 User: todos: take a shower, cry a river
 Output: {"items":[{"content":"take a shower","type":"todo","tags":["todo","hygiene"]},{"content":"cry a river","type":"todo","tags":["todo","emotion"]}]}
+
+Example indirect todo phrasing:
+User: Please put "call mom" on my todo list.
+Output: {"items":[{"content":"call mom","type":"todo","tags":["todo","family"]}]}
+
+Example smalltalk plus todo:
+User: Anyway, add to my todo list: buy new headphones
+Output: {"items":[{"content":"buy new headphones","type":"todo","tags":["todo","shopping","headphones"]}]}
 
 Example literal preservation:
 User: this is what stripe payment suceeded webhook looks like

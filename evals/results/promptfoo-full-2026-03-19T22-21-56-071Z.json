@@ -1,0 +1,996 @@
+{
+  "evalId": "eval-Hg1-2026-03-19T22:22:03",
+  "results": {
+    "version": 3,
+    "timestamp": "2026-03-19T22:22:03.898Z",
+    "prompts": [
+      {
+        "id": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "raw": "{{scenarioId}}",
+        "label": "{{scenarioId}}",
+        "provider": "qwen3.5:9b",
+        "metrics": {
+          "score": 2,
+          "testPassCount": 2,
+          "testFailCount": 0,
+          "testErrorCount": 0,
+          "assertPassCount": 2,
+          "assertFailCount": 0,
+          "totalLatencyMs": 51297,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 2,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0
+              }
+            }
+          },
+          "namedScores": {},
+          "namedScoresCount": {},
+          "cost": 0
+        }
+      }
+    ],
+    "results": [
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Seeded retrieval clarification leads to the right Alex"
+            }
+          ]
+        },
+        "id": "3656909d-13dc-4491-812f-d35486b37db7",
+        "latencyMs": 37471,
+        "namedScores": {},
+        "prompt": {
+          "raw": "seeded-ambiguous-retrieval-clarification-resolves",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Seeded retrieval clarification leads to the right Alex",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Seeded retrieval clarification leads to the right Alex",
+            "scenarioId": "seeded-ambiguous-retrieval-clarification-resolves",
+            "scenarioTitle": "Seeded retrieval clarification leads to the right Alex",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "What did Alex ask for?",
+                "finalUserInput": "I mean Alex from finance.",
+                "response": "Alex from finance asked for monthly cash flow summaries in the report.",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Searching your notes..."
+                  },
+                  {
+                    "type": "retrieved",
+                    "documentIds": [
+                      "ce0e0b5b-c436-4390-9757-6d4582fd296e"
+                    ],
+                    "totalRetrieved": 1,
+                    "totalCandidates": 1,
+                    "cutoffScore": 0.7465908288955688
+                  },
+                  {
+                    "type": "status",
+                    "message": "Found 1 relevant notes. Generating answer..."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Alex"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " from"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " finance"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " asked"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " for"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " monthly"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " cash"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " flow"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " summaries"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " in"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " the"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " report"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [],
+                "retrievedContents": [
+                  "Alex from finance asked for monthly cash flow summaries in the report."
+                ],
+                "retrievedCount": 1,
+                "totalCandidates": 1,
+                "cutoffScore": 0.7465908288955688,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "What did Alex ask for?",
+                    "response": "I found multiple matches for Alex:\n1. \"Alex from finance asked for monthly cash flow summaries in the report.\"\n2. \"Alex from design asked for a darker sidebar and tighter spacing.\"\n\nWhich one did you mean?",
+                    "events": [
+                      {
+                        "type": "status",
+                        "message": "Classifying your input..."
+                      },
+                      {
+                        "type": "status",
+                        "message": "Searching your notes..."
+                      },
+                      {
+                        "type": "retrieved",
+                        "documentIds": [
+                          "ce0e0b5b-c436-4390-9757-6d4582fd296e",
+                          "1b2859b9-ba2f-47d5-b21b-418a730171b8"
+                        ],
+                        "totalRetrieved": 2,
+                        "totalCandidates": 2,
+                        "cutoffScore": 0.46092586517333983
+                      },
+                      {
+                        "type": "chunk",
+                        "content": "I found multiple matches for Alex:\n1. \"Alex from finance asked for monthly cash flow summaries in the report.\"\n2. \"Alex from design asked for a darker sidebar and tighter spacing.\"\n\nWhich one did you mean?"
+                      },
+                      {
+                        "type": "done"
+                      }
+                    ],
+                    "todoContents": [],
+                    "retrievedContents": [
+                      "Alex from finance asked for monthly cash flow summaries in the report.",
+                      "Alex from design asked for a darker sidebar and tighter spacing."
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": 0.46092586517333983,
+                    "simulatedUserDecision": {
+                      "candidateEvaluations": [
+                        {
+                          "id": "choose-finance-alex",
+                          "label": "Choose the finance Alex",
+                          "userInput": "I mean Alex from finance.",
+                          "pass": true,
+                          "reason": "The assistant correctly identifies that there are multiple people named Alex in the context (one from finance, one from design) and explicitly asks the user to clarify which Alex they are referring to, satisfying the rubric's requirement."
+                        }
+                      ],
+                      "selectedResponseId": "choose-finance-alex",
+                      "selectedUserInput": "I mean Alex from finance."
+                    }
+                  },
+                  {
+                    "turnIndex": 1,
+                    "userInput": "I mean Alex from finance.",
+                    "response": "Alex from finance asked for monthly cash flow summaries in the report.",
+                    "todoContents": [],
+                    "retrievedContents": [
+                      "Alex from finance asked for monthly cash flow summaries in the report."
+                    ],
+                    "retrievedCount": 1,
+                    "totalCandidates": 1,
+                    "cutoffScore": 0.7465908288955688,
+                    "simulatedUserDecision": {
+                      "candidateEvaluations": [],
+                      "selectedResponseId": null,
+                      "selectedUserInput": null
+                    }
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "seeded-ambiguous-retrieval-clarification-resolves"
+          },
+          "metadata": {
+            "scenarioId": "seeded-ambiguous-retrieval-clarification-resolves",
+            "scenarioTitle": "Seeded retrieval clarification leads to the right Alex",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Seeded retrieval clarification leads to the right Alex",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 0,
+        "vars": {
+          "scenarioId": "seeded-ambiguous-retrieval-clarification-resolves"
+        },
+        "metadata": {
+          "scenarioId": "seeded-ambiguous-retrieval-clarification-resolves",
+          "scenarioTitle": "Seeded retrieval clarification leads to the right Alex",
+          "suites": [
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Seeded retrieval clarification leads to the right Alex",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "What did Alex ask for?",
+              "finalUserInput": "I mean Alex from finance.",
+              "response": "Alex from finance asked for monthly cash flow summaries in the report.",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Searching your notes..."
+                },
+                {
+                  "type": "retrieved",
+                  "documentIds": [
+                    "ce0e0b5b-c436-4390-9757-6d4582fd296e"
+                  ],
+                  "totalRetrieved": 1,
+                  "totalCandidates": 1,
+                  "cutoffScore": 0.7465908288955688
+                },
+                {
+                  "type": "status",
+                  "message": "Found 1 relevant notes. Generating answer..."
+                },
+                {
+                  "type": "chunk",
+                  "content": "Alex"
+                },
+                {
+                  "type": "chunk",
+                  "content": " from"
+                },
+                {
+                  "type": "chunk",
+                  "content": " finance"
+                },
+                {
+                  "type": "chunk",
+                  "content": " asked"
+                },
+                {
+                  "type": "chunk",
+                  "content": " for"
+                },
+                {
+                  "type": "chunk",
+                  "content": " monthly"
+                },
+                {
+                  "type": "chunk",
+                  "content": " cash"
+                },
+                {
+                  "type": "chunk",
+                  "content": " flow"
+                },
+                {
+                  "type": "chunk",
+                  "content": " summaries"
+                },
+                {
+                  "type": "chunk",
+                  "content": " in"
+                },
+                {
+                  "type": "chunk",
+                  "content": " the"
+                },
+                {
+                  "type": "chunk",
+                  "content": " report"
+                },
+                {
+                  "type": "chunk",
+                  "content": "."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [],
+              "retrievedContents": [
+                "Alex from finance asked for monthly cash flow summaries in the report."
+              ],
+              "retrievedCount": 1,
+              "totalCandidates": 1,
+              "cutoffScore": 0.7465908288955688,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "What did Alex ask for?",
+                  "response": "I found multiple matches for Alex:\n1. \"Alex from finance asked for monthly cash flow summaries in the report.\"\n2. \"Alex from design asked for a darker sidebar and tighter spacing.\"\n\nWhich one did you mean?",
+                  "events": [
+                    {
+                      "type": "status",
+                      "message": "Classifying your input..."
+                    },
+                    {
+                      "type": "status",
+                      "message": "Searching your notes..."
+                    },
+                    {
+                      "type": "retrieved",
+                      "documentIds": [
+                        "ce0e0b5b-c436-4390-9757-6d4582fd296e",
+                        "1b2859b9-ba2f-47d5-b21b-418a730171b8"
+                      ],
+                      "totalRetrieved": 2,
+                      "totalCandidates": 2,
+                      "cutoffScore": 0.46092586517333983
+                    },
+                    {
+                      "type": "chunk",
+                      "content": "I found multiple matches for Alex:\n1. \"Alex from finance asked for monthly cash flow summaries in the report.\"\n2. \"Alex from design asked for a darker sidebar and tighter spacing.\"\n\nWhich one did you mean?"
+                    },
+                    {
+                      "type": "done"
+                    }
+                  ],
+                  "todoContents": [],
+                  "retrievedContents": [
+                    "Alex from finance asked for monthly cash flow summaries in the report.",
+                    "Alex from design asked for a darker sidebar and tighter spacing."
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": 0.46092586517333983,
+                  "simulatedUserDecision": {
+                    "candidateEvaluations": [
+                      {
+                        "id": "choose-finance-alex",
+                        "label": "Choose the finance Alex",
+                        "userInput": "I mean Alex from finance.",
+                        "pass": true,
+                        "reason": "The assistant correctly identifies that there are multiple people named Alex in the context (one from finance, one from design) and explicitly asks the user to clarify which Alex they are referring to, satisfying the rubric's requirement."
+                      }
+                    ],
+                    "selectedResponseId": "choose-finance-alex",
+                    "selectedUserInput": "I mean Alex from finance."
+                  }
+                },
+                {
+                  "turnIndex": 1,
+                  "userInput": "I mean Alex from finance.",
+                  "response": "Alex from finance asked for monthly cash flow summaries in the report.",
+                  "todoContents": [],
+                  "retrievedContents": [
+                    "Alex from finance asked for monthly cash flow summaries in the report."
+                  ],
+                  "retrievedCount": 1,
+                  "totalCandidates": 1,
+                  "cutoffScore": 0.7465908288955688,
+                  "simulatedUserDecision": {
+                    "candidateEvaluations": [],
+                    "selectedResponseId": null,
+                    "selectedUserInput": null
+                  }
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Explicit edit of one similar todo"
+            }
+          ]
+        },
+        "id": "8cad568b-3cf6-45f0-ad5b-eba9ca40255e",
+        "latencyMs": 13826,
+        "namedScores": {},
+        "prompt": {
+          "raw": "explicit-edit-similar-todos",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Explicit edit of one similar todo",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Explicit edit of one similar todo",
+            "scenarioId": "explicit-edit-similar-todos",
+            "scenarioTitle": "Explicit edit of one similar todo",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Todos: jump on the water, drink the water",
+                "finalUserInput": "Todos: jump on the water, drink the water",
+                "response": "Got it! I've saved 2 todos.",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Saving your thought..."
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "03b54133-58b7-4723-b74d-82188e991c41"
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "54dbeb88-57e9-48e2-99f3-8d17e8d91249"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Got it! I've saved 2 todos."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "jump on the water",
+                  "drink the water"
+                ],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Todos: jump on the water, drink the water",
+                    "response": "Got it! I've saved 2 todos.",
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the water"
+                    ],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              },
+              {
+                "stepIndex": 1,
+                "initialUserInput": "Change \"jump on the water\" to \"jump on the fire\"",
+                "finalUserInput": "Change \"jump on the water\" to \"jump on the fire\"",
+                "response": "Done! I've updated \"jump on the water\".",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Finding relevant documents..."
+                  },
+                  {
+                    "type": "retrieved",
+                    "documentIds": [
+                      "03b54133-58b7-4723-b74d-82188e991c41",
+                      "54dbeb88-57e9-48e2-99f3-8d17e8d91249"
+                    ],
+                    "totalRetrieved": 2
+                  },
+                  {
+                    "type": "status",
+                    "message": "Analyzing your request..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Executing update..."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Done! I've updated \"jump on the water\"."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "drink the water",
+                  "jump on the fire"
+                ],
+                "retrievedContents": [
+                  "jump on the fire",
+                  "drink the water"
+                ],
+                "retrievedCount": 2,
+                "totalCandidates": 2,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Change \"jump on the water\" to \"jump on the fire\"",
+                    "response": "Done! I've updated \"jump on the water\".",
+                    "todoContents": [
+                      "drink the water",
+                      "jump on the fire"
+                    ],
+                    "retrievedContents": [
+                      "jump on the fire",
+                      "drink the water"
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [
+              {
+                "id": "54dbeb88-57e9-48e2-99f3-8d17e8d91249",
+                "content": "drink the water",
+                "type": "todo",
+                "createdAt": "2026-03-19T22:22:52.643Z",
+                "updatedAt": "2026-03-19T22:22:52.643Z",
+                "date": "2026-03-20",
+                "tags": "todo",
+                "source": "Todos: jump on the water, drink the water",
+                "metadata": "{\"groupId\":\"40f2fa0a-5a97-4fe7-903b-e4581e94f79a\"}",
+                "isDeleted": false
+              },
+              {
+                "id": "03b54133-58b7-4723-b74d-82188e991c41",
+                "content": "jump on the fire",
+                "type": "todo",
+                "createdAt": "2026-03-19T22:22:52.501Z",
+                "updatedAt": "2026-03-19T22:22:55.208Z",
+                "date": "2026-03-20",
+                "tags": "todo",
+                "source": "Todos: jump on the water, drink the water",
+                "metadata": "{\"groupId\":\"40f2fa0a-5a97-4fe7-903b-e4581e94f79a\"}",
+                "isDeleted": false
+              }
+            ],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "explicit-edit-similar-todos"
+          },
+          "metadata": {
+            "scenarioId": "explicit-edit-similar-todos",
+            "scenarioTitle": "Explicit edit of one similar todo",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Explicit edit of one similar todo",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 1,
+        "vars": {
+          "scenarioId": "explicit-edit-similar-todos"
+        },
+        "metadata": {
+          "scenarioId": "explicit-edit-similar-todos",
+          "scenarioTitle": "Explicit edit of one similar todo",
+          "suites": [
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Explicit edit of one similar todo",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Todos: jump on the water, drink the water",
+              "finalUserInput": "Todos: jump on the water, drink the water",
+              "response": "Got it! I've saved 2 todos.",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Saving your thought..."
+                },
+                {
+                  "type": "stored",
+                  "documentId": "03b54133-58b7-4723-b74d-82188e991c41"
+                },
+                {
+                  "type": "stored",
+                  "documentId": "54dbeb88-57e9-48e2-99f3-8d17e8d91249"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Got it! I've saved 2 todos."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "jump on the water",
+                "drink the water"
+              ],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Todos: jump on the water, drink the water",
+                  "response": "Got it! I've saved 2 todos.",
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the water"
+                  ],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            },
+            {
+              "stepIndex": 1,
+              "initialUserInput": "Change \"jump on the water\" to \"jump on the fire\"",
+              "finalUserInput": "Change \"jump on the water\" to \"jump on the fire\"",
+              "response": "Done! I've updated \"jump on the water\".",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Finding relevant documents..."
+                },
+                {
+                  "type": "retrieved",
+                  "documentIds": [
+                    "03b54133-58b7-4723-b74d-82188e991c41",
+                    "54dbeb88-57e9-48e2-99f3-8d17e8d91249"
+                  ],
+                  "totalRetrieved": 2
+                },
+                {
+                  "type": "status",
+                  "message": "Analyzing your request..."
+                },
+                {
+                  "type": "status",
+                  "message": "Executing update..."
+                },
+                {
+                  "type": "chunk",
+                  "content": "Done! I've updated \"jump on the water\"."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "drink the water",
+                "jump on the fire"
+              ],
+              "retrievedContents": [
+                "jump on the fire",
+                "drink the water"
+              ],
+              "retrievedCount": 2,
+              "totalCandidates": 2,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Change \"jump on the water\" to \"jump on the fire\"",
+                  "response": "Done! I've updated \"jump on the water\".",
+                  "todoContents": [
+                    "drink the water",
+                    "jump on the fire"
+                  ],
+                  "retrievedContents": [
+                    "jump on the fire",
+                    "drink the water"
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [
+            {
+              "id": "54dbeb88-57e9-48e2-99f3-8d17e8d91249",
+              "content": "drink the water",
+              "type": "todo",
+              "createdAt": "2026-03-19T22:22:52.643Z",
+              "updatedAt": "2026-03-19T22:22:52.643Z",
+              "date": "2026-03-20",
+              "tags": "todo",
+              "source": "Todos: jump on the water, drink the water",
+              "metadata": "{\"groupId\":\"40f2fa0a-5a97-4fe7-903b-e4581e94f79a\"}",
+              "isDeleted": false
+            },
+            {
+              "id": "03b54133-58b7-4723-b74d-82188e991c41",
+              "content": "jump on the fire",
+              "type": "todo",
+              "createdAt": "2026-03-19T22:22:52.501Z",
+              "updatedAt": "2026-03-19T22:22:55.208Z",
+              "date": "2026-03-20",
+              "tags": "todo",
+              "source": "Todos: jump on the water, drink the water",
+              "metadata": "{\"groupId\":\"40f2fa0a-5a97-4fe7-903b-e4581e94f79a\"}",
+              "isDeleted": false
+            }
+          ],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      }
+    ],
+    "stats": {
+      "successes": 2,
+      "failures": 0,
+      "errors": 0,
+      "tokenUsage": {
+        "prompt": 0,
+        "completion": 0,
+        "cached": 0,
+        "total": 0,
+        "numRequests": 2,
+        "completionDetails": {
+          "reasoning": 0,
+          "acceptedPrediction": 0,
+          "rejectedPrediction": 0
+        },
+        "assertions": {
+          "total": 0,
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "numRequests": 0,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0
+          }
+        }
+      },
+      "durationMs": 51321,
+      "evaluationDurationMs": 51321
+    }
+  },
+  "config": {
+    "tags": {},
+    "description": "Lore promptfoo conversation evals",
+    "prompts": [
+      "{{scenarioId}}"
+    ],
+    "providers": [
+      {
+        "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+        "label": "qwen3.5:9b",
+        "config": {
+          "repositoryRoot": "R:\\lore",
+          "model": "qwen3.5:9b",
+          "embeddingModel": "qwen3-embedding:0.6b",
+          "ollamaHost": "http://127.0.0.1:11434",
+          "judgeModel": ""
+        }
+      }
+    ],
+    "tests": [
+      {
+        "vars": {
+          "scenarioId": "seeded-ambiguous-retrieval-clarification-resolves"
+        },
+        "metadata": {
+          "scenarioId": "seeded-ambiguous-retrieval-clarification-resolves",
+          "scenarioTitle": "Seeded retrieval clarification leads to the right Alex",
+          "suites": [
+            "full"
+          ]
+        },
+        "description": "Seeded retrieval clarification leads to the right Alex"
+      },
+      {
+        "vars": {
+          "scenarioId": "explicit-edit-similar-todos"
+        },
+        "metadata": {
+          "scenarioId": "explicit-edit-similar-todos",
+          "scenarioTitle": "Explicit edit of one similar todo",
+          "suites": [
+            "full"
+          ]
+        },
+        "description": "Explicit edit of one similar todo"
+      }
+    ],
+    "scenarios": [],
+    "env": {},
+    "defaultTest": {
+      "assert": [
+        {
+          "type": "javascript",
+          "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+        }
+      ],
+      "vars": {},
+      "options": {},
+      "metadata": {}
+    },
+    "outputPath": [
+      "R:\\lore\\evals\\results\\promptfoo-full-2026-03-19T22-21-56-071Z.json"
+    ],
+    "extensions": [],
+    "metadata": {},
+    "evaluateOptions": {
+      "repeat": 1,
+      "cache": false,
+      "maxConcurrency": 1
+    }
+  },
+  "shareableUrl": null,
+  "metadata": {
+    "promptfooVersion": "0.121.2",
+    "nodeVersion": "v20.20.0",
+    "platform": "win32",
+    "arch": "x64",
+    "exportedAt": "2026-03-19T22:22:55.267Z",
+    "evaluationCreatedAt": "2026-03-19T22:22:03.898Z"
+  }
+}

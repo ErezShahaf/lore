@@ -1,0 +1,19 @@
+{
+  "resultPath": "R:\\lore\\evals\\results\\promptfoo-full-2026-03-19T23-24-51-019Z.json",
+  "generatedAt": "2026-03-19T23:25:39.819Z",
+  "scenarios": [
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "smalltalk-random-question-then-add",
+      "scenarioTitle": "Random smalltalk before action",
+      "topic": "conversation-robustness",
+      "passCount": 5,
+      "totalCount": 5,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    }
+  ]
+}

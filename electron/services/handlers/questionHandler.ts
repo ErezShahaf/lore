@@ -23,6 +23,7 @@ import type {
 } from '../../../shared/types'
 
 const EMPTY_RESULT_RESPONSE = "I don't have any data about that topic."
+const MAX_FOCUSED_ANSWER_DOCUMENTS = 2
 
 export async function* handleQuestion(
   userInput: string,
@@ -45,7 +46,7 @@ export async function* handleQuestion(
   const result = shouldUseMetadataOnlyRetrieval
     ? await retrieveByFilters(retrievalOpts)
     : await retrieveWithAdaptiveThreshold(userInput, retrievalOpts)
-  const documents = result.documents
+  const documents = selectDocumentsForAnswer(userInput, result.documents)
 
   if (documents.length === 0) {
     yield { type: 'chunk', content: EMPTY_RESULT_RESPONSE }
@@ -57,8 +58,15 @@ export async function* handleQuestion(
     type: 'retrieved',
     documentIds: documents.map((document) => document.id),
     totalRetrieved: documents.length,
-    totalCandidates: result.totalCandidates,
-    cutoffScore: result.cutoffScore,
+    totalCandidates: documents.length,
+    cutoffScore: documents.length > 0 ? documents[documents.length - 1].score : result.cutoffScore,
+  }
+
+  const clarificationMessage = buildQuestionClarification(userInput, documents)
+  if (clarificationMessage) {
+    yield { type: 'chunk', content: clarificationMessage }
+    yield { type: 'done' }
+    return
   }
 
   const instructions = await retrieveRelevantDocuments(userInput, { type: 'instruction' })
@@ -111,6 +119,142 @@ export async function* handleQuestion(
   }
 
   yield { type: 'done' }
+}
+
+function selectDocumentsForAnswer(
+  userInput: string,
+  documents: readonly ScoredDocument[],
+): ScoredDocument[] {
+  const focusedDocuments = filterDocumentsByQueryTerms(userInput, documents)
+
+  if (!shouldLimitAnswerContext(userInput) || focusedDocuments.length <= MAX_FOCUSED_ANSWER_DOCUMENTS) {
+    return [...focusedDocuments]
+  }
+
+  return focusedDocuments.slice(0, MAX_FOCUSED_ANSWER_DOCUMENTS)
+}
+
+function filterDocumentsByQueryTerms(
+  userInput: string,
+  documents: readonly ScoredDocument[],
+): ScoredDocument[] {
+  const queryTerms = extractQuestionFocusTerms(userInput)
+  if (queryTerms.length === 0 || documents.length <= 1) {
+    return [...documents]
+  }
+
+  const scoredDocuments = documents.map((document) => ({
+    document,
+    overlapCount: countMatchingQueryTerms(queryTerms, document.content),
+  }))
+  const maxOverlapCount = Math.max(...scoredDocuments.map((scoredDocument) => scoredDocument.overlapCount))
+
+  if (maxOverlapCount <= 0) {
+    return [...documents]
+  }
+
+  const filteredDocuments = scoredDocuments
+    .filter((scoredDocument) => scoredDocument.overlapCount === maxOverlapCount)
+    .map((scoredDocument) => scoredDocument.document)
+
+  return filteredDocuments.length > 0 ? filteredDocuments : [...documents]
+}
+
+function extractQuestionFocusTerms(userInput: string): string[] {
+  const ignoredTerms = new Set([
+    'about',
+    'asked',
+    'data',
+    'did',
+    'find',
+    'from',
+    'have',
+    'list',
+    'need',
+    'note',
+    'remember',
+    'search',
+    'show',
+    'tell',
+    'them',
+    'they',
+    'thing',
+    'want',
+    'what',
+    'which',
+    'with',
+    'your',
+  ])
+
+  const terms = userInput
+    .toLowerCase()
+    .match(/[a-z0-9]+/g)
+    ?.filter((term) => term.length >= 4 && !ignoredTerms.has(term))
+
+  return terms ? [...new Set(terms)] : []
+}
+
+function countMatchingQueryTerms(queryTerms: readonly string[], content: string): number {
+  const normalizedContent = content.toLowerCase()
+  return queryTerms.filter((queryTerm) => normalizedContent.includes(queryTerm)).length
+}
+
+function shouldLimitAnswerContext(userInput: string): boolean {
+  return !/\b(all|list|show|summarize|everything|all of|todos?|tasks?|notes?)\b/i.test(userInput)
+}
+
+function buildQuestionClarification(
+  userInput: string,
+  documents: readonly ScoredDocument[],
+): string | null {
+  const referencedName = extractReferencedName(userInput)
+  if (!referencedName || documents.length < 2) {
+    return null
+  }
+
+  const matchingDocuments = documents.filter((document) =>
+    new RegExp(`\\b${escapeRegExp(referencedName)}\\b`, 'i').test(document.content),
+  )
+  if (matchingDocuments.length < 2) {
+    return null
+  }
+
+  const previewList = matchingDocuments
+    .slice(0, 3)
+    .map((document, index) => `${index + 1}. "${truncateContent(document.content, 80)}"`)
+    .join('\n')
+
+  return `I found multiple matches for ${referencedName}:\n${previewList}\n\nWhich one did you mean?`
+}
+
+function extractReferencedName(userInput: string): string | null {
+  const singularNamedReferencePatterns = [
+    /\bwhat did\s+([A-Z][a-z]+)\b/i,
+    /\bwhat does\s+([A-Z][a-z]+)\b/i,
+    /\bwhat about\s+([A-Z][a-z]+)\b/i,
+    /\btell me about\s+([A-Z][a-z]+)\b/i,
+  ]
+
+  for (const pattern of singularNamedReferencePatterns) {
+    const match = userInput.match(pattern)
+    if (match?.[1]) {
+      return match[1]
+    }
+  }
+
+  return null
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function truncateContent(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value
+  }
+
+  return `${value.slice(0, maxLength)}...`
 }
 
 // ── Date range resolution ─────────────────────────────────────

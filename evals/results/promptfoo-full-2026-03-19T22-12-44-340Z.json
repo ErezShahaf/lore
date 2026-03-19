@@ -1,0 +1,3567 @@
+{
+  "evalId": "eval-bzy-2026-03-19T22:12:51",
+  "results": {
+    "version": 3,
+    "timestamp": "2026-03-19T22:12:51.933Z",
+    "prompts": [
+      {
+        "id": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "raw": "{{scenarioId}}",
+        "label": "{{scenarioId}}",
+        "provider": "qwen3.5:9b",
+        "metrics": {
+          "score": 4,
+          "testPassCount": 4,
+          "testFailCount": 4,
+          "testErrorCount": 0,
+          "assertPassCount": 4,
+          "assertFailCount": 4,
+          "totalLatencyMs": 207479,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 8,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0
+              }
+            }
+          },
+          "namedScores": {},
+          "namedScoresCount": {},
+          "cost": 0
+        }
+      }
+    ],
+    "results": [
+      {
+        "cost": 0,
+        "error": "Failed: Seeded retrieval ambiguity asks for clarification (2 issues)",
+        "gradingResult": {
+          "pass": false,
+          "score": 0,
+          "reason": "Failed: Seeded retrieval ambiguity asks for clarification (2 issues)",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Failed: Seeded retrieval ambiguity asks for clarification (2 issues)"
+            }
+          ]
+        },
+        "id": "0a78b4ef-26d7-4e8a-884c-c4751f83f10c",
+        "latencyMs": 21942,
+        "namedScores": {},
+        "prompt": {
+          "raw": "seeded-ambiguous-retrieval-needs-clarification",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Failed: Seeded retrieval ambiguity asks for clarification (2 issues)",
+          "metadata": {
+            "passed": false,
+            "summary": "Failed: Seeded retrieval ambiguity asks for clarification (2 issues)",
+            "scenarioId": "seeded-ambiguous-retrieval-needs-clarification",
+            "scenarioTitle": "Seeded retrieval ambiguity asks for clarification",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [
+              "Step 1: expected a clarification request in \"Seeded retrieval ambiguity asks for clarification\". Judge: Judge returned invalid JSON: Based on the notes retrieved, Alex asked for two things:\n\n*   **For the report:** Monthly cash flow summaries.\n*   **For the design:** A darker sidebar and tighter spacing.",
+              "Step 1: response judge failed: The assistant failed to explain that there are at least two plausible Alex matches and ask for clarification. Instead, it proceeded to answer the question directly by listing two items, potentially hallucinating the specific requests or conflating different 'Alex' entities without acknowledging the ambiguity."
+            ],
+            "failedChecks": [
+              {
+                "stepIndex": 0,
+                "checkType": "requiresClarification",
+                "expected": true,
+                "actual": "Alex asked for two things:\n- Monthly cash flow summaries for finance reports.\n- A darker sidebar and tighter spacing for the UI design.",
+                "reason": "expected a clarification request in \"Seeded retrieval ambiguity asks for clarification\". Judge: Judge returned invalid JSON: Based on the notes retrieved, Alex asked for two things:\n\n*   **For the report:** Monthly cash flow summaries.\n*   **For the design:** A darker sidebar and tighter spacing."
+              },
+              {
+                "stepIndex": 0,
+                "checkType": "responseJudge",
+                "expected": "The assistant should explain that there are at least two plausible Alex matches and ask the user to clarify which Alex they mean before answering.",
+                "actual": {
+                  "userInput": "What did Alex ask for?",
+                  "response": "Alex asked for two things:\n- Monthly cash flow summaries for finance reports.\n- A darker sidebar and tighter spacing for the UI design.",
+                  "events": [
+                    {
+                      "type": "status",
+                      "message": "Classifying your input..."
+                    },
+                    {
+                      "type": "status",
+                      "message": "Searching your notes..."
+                    },
+                    {
+                      "type": "retrieved",
+                      "documentIds": [
+                        "4f5757f5-9612-4263-b006-bc04a3c5dcf2",
+                        "b4f2452b-b4e5-416d-9743-ec9307745a55"
+                      ],
+                      "totalRetrieved": 2,
+                      "totalCandidates": 2,
+                      "cutoffScore": 0.4775925318400065
+                    },
+                    {
+                      "type": "status",
+                      "message": "Found 2 relevant notes. Generating answer..."
+                    },
+                    {
+                      "type": "chunk",
+                      "content": "Alex"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " asked"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " for"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " two"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " things"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": ":"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": "\n-"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " Monthly"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " cash"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " flow"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " summaries"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " for"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " finance"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " reports"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": "."
+                    },
+                    {
+                      "type": "chunk",
+                      "content": "\n-"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " A"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " darker"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " sidebar"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " and"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " tighter"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " spacing"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " for"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " the"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " UI"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " design"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": "."
+                    },
+                    {
+                      "type": "done"
+                    }
+                  ]
+                },
+                "reason": "response judge failed: The assistant failed to explain that there are at least two plausible Alex matches and ask for clarification. Instead, it proceeded to answer the question directly by listing two items, potentially hallucinating the specific requests or conflating different 'Alex' entities without acknowledging the ambiguity."
+              }
+            ],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "What did Alex ask for?",
+                "finalUserInput": "What did Alex ask for?",
+                "response": "Alex asked for two things:\n- Monthly cash flow summaries for finance reports.\n- A darker sidebar and tighter spacing for the UI design.",
+                "todoContents": [],
+                "retrievedContents": [
+                  "Alex from finance asked for monthly cash flow summaries in the report.",
+                  "Alex from design asked for a darker sidebar and tighter spacing."
+                ],
+                "retrievedCount": 2,
+                "totalCandidates": 2,
+                "cutoffScore": 0.4775925318400065,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "What did Alex ask for?",
+                    "response": "Alex asked for two things:\n- Monthly cash flow summaries for finance reports.\n- A darker sidebar and tighter spacing for the UI design.",
+                    "todoContents": [],
+                    "retrievedContents": [
+                      "Alex from finance asked for monthly cash flow summaries in the report.",
+                      "Alex from design asked for a darker sidebar and tighter spacing."
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": 0.4775925318400065,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": [
+                  null,
+                  null
+                ]
+              }
+            ],
+            "finalTodos": [],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "vars": {
+            "scenarioId": "seeded-ambiguous-retrieval-needs-clarification"
+          },
+          "metadata": {
+            "scenarioId": "seeded-ambiguous-retrieval-needs-clarification",
+            "scenarioTitle": "Seeded retrieval ambiguity asks for clarification",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Seeded retrieval ambiguity asks for clarification",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 0,
+        "vars": {
+          "scenarioId": "seeded-ambiguous-retrieval-needs-clarification"
+        },
+        "metadata": {
+          "scenarioId": "seeded-ambiguous-retrieval-needs-clarification",
+          "scenarioTitle": "Seeded retrieval ambiguity asks for clarification",
+          "suites": [
+            "full"
+          ],
+          "passed": false,
+          "summary": "Failed: Seeded retrieval ambiguity asks for clarification (2 issues)",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [
+            "Step 1: expected a clarification request in \"Seeded retrieval ambiguity asks for clarification\". Judge: Judge returned invalid JSON: Based on the notes retrieved, Alex asked for two things:\n\n*   **For the report:** Monthly cash flow summaries.\n*   **For the design:** A darker sidebar and tighter spacing.",
+            "Step 1: response judge failed: The assistant failed to explain that there are at least two plausible Alex matches and ask for clarification. Instead, it proceeded to answer the question directly by listing two items, potentially hallucinating the specific requests or conflating different 'Alex' entities without acknowledging the ambiguity."
+          ],
+          "failedChecks": [
+            {
+              "stepIndex": 0,
+              "checkType": "requiresClarification",
+              "expected": true,
+              "actual": "Alex asked for two things:\n- Monthly cash flow summaries for finance reports.\n- A darker sidebar and tighter spacing for the UI design.",
+              "reason": "expected a clarification request in \"Seeded retrieval ambiguity asks for clarification\". Judge: Judge returned invalid JSON: Based on the notes retrieved, Alex asked for two things:\n\n*   **For the report:** Monthly cash flow summaries.\n*   **For the design:** A darker sidebar and tighter spacing."
+            },
+            {
+              "stepIndex": 0,
+              "checkType": "responseJudge",
+              "expected": "The assistant should explain that there are at least two plausible Alex matches and ask the user to clarify which Alex they mean before answering.",
+              "actual": {
+                "userInput": "What did Alex ask for?",
+                "response": "Alex asked for two things:\n- Monthly cash flow summaries for finance reports.\n- A darker sidebar and tighter spacing for the UI design.",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Searching your notes..."
+                  },
+                  {
+                    "type": "retrieved",
+                    "documentIds": [
+                      "4f5757f5-9612-4263-b006-bc04a3c5dcf2",
+                      "b4f2452b-b4e5-416d-9743-ec9307745a55"
+                    ],
+                    "totalRetrieved": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": 0.4775925318400065
+                  },
+                  {
+                    "type": "status",
+                    "message": "Found 2 relevant notes. Generating answer..."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Alex"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " asked"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " for"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " two"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " things"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": ":"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "\n-"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " Monthly"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " cash"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " flow"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " summaries"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " for"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " finance"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " reports"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "\n-"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " A"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " darker"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " sidebar"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " and"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " tighter"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " spacing"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " for"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " the"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " UI"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " design"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ]
+              },
+              "reason": "response judge failed: The assistant failed to explain that there are at least two plausible Alex matches and ask for clarification. Instead, it proceeded to answer the question directly by listing two items, potentially hallucinating the specific requests or conflating different 'Alex' entities without acknowledging the ambiguity."
+            }
+          ],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "What did Alex ask for?",
+              "finalUserInput": "What did Alex ask for?",
+              "response": "Alex asked for two things:\n- Monthly cash flow summaries for finance reports.\n- A darker sidebar and tighter spacing for the UI design.",
+              "todoContents": [],
+              "retrievedContents": [
+                "Alex from finance asked for monthly cash flow summaries in the report.",
+                "Alex from design asked for a darker sidebar and tighter spacing."
+              ],
+              "retrievedCount": 2,
+              "totalCandidates": 2,
+              "cutoffScore": 0.4775925318400065,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "What did Alex ask for?",
+                  "response": "Alex asked for two things:\n- Monthly cash flow summaries for finance reports.\n- A darker sidebar and tighter spacing for the UI design.",
+                  "todoContents": [],
+                  "retrievedContents": [
+                    "Alex from finance asked for monthly cash flow summaries in the report.",
+                    "Alex from design asked for a darker sidebar and tighter spacing."
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": 0.4775925318400065,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": [
+                null,
+                null
+              ]
+            }
+          ],
+          "finalTodos": [],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "error": "Failed: Seeded retrieval clarification leads to the right Alex (2 issues)",
+        "gradingResult": {
+          "pass": false,
+          "score": 0,
+          "reason": "Failed: Seeded retrieval clarification leads to the right Alex (2 issues)",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Failed: Seeded retrieval clarification leads to the right Alex (2 issues)"
+            }
+          ]
+        },
+        "id": "2df103e8-fc38-498f-a4ae-5e88d41174f2",
+        "latencyMs": 17064,
+        "namedScores": {},
+        "prompt": {
+          "raw": "seeded-ambiguous-retrieval-clarification-resolves",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Failed: Seeded retrieval clarification leads to the right Alex (2 issues)",
+          "metadata": {
+            "passed": false,
+            "summary": "Failed: Seeded retrieval clarification leads to the right Alex (2 issues)",
+            "scenarioId": "seeded-ambiguous-retrieval-clarification-resolves",
+            "scenarioTitle": "Seeded retrieval clarification leads to the right Alex",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [
+              "Step 1: expected the interaction to include a clarification request in \"Seeded retrieval clarification leads to the right Alex\".",
+              "Step 1: response judge failed: The rubric requires the answer to specify that Alex is from finance, but the actual response mentions Alex without including his department or job title."
+            ],
+            "failedChecks": [
+              {
+                "stepIndex": 0,
+                "checkType": "clarificationRequestedDuringInteraction",
+                "expected": true,
+                "actual": [
+                  {
+                    "userInput": "What did Alex ask for?",
+                    "response": "Alex asked for monthly cash flow summaries in the report and a darker sidebar with tighter spacing.",
+                    "pass": false,
+                    "reason": "The user's query 'What did Alex ask for?' is ambiguous because there could be multiple users named Alex. The assistant failed to ask for clarification or disambiguate which Alex the user is referring to before providing a specific answer. Instead, the assistant immediately stated what 'Alex' asked for, assuming a specific identity without confirmation, which violates the requirement to ask the user to disambiguate first."
+                  }
+                ],
+                "reason": "expected the interaction to include a clarification request in \"Seeded retrieval clarification leads to the right Alex\"."
+              },
+              {
+                "stepIndex": 0,
+                "checkType": "responseJudge",
+                "expected": "After the clarification, the final answer should clearly say that Alex from finance asked for monthly cash flow summaries in the report.",
+                "actual": {
+                  "userInput": "What did Alex ask for?",
+                  "response": "Alex asked for monthly cash flow summaries in the report and a darker sidebar with tighter spacing.",
+                  "events": [
+                    {
+                      "type": "status",
+                      "message": "Classifying your input..."
+                    },
+                    {
+                      "type": "status",
+                      "message": "Searching your notes..."
+                    },
+                    {
+                      "type": "retrieved",
+                      "documentIds": [
+                        "c9e9eed1-4047-4b0d-8372-ba6c2cafa562",
+                        "e7ad6060-743a-4459-a28c-b917af37f8ec"
+                      ],
+                      "totalRetrieved": 2,
+                      "totalCandidates": 2,
+                      "cutoffScore": 0.4775925318400065
+                    },
+                    {
+                      "type": "status",
+                      "message": "Found 2 relevant notes. Generating answer..."
+                    },
+                    {
+                      "type": "chunk",
+                      "content": "Alex"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " asked"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " for"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " monthly"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " cash"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " flow"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " summaries"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " in"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " the"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " report"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " and"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " a"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " darker"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " sidebar"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " with"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " tighter"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": " spacing"
+                    },
+                    {
+                      "type": "chunk",
+                      "content": "."
+                    },
+                    {
+                      "type": "done"
+                    }
+                  ]
+                },
+                "reason": "response judge failed: The rubric requires the answer to specify that Alex is from finance, but the actual response mentions Alex without including his department or job title."
+              }
+            ],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "What did Alex ask for?",
+                "finalUserInput": "What did Alex ask for?",
+                "response": "Alex asked for monthly cash flow summaries in the report and a darker sidebar with tighter spacing.",
+                "todoContents": [],
+                "retrievedContents": [
+                  "Alex from finance asked for monthly cash flow summaries in the report.",
+                  "Alex from design asked for a darker sidebar and tighter spacing."
+                ],
+                "retrievedCount": 2,
+                "totalCandidates": 2,
+                "cutoffScore": 0.4775925318400065,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "What did Alex ask for?",
+                    "response": "Alex asked for monthly cash flow summaries in the report and a darker sidebar with tighter spacing.",
+                    "todoContents": [],
+                    "retrievedContents": [
+                      "Alex from finance asked for monthly cash flow summaries in the report.",
+                      "Alex from design asked for a darker sidebar and tighter spacing."
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": 0.4775925318400065,
+                    "simulatedUserDecision": {
+                      "candidateEvaluations": [
+                        {
+                          "id": "choose-finance-alex",
+                          "label": "Choose the finance Alex",
+                          "userInput": "I mean Alex from finance.",
+                          "pass": false,
+                          "reason": "The assistant directly answered the user's question without first clarifying which 'Alex' they meant, despite the rubric requirement for the assistant to ask for clarification due to multiple plausible matches. The assistant's response implies certainty ('Alex') rather than seeking disambiguation."
+                        }
+                      ],
+                      "selectedResponseId": null,
+                      "selectedUserInput": null
+                    }
+                  }
+                ],
+                "failedChecks": [
+                  null,
+                  null
+                ]
+              }
+            ],
+            "finalTodos": [],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "vars": {
+            "scenarioId": "seeded-ambiguous-retrieval-clarification-resolves"
+          },
+          "metadata": {
+            "scenarioId": "seeded-ambiguous-retrieval-clarification-resolves",
+            "scenarioTitle": "Seeded retrieval clarification leads to the right Alex",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Seeded retrieval clarification leads to the right Alex",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 1,
+        "vars": {
+          "scenarioId": "seeded-ambiguous-retrieval-clarification-resolves"
+        },
+        "metadata": {
+          "scenarioId": "seeded-ambiguous-retrieval-clarification-resolves",
+          "scenarioTitle": "Seeded retrieval clarification leads to the right Alex",
+          "suites": [
+            "full"
+          ],
+          "passed": false,
+          "summary": "Failed: Seeded retrieval clarification leads to the right Alex (2 issues)",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [
+            "Step 1: expected the interaction to include a clarification request in \"Seeded retrieval clarification leads to the right Alex\".",
+            "Step 1: response judge failed: The rubric requires the answer to specify that Alex is from finance, but the actual response mentions Alex without including his department or job title."
+          ],
+          "failedChecks": [
+            {
+              "stepIndex": 0,
+              "checkType": "clarificationRequestedDuringInteraction",
+              "expected": true,
+              "actual": [
+                {
+                  "userInput": "What did Alex ask for?",
+                  "response": "Alex asked for monthly cash flow summaries in the report and a darker sidebar with tighter spacing.",
+                  "pass": false,
+                  "reason": "The user's query 'What did Alex ask for?' is ambiguous because there could be multiple users named Alex. The assistant failed to ask for clarification or disambiguate which Alex the user is referring to before providing a specific answer. Instead, the assistant immediately stated what 'Alex' asked for, assuming a specific identity without confirmation, which violates the requirement to ask the user to disambiguate first."
+                }
+              ],
+              "reason": "expected the interaction to include a clarification request in \"Seeded retrieval clarification leads to the right Alex\"."
+            },
+            {
+              "stepIndex": 0,
+              "checkType": "responseJudge",
+              "expected": "After the clarification, the final answer should clearly say that Alex from finance asked for monthly cash flow summaries in the report.",
+              "actual": {
+                "userInput": "What did Alex ask for?",
+                "response": "Alex asked for monthly cash flow summaries in the report and a darker sidebar with tighter spacing.",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Searching your notes..."
+                  },
+                  {
+                    "type": "retrieved",
+                    "documentIds": [
+                      "c9e9eed1-4047-4b0d-8372-ba6c2cafa562",
+                      "e7ad6060-743a-4459-a28c-b917af37f8ec"
+                    ],
+                    "totalRetrieved": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": 0.4775925318400065
+                  },
+                  {
+                    "type": "status",
+                    "message": "Found 2 relevant notes. Generating answer..."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Alex"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " asked"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " for"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " monthly"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " cash"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " flow"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " summaries"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " in"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " the"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " report"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " and"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " a"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " darker"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " sidebar"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " with"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " tighter"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " spacing"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ]
+              },
+              "reason": "response judge failed: The rubric requires the answer to specify that Alex is from finance, but the actual response mentions Alex without including his department or job title."
+            }
+          ],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "What did Alex ask for?",
+              "finalUserInput": "What did Alex ask for?",
+              "response": "Alex asked for monthly cash flow summaries in the report and a darker sidebar with tighter spacing.",
+              "todoContents": [],
+              "retrievedContents": [
+                "Alex from finance asked for monthly cash flow summaries in the report.",
+                "Alex from design asked for a darker sidebar and tighter spacing."
+              ],
+              "retrievedCount": 2,
+              "totalCandidates": 2,
+              "cutoffScore": 0.4775925318400065,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "What did Alex ask for?",
+                  "response": "Alex asked for monthly cash flow summaries in the report and a darker sidebar with tighter spacing.",
+                  "todoContents": [],
+                  "retrievedContents": [
+                    "Alex from finance asked for monthly cash flow summaries in the report.",
+                    "Alex from design asked for a darker sidebar and tighter spacing."
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": 0.4775925318400065,
+                  "simulatedUserDecision": {
+                    "candidateEvaluations": [
+                      {
+                        "id": "choose-finance-alex",
+                        "label": "Choose the finance Alex",
+                        "userInput": "I mean Alex from finance.",
+                        "pass": false,
+                        "reason": "The assistant directly answered the user's question without first clarifying which 'Alex' they meant, despite the rubric requirement for the assistant to ask for clarification due to multiple plausible matches. The assistant's response implies certainty ('Alex') rather than seeking disambiguation."
+                      }
+                    ],
+                    "selectedResponseId": null,
+                    "selectedUserInput": null
+                  }
+                }
+              ],
+              "failedChecks": [
+                null,
+                null
+              ]
+            }
+          ],
+          "finalTodos": [],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "error": "Failed: Seeded retrieval keeps the result set focused (1 issue)",
+        "gradingResult": {
+          "pass": false,
+          "score": 0,
+          "reason": "Failed: Seeded retrieval keeps the result set focused (1 issue)",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Failed: Seeded retrieval keeps the result set focused (1 issue)"
+            }
+          ]
+        },
+        "id": "5c714687-5bdf-43f9-a5a8-191d5c5f2874",
+        "latencyMs": 25290,
+        "namedScores": {},
+        "prompt": {
+          "raw": "seeded-retrieval-threshold-discipline",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Failed: Seeded retrieval keeps the result set focused (1 issue)",
+          "metadata": {
+            "passed": false,
+            "summary": "Failed: Seeded retrieval keeps the result set focused (1 issue)",
+            "scenarioId": "seeded-retrieval-threshold-discipline",
+            "scenarioTitle": "Seeded retrieval keeps the result set focused",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [
+              "Step 1: did not expect retrieved content containing \"Tokyo hotel shortlist\"."
+            ],
+            "failedChecks": [
+              {
+                "stepIndex": 0,
+                "checkType": "retrievedContentsExcludeSubstrings",
+                "expected": "Retrieved content must exclude \"Tokyo hotel shortlist\"",
+                "actual": [
+                  "Tokyo restaurant shortlist: Sushi Saito.",
+                  "Tokyo hotel shortlist: Hoshinoya Tokyo."
+                ],
+                "reason": "did not expect retrieved content containing \"Tokyo hotel shortlist\"."
+              }
+            ],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Which Tokyo restaurant did I want to try?",
+                "finalUserInput": "Which Tokyo restaurant did I want to try?",
+                "response": "The Tokyo restaurant you wanted to try was Sushi Saito.",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Searching your notes..."
+                  },
+                  {
+                    "type": "retrieved",
+                    "documentIds": [
+                      "5b939c0a-0315-4834-b4b2-cb506bea4d6b",
+                      "c2317915-1156-473a-8acb-ac68cb0b7bc1"
+                    ],
+                    "totalRetrieved": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": 0.8048376520474751
+                  },
+                  {
+                    "type": "status",
+                    "message": "Found 2 relevant notes. Generating answer..."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "The"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " Tokyo"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " restaurant"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " you"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " wanted"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " to"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " try"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " was"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " Sushi"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": " S"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "ait"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "o"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [],
+                "retrievedCount": 2,
+                "totalCandidates": 2,
+                "cutoffScore": 0.8048376520474751,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Which Tokyo restaurant did I want to try?",
+                    "response": "The Tokyo restaurant you wanted to try was Sushi Saito.",
+                    "todoContents": [],
+                    "retrievedContents": [
+                      "Tokyo restaurant shortlist: Sushi Saito.",
+                      "Tokyo hotel shortlist: Hoshinoya Tokyo."
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": 0.8048376520474751,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": [
+                  null
+                ]
+              }
+            ],
+            "finalTodos": [],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "vars": {
+            "scenarioId": "seeded-retrieval-threshold-discipline"
+          },
+          "metadata": {
+            "scenarioId": "seeded-retrieval-threshold-discipline",
+            "scenarioTitle": "Seeded retrieval keeps the result set focused",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Seeded retrieval keeps the result set focused",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 2,
+        "vars": {
+          "scenarioId": "seeded-retrieval-threshold-discipline"
+        },
+        "metadata": {
+          "scenarioId": "seeded-retrieval-threshold-discipline",
+          "scenarioTitle": "Seeded retrieval keeps the result set focused",
+          "suites": [
+            "full"
+          ],
+          "passed": false,
+          "summary": "Failed: Seeded retrieval keeps the result set focused (1 issue)",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [
+            "Step 1: did not expect retrieved content containing \"Tokyo hotel shortlist\"."
+          ],
+          "failedChecks": [
+            {
+              "stepIndex": 0,
+              "checkType": "retrievedContentsExcludeSubstrings",
+              "expected": "Retrieved content must exclude \"Tokyo hotel shortlist\"",
+              "actual": [
+                "Tokyo restaurant shortlist: Sushi Saito.",
+                "Tokyo hotel shortlist: Hoshinoya Tokyo."
+              ],
+              "reason": "did not expect retrieved content containing \"Tokyo hotel shortlist\"."
+            }
+          ],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Which Tokyo restaurant did I want to try?",
+              "finalUserInput": "Which Tokyo restaurant did I want to try?",
+              "response": "The Tokyo restaurant you wanted to try was Sushi Saito.",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Searching your notes..."
+                },
+                {
+                  "type": "retrieved",
+                  "documentIds": [
+                    "5b939c0a-0315-4834-b4b2-cb506bea4d6b",
+                    "c2317915-1156-473a-8acb-ac68cb0b7bc1"
+                  ],
+                  "totalRetrieved": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": 0.8048376520474751
+                },
+                {
+                  "type": "status",
+                  "message": "Found 2 relevant notes. Generating answer..."
+                },
+                {
+                  "type": "chunk",
+                  "content": "The"
+                },
+                {
+                  "type": "chunk",
+                  "content": " Tokyo"
+                },
+                {
+                  "type": "chunk",
+                  "content": " restaurant"
+                },
+                {
+                  "type": "chunk",
+                  "content": " you"
+                },
+                {
+                  "type": "chunk",
+                  "content": " wanted"
+                },
+                {
+                  "type": "chunk",
+                  "content": " to"
+                },
+                {
+                  "type": "chunk",
+                  "content": " try"
+                },
+                {
+                  "type": "chunk",
+                  "content": " was"
+                },
+                {
+                  "type": "chunk",
+                  "content": " Sushi"
+                },
+                {
+                  "type": "chunk",
+                  "content": " S"
+                },
+                {
+                  "type": "chunk",
+                  "content": "ait"
+                },
+                {
+                  "type": "chunk",
+                  "content": "o"
+                },
+                {
+                  "type": "chunk",
+                  "content": "."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [],
+              "retrievedCount": 2,
+              "totalCandidates": 2,
+              "cutoffScore": 0.8048376520474751,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Which Tokyo restaurant did I want to try?",
+                  "response": "The Tokyo restaurant you wanted to try was Sushi Saito.",
+                  "todoContents": [],
+                  "retrievedContents": [
+                    "Tokyo restaurant shortlist: Sushi Saito.",
+                    "Tokyo hotel shortlist: Hoshinoya Tokyo."
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": 0.8048376520474751,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": [
+                null
+              ]
+            }
+          ],
+          "finalTodos": [],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Clarification follow-up resolves the right todo"
+            }
+          ]
+        },
+        "id": "56a29edc-2e67-4e2f-b032-607bf917ca08",
+        "latencyMs": 53265,
+        "namedScores": {},
+        "prompt": {
+          "raw": "clarification-resolves-ambiguous-update",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Clarification follow-up resolves the right todo",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Clarification follow-up resolves the right todo",
+            "scenarioId": "clarification-resolves-ambiguous-update",
+            "scenarioTitle": "Clarification follow-up resolves the right todo",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Todos: jump on the water, drink the water",
+                "finalUserInput": "Todos: jump on the water, drink the water",
+                "response": "Got it! I've saved 2 todos.",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Saving your thought..."
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "9d131f3e-4c64-4479-aef7-ba25a93cf8a4"
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "69924864-4c62-4a84-a551-2187a3f1ba35"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Got it! I've saved 2 todos."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "jump on the water",
+                  "drink the water"
+                ],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Todos: jump on the water, drink the water",
+                    "response": "Got it! I've saved 2 todos.",
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the water"
+                    ],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              },
+              {
+                "stepIndex": 1,
+                "initialUserInput": "Edit the water to fire",
+                "finalUserInput": "The one about drinking. Change it to drink the fire.",
+                "response": "Done! I've updated \"drink the water\".",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Finding relevant documents..."
+                  },
+                  {
+                    "type": "retrieved",
+                    "documentIds": [
+                      "69924864-4c62-4a84-a551-2187a3f1ba35",
+                      "9d131f3e-4c64-4479-aef7-ba25a93cf8a4"
+                    ],
+                    "totalRetrieved": 2
+                  },
+                  {
+                    "type": "status",
+                    "message": "Analyzing your request..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Executing update..."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Done! I've updated \"drink the water\"."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "jump on the water",
+                  "drink the fire"
+                ],
+                "retrievedContents": [
+                  "drink the fire",
+                  "jump on the water"
+                ],
+                "retrievedCount": 2,
+                "totalCandidates": 2,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Edit the water to fire",
+                    "response": "I found a few possible matches, but I can't tell for sure which one you mean.\n1. \"drink the water\"\n2. \"jump on the water\"\n\nWhich one did you mean?",
+                    "events": [
+                      {
+                        "type": "status",
+                        "message": "Classifying your input..."
+                      },
+                      {
+                        "type": "status",
+                        "message": "Finding relevant documents..."
+                      },
+                      {
+                        "type": "retrieved",
+                        "documentIds": [
+                          "69924864-4c62-4a84-a551-2187a3f1ba35",
+                          "9d131f3e-4c64-4479-aef7-ba25a93cf8a4"
+                        ],
+                        "totalRetrieved": 2
+                      },
+                      {
+                        "type": "status",
+                        "message": "Analyzing your request..."
+                      },
+                      {
+                        "type": "chunk",
+                        "content": "I found a few possible matches, but I can't tell for sure which one you mean.\n1. \"drink the water\"\n2. \"jump on the water\"\n\nWhich one did you mean?"
+                      },
+                      {
+                        "type": "done"
+                      }
+                    ],
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the water"
+                    ],
+                    "retrievedContents": [
+                      "drink the water",
+                      "jump on the water"
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": {
+                      "candidateEvaluations": [
+                        {
+                          "id": "choose-drinking-todo",
+                          "label": "Choose the drinking todo",
+                          "userInput": "The one about drinking. Change it to drink the fire.",
+                          "pass": true,
+                          "reason": "The assistant correctly identifies that the user's input ('Edit the water to fire') is ambiguous because there are multiple water-related todos available ('drink the water' and 'jump on the water'). The assistant appropriately asks the user to clarify which specific todo they intended to edit, satisfying the rubric requirement."
+                        }
+                      ],
+                      "selectedResponseId": "choose-drinking-todo",
+                      "selectedUserInput": "The one about drinking. Change it to drink the fire."
+                    }
+                  },
+                  {
+                    "turnIndex": 1,
+                    "userInput": "The one about drinking. Change it to drink the fire.",
+                    "response": "Done! I've updated \"drink the water\".",
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the fire"
+                    ],
+                    "retrievedContents": [
+                      "drink the fire",
+                      "jump on the water"
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": {
+                      "candidateEvaluations": [],
+                      "selectedResponseId": null,
+                      "selectedUserInput": null
+                    }
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [
+              {
+                "id": "9d131f3e-4c64-4479-aef7-ba25a93cf8a4",
+                "content": "jump on the water",
+                "type": "todo",
+                "createdAt": "2026-03-19T22:14:07.205Z",
+                "updatedAt": "2026-03-19T22:14:07.205Z",
+                "date": "2026-03-20",
+                "tags": "todo",
+                "source": "Todos: jump on the water, drink the water",
+                "metadata": "{\"groupId\":\"bd47e2bc-c1e2-4e5f-861e-55e04f8bbf2d\"}",
+                "isDeleted": false
+              },
+              {
+                "id": "69924864-4c62-4a84-a551-2187a3f1ba35",
+                "content": "drink the fire",
+                "type": "todo",
+                "createdAt": "2026-03-19T22:14:07.346Z",
+                "updatedAt": "2026-03-19T22:14:36.734Z",
+                "date": "2026-03-20",
+                "tags": "todo",
+                "source": "Todos: jump on the water, drink the water",
+                "metadata": "{\"groupId\":\"bd47e2bc-c1e2-4e5f-861e-55e04f8bbf2d\"}",
+                "isDeleted": false
+              }
+            ],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "clarification-resolves-ambiguous-update"
+          },
+          "metadata": {
+            "scenarioId": "clarification-resolves-ambiguous-update",
+            "scenarioTitle": "Clarification follow-up resolves the right todo",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Clarification follow-up resolves the right todo",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 3,
+        "vars": {
+          "scenarioId": "clarification-resolves-ambiguous-update"
+        },
+        "metadata": {
+          "scenarioId": "clarification-resolves-ambiguous-update",
+          "scenarioTitle": "Clarification follow-up resolves the right todo",
+          "suites": [
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Clarification follow-up resolves the right todo",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Todos: jump on the water, drink the water",
+              "finalUserInput": "Todos: jump on the water, drink the water",
+              "response": "Got it! I've saved 2 todos.",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Saving your thought..."
+                },
+                {
+                  "type": "stored",
+                  "documentId": "9d131f3e-4c64-4479-aef7-ba25a93cf8a4"
+                },
+                {
+                  "type": "stored",
+                  "documentId": "69924864-4c62-4a84-a551-2187a3f1ba35"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Got it! I've saved 2 todos."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "jump on the water",
+                "drink the water"
+              ],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Todos: jump on the water, drink the water",
+                  "response": "Got it! I've saved 2 todos.",
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the water"
+                  ],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            },
+            {
+              "stepIndex": 1,
+              "initialUserInput": "Edit the water to fire",
+              "finalUserInput": "The one about drinking. Change it to drink the fire.",
+              "response": "Done! I've updated \"drink the water\".",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Finding relevant documents..."
+                },
+                {
+                  "type": "retrieved",
+                  "documentIds": [
+                    "69924864-4c62-4a84-a551-2187a3f1ba35",
+                    "9d131f3e-4c64-4479-aef7-ba25a93cf8a4"
+                  ],
+                  "totalRetrieved": 2
+                },
+                {
+                  "type": "status",
+                  "message": "Analyzing your request..."
+                },
+                {
+                  "type": "status",
+                  "message": "Executing update..."
+                },
+                {
+                  "type": "chunk",
+                  "content": "Done! I've updated \"drink the water\"."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "jump on the water",
+                "drink the fire"
+              ],
+              "retrievedContents": [
+                "drink the fire",
+                "jump on the water"
+              ],
+              "retrievedCount": 2,
+              "totalCandidates": 2,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Edit the water to fire",
+                  "response": "I found a few possible matches, but I can't tell for sure which one you mean.\n1. \"drink the water\"\n2. \"jump on the water\"\n\nWhich one did you mean?",
+                  "events": [
+                    {
+                      "type": "status",
+                      "message": "Classifying your input..."
+                    },
+                    {
+                      "type": "status",
+                      "message": "Finding relevant documents..."
+                    },
+                    {
+                      "type": "retrieved",
+                      "documentIds": [
+                        "69924864-4c62-4a84-a551-2187a3f1ba35",
+                        "9d131f3e-4c64-4479-aef7-ba25a93cf8a4"
+                      ],
+                      "totalRetrieved": 2
+                    },
+                    {
+                      "type": "status",
+                      "message": "Analyzing your request..."
+                    },
+                    {
+                      "type": "chunk",
+                      "content": "I found a few possible matches, but I can't tell for sure which one you mean.\n1. \"drink the water\"\n2. \"jump on the water\"\n\nWhich one did you mean?"
+                    },
+                    {
+                      "type": "done"
+                    }
+                  ],
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the water"
+                  ],
+                  "retrievedContents": [
+                    "drink the water",
+                    "jump on the water"
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": {
+                    "candidateEvaluations": [
+                      {
+                        "id": "choose-drinking-todo",
+                        "label": "Choose the drinking todo",
+                        "userInput": "The one about drinking. Change it to drink the fire.",
+                        "pass": true,
+                        "reason": "The assistant correctly identifies that the user's input ('Edit the water to fire') is ambiguous because there are multiple water-related todos available ('drink the water' and 'jump on the water'). The assistant appropriately asks the user to clarify which specific todo they intended to edit, satisfying the rubric requirement."
+                      }
+                    ],
+                    "selectedResponseId": "choose-drinking-todo",
+                    "selectedUserInput": "The one about drinking. Change it to drink the fire."
+                  }
+                },
+                {
+                  "turnIndex": 1,
+                  "userInput": "The one about drinking. Change it to drink the fire.",
+                  "response": "Done! I've updated \"drink the water\".",
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the fire"
+                  ],
+                  "retrievedContents": [
+                    "drink the fire",
+                    "jump on the water"
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": {
+                    "candidateEvaluations": [],
+                    "selectedResponseId": null,
+                    "selectedUserInput": null
+                  }
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [
+            {
+              "id": "9d131f3e-4c64-4479-aef7-ba25a93cf8a4",
+              "content": "jump on the water",
+              "type": "todo",
+              "createdAt": "2026-03-19T22:14:07.205Z",
+              "updatedAt": "2026-03-19T22:14:07.205Z",
+              "date": "2026-03-20",
+              "tags": "todo",
+              "source": "Todos: jump on the water, drink the water",
+              "metadata": "{\"groupId\":\"bd47e2bc-c1e2-4e5f-861e-55e04f8bbf2d\"}",
+              "isDeleted": false
+            },
+            {
+              "id": "69924864-4c62-4a84-a551-2187a3f1ba35",
+              "content": "drink the fire",
+              "type": "todo",
+              "createdAt": "2026-03-19T22:14:07.346Z",
+              "updatedAt": "2026-03-19T22:14:36.734Z",
+              "date": "2026-03-20",
+              "tags": "todo",
+              "source": "Todos: jump on the water, drink the water",
+              "metadata": "{\"groupId\":\"bd47e2bc-c1e2-4e5f-861e-55e04f8bbf2d\"}",
+              "isDeleted": false
+            }
+          ],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "error": "Failed: Explicit edit of one similar todo (2 issues)",
+        "gradingResult": {
+          "pass": false,
+          "score": 0,
+          "reason": "Failed: Explicit edit of one similar todo (2 issues)",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Failed: Explicit edit of one similar todo (2 issues)"
+            }
+          ]
+        },
+        "id": "1df5ea92-e749-479d-8f1c-e515c8dd61c4",
+        "latencyMs": 14608,
+        "namedScores": {},
+        "prompt": {
+          "raw": "explicit-edit-similar-todos",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Failed: Explicit edit of one similar todo (2 issues)",
+          "metadata": {
+            "passed": false,
+            "summary": "Failed: Explicit edit of one similar todo (2 issues)",
+            "scenarioId": "explicit-edit-similar-todos",
+            "scenarioTitle": "Explicit edit of one similar todo",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [
+              "Step 2: did not expect todo \"jump on the water\" to exist.",
+              "Step 2: expected a todo containing \"jump on the fire\"."
+            ],
+            "failedChecks": [
+              {
+                "stepIndex": 1,
+                "checkType": "todoContentsExcludeExact",
+                "expected": "Todo list must exclude \"jump on the water\"",
+                "actual": [
+                  "drink the water",
+                  "jump on the water"
+                ],
+                "reason": "did not expect todo \"jump on the water\" to exist."
+              },
+              {
+                "stepIndex": 1,
+                "checkType": "todoContentsIncludeSubstrings",
+                "expected": "jump on the fire",
+                "reason": "expected a todo containing \"jump on the fire\"."
+              }
+            ],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Todos: jump on the water, drink the water",
+                "finalUserInput": "Todos: jump on the water, drink the water",
+                "response": "Got it! I've saved 2 todos.",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Saving your thought..."
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "49669565-db17-4828-b656-7863a70f91a5"
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "a023ed15-ff14-4eb2-b856-670c0c1d0e6c"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Got it! I've saved 2 todos."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "jump on the water",
+                  "drink the water"
+                ],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Todos: jump on the water, drink the water",
+                    "response": "Got it! I've saved 2 todos.",
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the water"
+                    ],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              },
+              {
+                "stepIndex": 1,
+                "initialUserInput": "Change \"jump on the water\" to \"jump on the fire\"",
+                "finalUserInput": "Change \"jump on the water\" to \"jump on the fire\"",
+                "response": "Done! I've updated \"jump on the water\".",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Finding relevant documents..."
+                  },
+                  {
+                    "type": "retrieved",
+                    "documentIds": [
+                      "49669565-db17-4828-b656-7863a70f91a5",
+                      "a023ed15-ff14-4eb2-b856-670c0c1d0e6c"
+                    ],
+                    "totalRetrieved": 2
+                  },
+                  {
+                    "type": "status",
+                    "message": "Analyzing your request..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Executing update..."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Done! I've updated \"jump on the water\"."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "retrievedContents": [
+                  "jump on the water",
+                  "drink the water"
+                ],
+                "retrievedCount": 2,
+                "totalCandidates": 2,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Change \"jump on the water\" to \"jump on the fire\"",
+                    "response": "Done! I've updated \"jump on the water\".",
+                    "todoContents": [
+                      "drink the water",
+                      "jump on the water"
+                    ],
+                    "retrievedContents": [
+                      "jump on the water",
+                      "drink the water"
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": [
+                  null,
+                  null
+                ]
+              }
+            ],
+            "finalTodos": [
+              {
+                "id": "a023ed15-ff14-4eb2-b856-670c0c1d0e6c",
+                "content": "drink the water",
+                "type": "todo",
+                "createdAt": "2026-03-19T22:15:01.472Z",
+                "updatedAt": "2026-03-19T22:15:01.472Z",
+                "date": "2026-03-20",
+                "tags": "todo",
+                "source": "Todos: jump on the water, drink the water",
+                "metadata": "{\"groupId\":\"45251ad3-d817-42d5-ba2c-ba2343104faf\"}",
+                "isDeleted": false
+              },
+              {
+                "id": "49669565-db17-4828-b656-7863a70f91a5",
+                "content": "jump on the water",
+                "type": "todo",
+                "createdAt": "2026-03-19T22:15:01.320Z",
+                "updatedAt": "2026-03-19T22:15:04.135Z",
+                "date": "2026-03-20",
+                "tags": "todo",
+                "source": "Todos: jump on the water, drink the water",
+                "metadata": "{\"groupId\":\"45251ad3-d817-42d5-ba2c-ba2343104faf\"}",
+                "isDeleted": false
+              }
+            ],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "vars": {
+            "scenarioId": "explicit-edit-similar-todos"
+          },
+          "metadata": {
+            "scenarioId": "explicit-edit-similar-todos",
+            "scenarioTitle": "Explicit edit of one similar todo",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Explicit edit of one similar todo",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 4,
+        "vars": {
+          "scenarioId": "explicit-edit-similar-todos"
+        },
+        "metadata": {
+          "scenarioId": "explicit-edit-similar-todos",
+          "scenarioTitle": "Explicit edit of one similar todo",
+          "suites": [
+            "full"
+          ],
+          "passed": false,
+          "summary": "Failed: Explicit edit of one similar todo (2 issues)",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [
+            "Step 2: did not expect todo \"jump on the water\" to exist.",
+            "Step 2: expected a todo containing \"jump on the fire\"."
+          ],
+          "failedChecks": [
+            {
+              "stepIndex": 1,
+              "checkType": "todoContentsExcludeExact",
+              "expected": "Todo list must exclude \"jump on the water\"",
+              "actual": [
+                "drink the water",
+                "jump on the water"
+              ],
+              "reason": "did not expect todo \"jump on the water\" to exist."
+            },
+            {
+              "stepIndex": 1,
+              "checkType": "todoContentsIncludeSubstrings",
+              "expected": "jump on the fire",
+              "reason": "expected a todo containing \"jump on the fire\"."
+            }
+          ],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Todos: jump on the water, drink the water",
+              "finalUserInput": "Todos: jump on the water, drink the water",
+              "response": "Got it! I've saved 2 todos.",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Saving your thought..."
+                },
+                {
+                  "type": "stored",
+                  "documentId": "49669565-db17-4828-b656-7863a70f91a5"
+                },
+                {
+                  "type": "stored",
+                  "documentId": "a023ed15-ff14-4eb2-b856-670c0c1d0e6c"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Got it! I've saved 2 todos."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "jump on the water",
+                "drink the water"
+              ],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Todos: jump on the water, drink the water",
+                  "response": "Got it! I've saved 2 todos.",
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the water"
+                  ],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            },
+            {
+              "stepIndex": 1,
+              "initialUserInput": "Change \"jump on the water\" to \"jump on the fire\"",
+              "finalUserInput": "Change \"jump on the water\" to \"jump on the fire\"",
+              "response": "Done! I've updated \"jump on the water\".",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Finding relevant documents..."
+                },
+                {
+                  "type": "retrieved",
+                  "documentIds": [
+                    "49669565-db17-4828-b656-7863a70f91a5",
+                    "a023ed15-ff14-4eb2-b856-670c0c1d0e6c"
+                  ],
+                  "totalRetrieved": 2
+                },
+                {
+                  "type": "status",
+                  "message": "Analyzing your request..."
+                },
+                {
+                  "type": "status",
+                  "message": "Executing update..."
+                },
+                {
+                  "type": "chunk",
+                  "content": "Done! I've updated \"jump on the water\"."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "retrievedContents": [
+                "jump on the water",
+                "drink the water"
+              ],
+              "retrievedCount": 2,
+              "totalCandidates": 2,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Change \"jump on the water\" to \"jump on the fire\"",
+                  "response": "Done! I've updated \"jump on the water\".",
+                  "todoContents": [
+                    "drink the water",
+                    "jump on the water"
+                  ],
+                  "retrievedContents": [
+                    "jump on the water",
+                    "drink the water"
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": [
+                null,
+                null
+              ]
+            }
+          ],
+          "finalTodos": [
+            {
+              "id": "a023ed15-ff14-4eb2-b856-670c0c1d0e6c",
+              "content": "drink the water",
+              "type": "todo",
+              "createdAt": "2026-03-19T22:15:01.472Z",
+              "updatedAt": "2026-03-19T22:15:01.472Z",
+              "date": "2026-03-20",
+              "tags": "todo",
+              "source": "Todos: jump on the water, drink the water",
+              "metadata": "{\"groupId\":\"45251ad3-d817-42d5-ba2c-ba2343104faf\"}",
+              "isDeleted": false
+            },
+            {
+              "id": "49669565-db17-4828-b656-7863a70f91a5",
+              "content": "jump on the water",
+              "type": "todo",
+              "createdAt": "2026-03-19T22:15:01.320Z",
+              "updatedAt": "2026-03-19T22:15:04.135Z",
+              "date": "2026-03-20",
+              "tags": "todo",
+              "source": "Todos: jump on the water, drink the water",
+              "metadata": "{\"groupId\":\"45251ad3-d817-42d5-ba2c-ba2343104faf\"}",
+              "isDeleted": false
+            }
+          ],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Ambiguous delete does not act immediately"
+            }
+          ]
+        },
+        "id": "12d248d3-19d5-4885-8856-15634b18b49b",
+        "latencyMs": 19475,
+        "namedScores": {},
+        "prompt": {
+          "raw": "ambiguous-delete-needs-clarification",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Ambiguous delete does not act immediately",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Ambiguous delete does not act immediately",
+            "scenarioId": "ambiguous-delete-needs-clarification",
+            "scenarioTitle": "Ambiguous delete does not act immediately",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Todos: jump on the water, drink the water",
+                "finalUserInput": "Todos: jump on the water, drink the water",
+                "response": "Got it! I've saved 2 todos.",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Saving your thought..."
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "05356b60-78c8-444a-a92c-e42914364e5e"
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "a6fac883-ad99-446a-86bd-28caf22b759d"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Got it! I've saved 2 todos."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "jump on the water",
+                  "drink the water"
+                ],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Todos: jump on the water, drink the water",
+                    "response": "Got it! I've saved 2 todos.",
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the water"
+                    ],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              },
+              {
+                "stepIndex": 1,
+                "initialUserInput": "Delete the water one",
+                "finalUserInput": "Delete the water one",
+                "response": "I found a few possible matches, but I can't tell for sure which one you mean.\n1. \"drink the water\"\n2. \"jump on the water\"\n\nWhich one did you mean?",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Finding relevant documents..."
+                  },
+                  {
+                    "type": "retrieved",
+                    "documentIds": [
+                      "a6fac883-ad99-446a-86bd-28caf22b759d",
+                      "05356b60-78c8-444a-a92c-e42914364e5e"
+                    ],
+                    "totalRetrieved": 2
+                  },
+                  {
+                    "type": "status",
+                    "message": "Analyzing your request..."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "I found a few possible matches, but I can't tell for sure which one you mean.\n1. \"drink the water\"\n2. \"jump on the water\"\n\nWhich one did you mean?"
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "jump on the water",
+                  "drink the water"
+                ],
+                "retrievedContents": [
+                  "drink the water",
+                  "jump on the water"
+                ],
+                "retrievedCount": 2,
+                "totalCandidates": 2,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Delete the water one",
+                    "response": "I found a few possible matches, but I can't tell for sure which one you mean.\n1. \"drink the water\"\n2. \"jump on the water\"\n\nWhich one did you mean?",
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the water"
+                    ],
+                    "retrievedContents": [
+                      "drink the water",
+                      "jump on the water"
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [
+              {
+                "id": "05356b60-78c8-444a-a92c-e42914364e5e",
+                "content": "jump on the water",
+                "type": "todo",
+                "createdAt": "2026-03-19T22:15:06.545Z",
+                "updatedAt": "2026-03-19T22:15:06.545Z",
+                "date": "2026-03-20",
+                "tags": "todo",
+                "source": "Todos: jump on the water, drink the water",
+                "metadata": "{\"groupId\":\"ca3a8a4a-5020-4666-9a4c-c83523511358\"}",
+                "isDeleted": false
+              },
+              {
+                "id": "a6fac883-ad99-446a-86bd-28caf22b759d",
+                "content": "drink the water",
+                "type": "todo",
+                "createdAt": "2026-03-19T22:15:06.683Z",
+                "updatedAt": "2026-03-19T22:15:06.683Z",
+                "date": "2026-03-20",
+                "tags": "todo",
+                "source": "Todos: jump on the water, drink the water",
+                "metadata": "{\"groupId\":\"ca3a8a4a-5020-4666-9a4c-c83523511358\"}",
+                "isDeleted": false
+              }
+            ],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "ambiguous-delete-needs-clarification"
+          },
+          "metadata": {
+            "scenarioId": "ambiguous-delete-needs-clarification",
+            "scenarioTitle": "Ambiguous delete does not act immediately",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Ambiguous delete does not act immediately",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 5,
+        "vars": {
+          "scenarioId": "ambiguous-delete-needs-clarification"
+        },
+        "metadata": {
+          "scenarioId": "ambiguous-delete-needs-clarification",
+          "scenarioTitle": "Ambiguous delete does not act immediately",
+          "suites": [
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Ambiguous delete does not act immediately",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Todos: jump on the water, drink the water",
+              "finalUserInput": "Todos: jump on the water, drink the water",
+              "response": "Got it! I've saved 2 todos.",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Saving your thought..."
+                },
+                {
+                  "type": "stored",
+                  "documentId": "05356b60-78c8-444a-a92c-e42914364e5e"
+                },
+                {
+                  "type": "stored",
+                  "documentId": "a6fac883-ad99-446a-86bd-28caf22b759d"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Got it! I've saved 2 todos."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "jump on the water",
+                "drink the water"
+              ],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Todos: jump on the water, drink the water",
+                  "response": "Got it! I've saved 2 todos.",
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the water"
+                  ],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            },
+            {
+              "stepIndex": 1,
+              "initialUserInput": "Delete the water one",
+              "finalUserInput": "Delete the water one",
+              "response": "I found a few possible matches, but I can't tell for sure which one you mean.\n1. \"drink the water\"\n2. \"jump on the water\"\n\nWhich one did you mean?",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Finding relevant documents..."
+                },
+                {
+                  "type": "retrieved",
+                  "documentIds": [
+                    "a6fac883-ad99-446a-86bd-28caf22b759d",
+                    "05356b60-78c8-444a-a92c-e42914364e5e"
+                  ],
+                  "totalRetrieved": 2
+                },
+                {
+                  "type": "status",
+                  "message": "Analyzing your request..."
+                },
+                {
+                  "type": "chunk",
+                  "content": "I found a few possible matches, but I can't tell for sure which one you mean.\n1. \"drink the water\"\n2. \"jump on the water\"\n\nWhich one did you mean?"
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "jump on the water",
+                "drink the water"
+              ],
+              "retrievedContents": [
+                "drink the water",
+                "jump on the water"
+              ],
+              "retrievedCount": 2,
+              "totalCandidates": 2,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Delete the water one",
+                  "response": "I found a few possible matches, but I can't tell for sure which one you mean.\n1. \"drink the water\"\n2. \"jump on the water\"\n\nWhich one did you mean?",
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the water"
+                  ],
+                  "retrievedContents": [
+                    "drink the water",
+                    "jump on the water"
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [
+            {
+              "id": "05356b60-78c8-444a-a92c-e42914364e5e",
+              "content": "jump on the water",
+              "type": "todo",
+              "createdAt": "2026-03-19T22:15:06.545Z",
+              "updatedAt": "2026-03-19T22:15:06.545Z",
+              "date": "2026-03-20",
+              "tags": "todo",
+              "source": "Todos: jump on the water, drink the water",
+              "metadata": "{\"groupId\":\"ca3a8a4a-5020-4666-9a4c-c83523511358\"}",
+              "isDeleted": false
+            },
+            {
+              "id": "a6fac883-ad99-446a-86bd-28caf22b759d",
+              "content": "drink the water",
+              "type": "todo",
+              "createdAt": "2026-03-19T22:15:06.683Z",
+              "updatedAt": "2026-03-19T22:15:06.683Z",
+              "date": "2026-03-20",
+              "tags": "todo",
+              "source": "Todos: jump on the water, drink the water",
+              "metadata": "{\"groupId\":\"ca3a8a4a-5020-4666-9a4c-c83523511358\"}",
+              "isDeleted": false
+            }
+          ],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Clarification follow-up deletes the intended todo"
+            }
+          ]
+        },
+        "id": "343e6bf0-3582-4ba3-886f-d1ce0c8f206e",
+        "latencyMs": 44097,
+        "namedScores": {},
+        "prompt": {
+          "raw": "clarification-resolves-ambiguous-delete",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Clarification follow-up deletes the intended todo",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Clarification follow-up deletes the intended todo",
+            "scenarioId": "clarification-resolves-ambiguous-delete",
+            "scenarioTitle": "Clarification follow-up deletes the intended todo",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Todos: jump on the water, drink the water",
+                "finalUserInput": "Todos: jump on the water, drink the water",
+                "response": "Got it! I've saved 2 todos.",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Saving your thought..."
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "5b8d6a5d-b9d4-4215-ac54-a6932b279285"
+                  },
+                  {
+                    "type": "stored",
+                    "documentId": "437998ee-32d2-40e6-bc6e-cc5b72275945"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Got it! I've saved 2 todos."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "jump on the water",
+                  "drink the water"
+                ],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Todos: jump on the water, drink the water",
+                    "response": "Got it! I've saved 2 todos.",
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the water"
+                    ],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              },
+              {
+                "stepIndex": 1,
+                "initialUserInput": "Delete the water one",
+                "finalUserInput": "Delete the one about drinking water.",
+                "response": "Done! I've removed \"drink the water\".",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Finding relevant documents..."
+                  },
+                  {
+                    "type": "retrieved",
+                    "documentIds": [
+                      "437998ee-32d2-40e6-bc6e-cc5b72275945",
+                      "5b8d6a5d-b9d4-4215-ac54-a6932b279285"
+                    ],
+                    "totalRetrieved": 2
+                  },
+                  {
+                    "type": "status",
+                    "message": "Analyzing your request..."
+                  },
+                  {
+                    "type": "status",
+                    "message": "Executing delete..."
+                  },
+                  {
+                    "type": "deleted",
+                    "documentId": "437998ee-32d2-40e6-bc6e-cc5b72275945"
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "Done! I've removed \"drink the water\"."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [
+                  "jump on the water"
+                ],
+                "retrievedContents": [
+                  "jump on the water"
+                ],
+                "retrievedCount": 2,
+                "totalCandidates": 1,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Delete the water one",
+                    "response": "I found a few possible matches, but I can't tell for sure which one you mean.\n1. \"drink the water\"\n2. \"jump on the water\"\n\nWhich one did you mean?",
+                    "events": [
+                      {
+                        "type": "status",
+                        "message": "Classifying your input..."
+                      },
+                      {
+                        "type": "status",
+                        "message": "Finding relevant documents..."
+                      },
+                      {
+                        "type": "retrieved",
+                        "documentIds": [
+                          "437998ee-32d2-40e6-bc6e-cc5b72275945",
+                          "5b8d6a5d-b9d4-4215-ac54-a6932b279285"
+                        ],
+                        "totalRetrieved": 2
+                      },
+                      {
+                        "type": "status",
+                        "message": "Analyzing your request..."
+                      },
+                      {
+                        "type": "chunk",
+                        "content": "I found a few possible matches, but I can't tell for sure which one you mean.\n1. \"drink the water\"\n2. \"jump on the water\"\n\nWhich one did you mean?"
+                      },
+                      {
+                        "type": "done"
+                      }
+                    ],
+                    "todoContents": [
+                      "jump on the water",
+                      "drink the water"
+                    ],
+                    "retrievedContents": [
+                      "drink the water",
+                      "jump on the water"
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 2,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": {
+                      "candidateEvaluations": [
+                        {
+                          "id": "delete-drinking-todo",
+                          "label": "Delete the drinking todo",
+                          "userInput": "Delete the one about drinking water.",
+                          "pass": true,
+                          "reason": "The assistant correctly identified the ambiguity between 'drink the water' and 'jump on the water' and asked the user to clarify which specific todo should be deleted, strictly following the rubric's requirement."
+                        }
+                      ],
+                      "selectedResponseId": "delete-drinking-todo",
+                      "selectedUserInput": "Delete the one about drinking water."
+                    }
+                  },
+                  {
+                    "turnIndex": 1,
+                    "userInput": "Delete the one about drinking water.",
+                    "response": "Done! I've removed \"drink the water\".",
+                    "todoContents": [
+                      "jump on the water"
+                    ],
+                    "retrievedContents": [
+                      "jump on the water"
+                    ],
+                    "retrievedCount": 2,
+                    "totalCandidates": 1,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": {
+                      "candidateEvaluations": [],
+                      "selectedResponseId": null,
+                      "selectedUserInput": null
+                    }
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [
+              {
+                "id": "5b8d6a5d-b9d4-4215-ac54-a6932b279285",
+                "content": "jump on the water",
+                "type": "todo",
+                "createdAt": "2026-03-19T22:15:34.696Z",
+                "updatedAt": "2026-03-19T22:15:34.696Z",
+                "date": "2026-03-20",
+                "tags": "todo",
+                "source": "Todos: jump on the water, drink the water",
+                "metadata": "{\"groupId\":\"442645c4-5af4-44aa-bb5e-ca1499067cb9\"}",
+                "isDeleted": false
+              }
+            ],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "clarification-resolves-ambiguous-delete"
+          },
+          "metadata": {
+            "scenarioId": "clarification-resolves-ambiguous-delete",
+            "scenarioTitle": "Clarification follow-up deletes the intended todo",
+            "suites": [
+              "full"
+            ]
+          },
+          "description": "Clarification follow-up deletes the intended todo",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 6,
+        "vars": {
+          "scenarioId": "clarification-resolves-ambiguous-delete"
+        },
+        "metadata": {
+          "scenarioId": "clarification-resolves-ambiguous-delete",
+          "scenarioTitle": "Clarification follow-up deletes the intended todo",
+          "suites": [
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Clarification follow-up deletes the intended todo",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Todos: jump on the water, drink the water",
+              "finalUserInput": "Todos: jump on the water, drink the water",
+              "response": "Got it! I've saved 2 todos.",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Saving your thought..."
+                },
+                {
+                  "type": "stored",
+                  "documentId": "5b8d6a5d-b9d4-4215-ac54-a6932b279285"
+                },
+                {
+                  "type": "stored",
+                  "documentId": "437998ee-32d2-40e6-bc6e-cc5b72275945"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Got it! I've saved 2 todos."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "jump on the water",
+                "drink the water"
+              ],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Todos: jump on the water, drink the water",
+                  "response": "Got it! I've saved 2 todos.",
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the water"
+                  ],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            },
+            {
+              "stepIndex": 1,
+              "initialUserInput": "Delete the water one",
+              "finalUserInput": "Delete the one about drinking water.",
+              "response": "Done! I've removed \"drink the water\".",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "status",
+                  "message": "Finding relevant documents..."
+                },
+                {
+                  "type": "retrieved",
+                  "documentIds": [
+                    "437998ee-32d2-40e6-bc6e-cc5b72275945",
+                    "5b8d6a5d-b9d4-4215-ac54-a6932b279285"
+                  ],
+                  "totalRetrieved": 2
+                },
+                {
+                  "type": "status",
+                  "message": "Analyzing your request..."
+                },
+                {
+                  "type": "status",
+                  "message": "Executing delete..."
+                },
+                {
+                  "type": "deleted",
+                  "documentId": "437998ee-32d2-40e6-bc6e-cc5b72275945"
+                },
+                {
+                  "type": "chunk",
+                  "content": "Done! I've removed \"drink the water\"."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [
+                "jump on the water"
+              ],
+              "retrievedContents": [
+                "jump on the water"
+              ],
+              "retrievedCount": 2,
+              "totalCandidates": 1,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Delete the water one",
+                  "response": "I found a few possible matches, but I can't tell for sure which one you mean.\n1. \"drink the water\"\n2. \"jump on the water\"\n\nWhich one did you mean?",
+                  "events": [
+                    {
+                      "type": "status",
+                      "message": "Classifying your input..."
+                    },
+                    {
+                      "type": "status",
+                      "message": "Finding relevant documents..."
+                    },
+                    {
+                      "type": "retrieved",
+                      "documentIds": [
+                        "437998ee-32d2-40e6-bc6e-cc5b72275945",
+                        "5b8d6a5d-b9d4-4215-ac54-a6932b279285"
+                      ],
+                      "totalRetrieved": 2
+                    },
+                    {
+                      "type": "status",
+                      "message": "Analyzing your request..."
+                    },
+                    {
+                      "type": "chunk",
+                      "content": "I found a few possible matches, but I can't tell for sure which one you mean.\n1. \"drink the water\"\n2. \"jump on the water\"\n\nWhich one did you mean?"
+                    },
+                    {
+                      "type": "done"
+                    }
+                  ],
+                  "todoContents": [
+                    "jump on the water",
+                    "drink the water"
+                  ],
+                  "retrievedContents": [
+                    "drink the water",
+                    "jump on the water"
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 2,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": {
+                    "candidateEvaluations": [
+                      {
+                        "id": "delete-drinking-todo",
+                        "label": "Delete the drinking todo",
+                        "userInput": "Delete the one about drinking water.",
+                        "pass": true,
+                        "reason": "The assistant correctly identified the ambiguity between 'drink the water' and 'jump on the water' and asked the user to clarify which specific todo should be deleted, strictly following the rubric's requirement."
+                      }
+                    ],
+                    "selectedResponseId": "delete-drinking-todo",
+                    "selectedUserInput": "Delete the one about drinking water."
+                  }
+                },
+                {
+                  "turnIndex": 1,
+                  "userInput": "Delete the one about drinking water.",
+                  "response": "Done! I've removed \"drink the water\".",
+                  "todoContents": [
+                    "jump on the water"
+                  ],
+                  "retrievedContents": [
+                    "jump on the water"
+                  ],
+                  "retrievedCount": 2,
+                  "totalCandidates": 1,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": {
+                    "candidateEvaluations": [],
+                    "selectedResponseId": null,
+                    "selectedUserInput": null
+                  }
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [
+            {
+              "id": "5b8d6a5d-b9d4-4215-ac54-a6932b279285",
+              "content": "jump on the water",
+              "type": "todo",
+              "createdAt": "2026-03-19T22:15:34.696Z",
+              "updatedAt": "2026-03-19T22:15:34.696Z",
+              "date": "2026-03-20",
+              "tags": "todo",
+              "source": "Todos: jump on the water, drink the water",
+              "metadata": "{\"groupId\":\"442645c4-5af4-44aa-bb5e-ca1499067cb9\"}",
+              "isDeleted": false
+            }
+          ],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Passed: Vague request does not mutate state"
+            }
+          ]
+        },
+        "id": "932d5758-fa6b-45d9-a6ed-1b5df75ea329",
+        "latencyMs": 11738,
+        "namedScores": {},
+        "prompt": {
+          "raw": "low-confidence-vague-request",
+          "label": "{{scenarioId}}",
+          "config": {}
+        },
+        "promptId": "f523ba5078be8fafa45a46639427f728a7ef0f188ae4f693154ff9cade3f9f40",
+        "promptIdx": 0,
+        "provider": {
+          "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+          "label": "qwen3.5:9b"
+        },
+        "response": {
+          "output": "Passed: Vague request does not mutate state",
+          "metadata": {
+            "passed": true,
+            "summary": "Passed: Vague request does not mutate state",
+            "scenarioId": "low-confidence-vague-request",
+            "scenarioTitle": "Vague request does not mutate state",
+            "model": "qwen3.5:9b",
+            "judgeModel": "qwen3.5:9b",
+            "failures": [],
+            "failedChecks": [],
+            "transcript": [
+              {
+                "stepIndex": 0,
+                "initialUserInput": "Do the thing",
+                "finalUserInput": "Do the thing",
+                "response": "I'm not sure what you'd like me to do. Could you provide more detail or rephrase? You can also ask me \"what can you do?\" to learn about my capabilities.",
+                "events": [
+                  {
+                    "type": "status",
+                    "message": "Classifying your input..."
+                  },
+                  {
+                    "type": "chunk",
+                    "content": "I'm not sure what you'd like me to do. Could you provide more detail or rephrase? You can also ask me \"what can you do?\" to learn about my capabilities."
+                  },
+                  {
+                    "type": "done"
+                  }
+                ],
+                "todoContents": [],
+                "retrievedDocumentIds": [],
+                "retrievedContents": [],
+                "retrievedCount": 0,
+                "totalCandidates": 0,
+                "cutoffScore": null,
+                "interactionTurns": [
+                  {
+                    "turnIndex": 0,
+                    "userInput": "Do the thing",
+                    "response": "I'm not sure what you'd like me to do. Could you provide more detail or rephrase? You can also ask me \"what can you do?\" to learn about my capabilities.",
+                    "todoContents": [],
+                    "retrievedDocumentIds": [],
+                    "retrievedContents": [],
+                    "retrievedCount": 0,
+                    "totalCandidates": 0,
+                    "cutoffScore": null,
+                    "simulatedUserDecision": null
+                  }
+                ],
+                "failedChecks": []
+              }
+            ],
+            "finalTodos": [],
+            "evalServerOutput": ""
+          }
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "vars": {
+            "scenarioId": "low-confidence-vague-request"
+          },
+          "metadata": {
+            "scenarioId": "low-confidence-vague-request",
+            "scenarioTitle": "Vague request does not mutate state",
+            "suites": [
+              "smoke",
+              "full"
+            ]
+          },
+          "description": "Vague request does not mutate state",
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+            }
+          ],
+          "options": {}
+        },
+        "testIdx": 7,
+        "vars": {
+          "scenarioId": "low-confidence-vague-request"
+        },
+        "metadata": {
+          "scenarioId": "low-confidence-vague-request",
+          "scenarioTitle": "Vague request does not mutate state",
+          "suites": [
+            "smoke",
+            "full"
+          ],
+          "passed": true,
+          "summary": "Passed: Vague request does not mutate state",
+          "model": "qwen3.5:9b",
+          "judgeModel": "qwen3.5:9b",
+          "failures": [],
+          "failedChecks": [],
+          "transcript": [
+            {
+              "stepIndex": 0,
+              "initialUserInput": "Do the thing",
+              "finalUserInput": "Do the thing",
+              "response": "I'm not sure what you'd like me to do. Could you provide more detail or rephrase? You can also ask me \"what can you do?\" to learn about my capabilities.",
+              "events": [
+                {
+                  "type": "status",
+                  "message": "Classifying your input..."
+                },
+                {
+                  "type": "chunk",
+                  "content": "I'm not sure what you'd like me to do. Could you provide more detail or rephrase? You can also ask me \"what can you do?\" to learn about my capabilities."
+                },
+                {
+                  "type": "done"
+                }
+              ],
+              "todoContents": [],
+              "retrievedDocumentIds": [],
+              "retrievedContents": [],
+              "retrievedCount": 0,
+              "totalCandidates": 0,
+              "cutoffScore": null,
+              "interactionTurns": [
+                {
+                  "turnIndex": 0,
+                  "userInput": "Do the thing",
+                  "response": "I'm not sure what you'd like me to do. Could you provide more detail or rephrase? You can also ask me \"what can you do?\" to learn about my capabilities.",
+                  "todoContents": [],
+                  "retrievedDocumentIds": [],
+                  "retrievedContents": [],
+                  "retrievedCount": 0,
+                  "totalCandidates": 0,
+                  "cutoffScore": null,
+                  "simulatedUserDecision": null
+                }
+              ],
+              "failedChecks": []
+            }
+          ],
+          "finalTodos": [],
+          "evalServerOutput": "",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      }
+    ],
+    "stats": {
+      "successes": 4,
+      "failures": 4,
+      "errors": 0,
+      "tokenUsage": {
+        "prompt": 0,
+        "completion": 0,
+        "cached": 0,
+        "total": 0,
+        "numRequests": 8,
+        "completionDetails": {
+          "reasoning": 0,
+          "acceptedPrediction": 0,
+          "rejectedPrediction": 0
+        },
+        "assertions": {
+          "total": 0,
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "numRequests": 0,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0
+          }
+        }
+      },
+      "durationMs": 207535,
+      "evaluationDurationMs": 207535
+    }
+  },
+  "config": {
+    "tags": {},
+    "description": "Lore promptfoo conversation evals",
+    "prompts": [
+      "{{scenarioId}}"
+    ],
+    "providers": [
+      {
+        "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+        "label": "qwen3.5:9b",
+        "config": {
+          "repositoryRoot": "R:\\lore",
+          "model": "qwen3.5:9b",
+          "embeddingModel": "qwen3-embedding:0.6b",
+          "ollamaHost": "http://127.0.0.1:11434",
+          "judgeModel": ""
+        }
+      }
+    ],
+    "tests": [
+      {
+        "vars": {
+          "scenarioId": "seeded-ambiguous-retrieval-needs-clarification"
+        },
+        "metadata": {
+          "scenarioId": "seeded-ambiguous-retrieval-needs-clarification",
+          "scenarioTitle": "Seeded retrieval ambiguity asks for clarification",
+          "suites": [
+            "full"
+          ]
+        },
+        "description": "Seeded retrieval ambiguity asks for clarification"
+      },
+      {
+        "vars": {
+          "scenarioId": "seeded-ambiguous-retrieval-clarification-resolves"
+        },
+        "metadata": {
+          "scenarioId": "seeded-ambiguous-retrieval-clarification-resolves",
+          "scenarioTitle": "Seeded retrieval clarification leads to the right Alex",
+          "suites": [
+            "full"
+          ]
+        },
+        "description": "Seeded retrieval clarification leads to the right Alex"
+      },
+      {
+        "vars": {
+          "scenarioId": "seeded-retrieval-threshold-discipline"
+        },
+        "metadata": {
+          "scenarioId": "seeded-retrieval-threshold-discipline",
+          "scenarioTitle": "Seeded retrieval keeps the result set focused",
+          "suites": [
+            "full"
+          ]
+        },
+        "description": "Seeded retrieval keeps the result set focused"
+      },
+      {
+        "vars": {
+          "scenarioId": "clarification-resolves-ambiguous-update"
+        },
+        "metadata": {
+          "scenarioId": "clarification-resolves-ambiguous-update",
+          "scenarioTitle": "Clarification follow-up resolves the right todo",
+          "suites": [
+            "full"
+          ]
+        },
+        "description": "Clarification follow-up resolves the right todo"
+      },
+      {
+        "vars": {
+          "scenarioId": "explicit-edit-similar-todos"
+        },
+        "metadata": {
+          "scenarioId": "explicit-edit-similar-todos",
+          "scenarioTitle": "Explicit edit of one similar todo",
+          "suites": [
+            "full"
+          ]
+        },
+        "description": "Explicit edit of one similar todo"
+      },
+      {
+        "vars": {
+          "scenarioId": "ambiguous-delete-needs-clarification"
+        },
+        "metadata": {
+          "scenarioId": "ambiguous-delete-needs-clarification",
+          "scenarioTitle": "Ambiguous delete does not act immediately",
+          "suites": [
+            "full"
+          ]
+        },
+        "description": "Ambiguous delete does not act immediately"
+      },
+      {
+        "vars": {
+          "scenarioId": "clarification-resolves-ambiguous-delete"
+        },
+        "metadata": {
+          "scenarioId": "clarification-resolves-ambiguous-delete",
+          "scenarioTitle": "Clarification follow-up deletes the intended todo",
+          "suites": [
+            "full"
+          ]
+        },
+        "description": "Clarification follow-up deletes the intended todo"
+      },
+      {
+        "vars": {
+          "scenarioId": "low-confidence-vague-request"
+        },
+        "metadata": {
+          "scenarioId": "low-confidence-vague-request",
+          "scenarioTitle": "Vague request does not mutate state",
+          "suites": [
+            "smoke",
+            "full"
+          ]
+        },
+        "description": "Vague request does not mutate state"
+      }
+    ],
+    "scenarios": [],
+    "env": {},
+    "defaultTest": {
+      "assert": [
+        {
+          "type": "javascript",
+          "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+        }
+      ],
+      "vars": {},
+      "options": {},
+      "metadata": {}
+    },
+    "outputPath": [
+      "R:\\lore\\evals\\results\\promptfoo-full-2026-03-19T22-12-44-340Z.json"
+    ],
+    "extensions": [],
+    "metadata": {},
+    "evaluateOptions": {
+      "repeat": 1,
+      "cache": false,
+      "maxConcurrency": 1
+    }
+  },
+  "shareableUrl": null,
+  "metadata": {
+    "promptfooVersion": "0.121.2",
+    "nodeVersion": "v20.20.0",
+    "platform": "win32",
+    "arch": "x64",
+    "exportedAt": "2026-03-19T22:16:19.519Z",
+    "evaluationCreatedAt": "2026-03-19T22:12:51.933Z"
+  }
+}

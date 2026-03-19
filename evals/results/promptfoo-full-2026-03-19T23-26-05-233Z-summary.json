@@ -1,0 +1,19 @@
+{
+  "resultPath": "R:\\lore\\evals\\results\\promptfoo-full-2026-03-19T23-26-05-233Z.json",
+  "generatedAt": "2026-03-19T23:29:57.125Z",
+  "scenarios": [
+    {
+      "providerLabel": "qwen3.5:9b",
+      "scenarioId": "clarification-resolves-ambiguous-update",
+      "scenarioTitle": "Clarification follow-up resolves the right todo",
+      "topic": "todo-update",
+      "passCount": 5,
+      "totalCount": 5,
+      "passPercentage": 100,
+      "topFailureStages": [],
+      "topFailureReasons": [],
+      "topFailedCheckTypes": [],
+      "failureExamples": []
+    }
+  ]
+}

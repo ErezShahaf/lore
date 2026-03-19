@@ -1,0 +1,341 @@
+{
+  "description": "Lore promptfoo conversation evals",
+  "prompts": [
+    "{{scenarioId}}"
+  ],
+  "providers": [
+    {
+      "id": "R:\\lore\\evals\\provider\\loreScenarioProvider.mjs",
+      "label": "qwen3.5:9b",
+      "config": {
+        "repositoryRoot": "R:\\lore",
+        "model": "qwen3.5:9b",
+        "embeddingModel": "qwen3-embedding:0.6b",
+        "ollamaHost": "http://127.0.0.1:11434",
+        "judgeModel": ""
+      }
+    }
+  ],
+  "defaultTest": {
+    "assert": [
+      {
+        "type": "javascript",
+        "value": "\n            const metadata = context.providerResponse?.metadata ?? {};\n            return {\n              pass: metadata.passed === true,\n              score: metadata.passed === true ? 1 : 0,\n              reason: metadata.summary || metadata.failures?.join('\\n') || 'Scenario failed',\n            };\n          "
+      }
+    ]
+  },
+  "tests": [
+    {
+      "vars": {
+        "scenarioId": "add-single-todo-explicit"
+      },
+      "metadata": {
+        "scenarioId": "add-single-todo-explicit",
+        "scenarioTitle": "Add a single explicit todo",
+        "suites": [
+          "smoke",
+          "full"
+        ]
+      },
+      "description": "Add a single explicit todo"
+    },
+    {
+      "vars": {
+        "scenarioId": "add-single-todo-variant-phrasing"
+      },
+      "metadata": {
+        "scenarioId": "add-single-todo-variant-phrasing",
+        "scenarioTitle": "Add a todo with alternate phrasing",
+        "suites": [
+          "full"
+        ]
+      },
+      "description": "Add a todo with alternate phrasing"
+    },
+    {
+      "vars": {
+        "scenarioId": "add-multiple-todos-inline-list"
+      },
+      "metadata": {
+        "scenarioId": "add-multiple-todos-inline-list",
+        "scenarioTitle": "Add multiple todos in one message",
+        "suites": [
+          "smoke",
+          "full"
+        ]
+      },
+      "description": "Add multiple todos in one message"
+    },
+    {
+      "vars": {
+        "scenarioId": "add-multiple-todos-multiline"
+      },
+      "metadata": {
+        "scenarioId": "add-multiple-todos-multiline",
+        "scenarioTitle": "Add todos from a multiline list",
+        "suites": [
+          "full"
+        ]
+      },
+      "description": "Add todos from a multiline list"
+    },
+    {
+      "vars": {
+        "scenarioId": "greeting-then-add-todo"
+      },
+      "metadata": {
+        "scenarioId": "greeting-then-add-todo",
+        "scenarioTitle": "Greeting before task creation",
+        "suites": [
+          "smoke",
+          "full"
+        ]
+      },
+      "description": "Greeting before task creation"
+    },
+    {
+      "vars": {
+        "scenarioId": "smalltalk-random-question-then-add"
+      },
+      "metadata": {
+        "scenarioId": "smalltalk-random-question-then-add",
+        "scenarioTitle": "Random smalltalk before action",
+        "suites": [
+          "full"
+        ]
+      },
+      "description": "Random smalltalk before action"
+    },
+    {
+      "vars": {
+        "scenarioId": "retrieve-todos-after-creation"
+      },
+      "metadata": {
+        "scenarioId": "retrieve-todos-after-creation",
+        "scenarioTitle": "Retrieve todos after creating them",
+        "suites": [
+          "smoke",
+          "full"
+        ]
+      },
+      "description": "Retrieve todos after creating them"
+    },
+    {
+      "vars": {
+        "scenarioId": "retrieve-todos-with-casual-phrasing"
+      },
+      "metadata": {
+        "scenarioId": "retrieve-todos-with-casual-phrasing",
+        "scenarioTitle": "Retrieve todos with casual wording",
+        "suites": [
+          "full"
+        ]
+      },
+      "description": "Retrieve todos with casual wording"
+    },
+    {
+      "vars": {
+        "scenarioId": "seeded-large-db-targeted-retrieval"
+      },
+      "metadata": {
+        "scenarioId": "seeded-large-db-targeted-retrieval",
+        "scenarioTitle": "Retrieve the right fact from seeded large data",
+        "suites": [
+          "full"
+        ]
+      },
+      "description": "Retrieve the right fact from seeded large data"
+    },
+    {
+      "vars": {
+        "scenarioId": "seeded-ambiguous-retrieval-needs-clarification"
+      },
+      "metadata": {
+        "scenarioId": "seeded-ambiguous-retrieval-needs-clarification",
+        "scenarioTitle": "Seeded retrieval ambiguity asks for clarification",
+        "suites": [
+          "full"
+        ]
+      },
+      "description": "Seeded retrieval ambiguity asks for clarification"
+    },
+    {
+      "vars": {
+        "scenarioId": "seeded-ambiguous-retrieval-clarification-resolves"
+      },
+      "metadata": {
+        "scenarioId": "seeded-ambiguous-retrieval-clarification-resolves",
+        "scenarioTitle": "Seeded retrieval clarification leads to the right Alex",
+        "suites": [
+          "full"
+        ]
+      },
+      "description": "Seeded retrieval clarification leads to the right Alex"
+    },
+    {
+      "vars": {
+        "scenarioId": "seeded-retrieval-threshold-discipline"
+      },
+      "metadata": {
+        "scenarioId": "seeded-retrieval-threshold-discipline",
+        "scenarioTitle": "Seeded retrieval keeps the result set focused",
+        "suites": [
+          "full"
+        ]
+      },
+      "description": "Seeded retrieval keeps the result set focused"
+    },
+    {
+      "vars": {
+        "scenarioId": "update-specific-todo"
+      },
+      "metadata": {
+        "scenarioId": "update-specific-todo",
+        "scenarioTitle": "Update a specific todo by description",
+        "suites": [
+          "smoke",
+          "full"
+        ]
+      },
+      "description": "Update a specific todo by description"
+    },
+    {
+      "vars": {
+        "scenarioId": "ambiguous-update-needs-clarification"
+      },
+      "metadata": {
+        "scenarioId": "ambiguous-update-needs-clarification",
+        "scenarioTitle": "Ambiguous update asks for clarification",
+        "suites": [
+          "smoke",
+          "full"
+        ]
+      },
+      "description": "Ambiguous update asks for clarification"
+    },
+    {
+      "vars": {
+        "scenarioId": "clarification-resolves-ambiguous-update"
+      },
+      "metadata": {
+        "scenarioId": "clarification-resolves-ambiguous-update",
+        "scenarioTitle": "Clarification follow-up resolves the right todo",
+        "suites": [
+          "full"
+        ]
+      },
+      "description": "Clarification follow-up resolves the right todo"
+    },
+    {
+      "vars": {
+        "scenarioId": "explicit-edit-similar-todos"
+      },
+      "metadata": {
+        "scenarioId": "explicit-edit-similar-todos",
+        "scenarioTitle": "Explicit edit of one similar todo",
+        "suites": [
+          "full"
+        ]
+      },
+      "description": "Explicit edit of one similar todo"
+    },
+    {
+      "vars": {
+        "scenarioId": "delete-specific-todo"
+      },
+      "metadata": {
+        "scenarioId": "delete-specific-todo",
+        "scenarioTitle": "Delete one matching todo",
+        "suites": [
+          "smoke",
+          "full"
+        ]
+      },
+      "description": "Delete one matching todo"
+    },
+    {
+      "vars": {
+        "scenarioId": "ambiguous-delete-needs-clarification"
+      },
+      "metadata": {
+        "scenarioId": "ambiguous-delete-needs-clarification",
+        "scenarioTitle": "Ambiguous delete does not act immediately",
+        "suites": [
+          "full"
+        ]
+      },
+      "description": "Ambiguous delete does not act immediately"
+    },
+    {
+      "vars": {
+        "scenarioId": "clarification-resolves-ambiguous-delete"
+      },
+      "metadata": {
+        "scenarioId": "clarification-resolves-ambiguous-delete",
+        "scenarioTitle": "Clarification follow-up deletes the intended todo",
+        "suites": [
+          "full"
+        ]
+      },
+      "description": "Clarification follow-up deletes the intended todo"
+    },
+    {
+      "vars": {
+        "scenarioId": "instruction-does-not-become-todo"
+      },
+      "metadata": {
+        "scenarioId": "instruction-does-not-become-todo",
+        "scenarioTitle": "Instruction stays separate from todos",
+        "suites": [
+          "full"
+        ]
+      },
+      "description": "Instruction stays separate from todos"
+    },
+    {
+      "vars": {
+        "scenarioId": "low-confidence-vague-request"
+      },
+      "metadata": {
+        "scenarioId": "low-confidence-vague-request",
+        "scenarioTitle": "Vague request does not mutate state",
+        "suites": [
+          "smoke",
+          "full"
+        ]
+      },
+      "description": "Vague request does not mutate state"
+    },
+    {
+      "vars": {
+        "scenarioId": "duplicate-todo-still-persists-separately"
+      },
+      "metadata": {
+        "scenarioId": "duplicate-todo-still-persists-separately",
+        "scenarioTitle": "Near-duplicate todo requests still store separately",
+        "suites": [
+          "full"
+        ]
+      },
+      "description": "Near-duplicate todo requests still store separately"
+    },
+    {
+      "vars": {
+        "scenarioId": "pure-greeting-does-not-store"
+      },
+      "metadata": {
+        "scenarioId": "pure-greeting-does-not-store",
+        "scenarioTitle": "Greeting alone does not create data",
+        "suites": [
+          "full"
+        ]
+      },
+      "description": "Greeting alone does not create data"
+    }
+  ],
+  "evaluateOptions": {
+    "repeat": 1,
+    "cache": false,
+    "maxConcurrency": 1
+  }
+}
