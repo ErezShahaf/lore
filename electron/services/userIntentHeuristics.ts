@@ -16,6 +16,10 @@ const EXPLICIT_MULTI_TARGET_PATTERN = /\b(all|both|these|those|all of them|every
 const ORDINAL_REFERENCE_PATTERN = /\b(first|second|third|last|previous)\b/i
 const VAGUE_IMPERATIVE_PATTERN = /^(?:please\s+)?(?:do|handle|fix|solve|manage|deal with|take care of)\s+(?:it|this|that|the thing|the stuff|something)\b[.!?]*$/i
 const CLARIFICATION_FOLLOW_UP_PATTERN = /^(?:i mean|the one|the .* one|the first|the second|the third|from [a-z]+|it'?s|its)\b/i
+const QUESTION_REQUEST_PATTERN = /^(?:who|what|which|where|when)\b/i
+const RAW_STRUCTURED_DATA_FENCE_PATTERN = /^```[\s\S]*```$/i
+const SELF_REPORTED_COMPLETION_PATTERN = /\b(?:i(?:'ve| have)?\s+)?(?:already\s+)?(?:finished|done|completed)\b/i
+const INSTRUCTION_PREFERENCE_PATTERN = /^\s*from now on\b/i
 
 export function looksLikeTodoQuery(userInput: string): boolean {
   return TODO_PATTERN.test(userInput)
@@ -81,6 +85,15 @@ export function looksLikeStoredDataQuestion(userInput: string): boolean {
   return RETRIEVAL_VERB_PATTERN.test(normalizedInput) && DATA_REFERENCE_PATTERN.test(normalizedInput)
 }
 
+export function looksLikeQuestionRequest(userInput: string): boolean {
+  const normalizedInput = userInput.trim()
+  if (normalizedInput.length === 0 || HELP_QUERY_PATTERN.test(normalizedInput)) {
+    return false
+  }
+
+  return QUESTION_REQUEST_PATTERN.test(normalizedInput) || /\?\s*$/.test(normalizedInput)
+}
+
 export function userAskedForDateInformation(userInput: string): boolean {
   return DATE_REQUEST_PATTERN.test(userInput)
 }
@@ -116,6 +129,10 @@ export function looksLikeInstructionManagementRequest(userInput: string): boolea
   return hasInstructionReference && hasCommandVerb
 }
 
+export function looksLikeBehaviorPreferenceInstruction(userInput: string): boolean {
+  return INSTRUCTION_PREFERENCE_PATTERN.test(userInput.trim())
+}
+
 export function looksLikeReferentialCommandRequest(userInput: string): boolean {
   const hasCommandVerb = MODIFICATION_VERB_PATTERN.test(userInput) || COMPLETION_VERB_PATTERN.test(userInput)
   return hasCommandVerb && REFERENTIAL_TARGET_PATTERN.test(userInput)
@@ -143,5 +160,33 @@ export function looksLikeVagueImperativeRequest(userInput: string): boolean {
 }
 
 export function looksLikeClarificationFollowUp(userInput: string): boolean {
-  return CLARIFICATION_FOLLOW_UP_PATTERN.test(userInput.trim())
+  const normalizedInput = userInput.trim()
+  return CLARIFICATION_FOLLOW_UP_PATTERN.test(normalizedInput) || /^\d+\s*$/.test(normalizedInput)
+}
+
+export function looksLikeRawStructuredDataInput(userInput: string): boolean {
+  const normalizedInput = userInput.trim()
+  if (normalizedInput.length < 2) {
+    return false
+  }
+
+  if (RAW_STRUCTURED_DATA_FENCE_PATTERN.test(normalizedInput)) {
+    return true
+  }
+
+  if (normalizedInput.startsWith('{') && normalizedInput.includes(':')) {
+    return true
+  }
+
+  if (normalizedInput.startsWith('[') && /[\]}\]]\s*$/.test(normalizedInput)) {
+    return true
+  }
+
+  return false
+}
+
+export function looksLikeSelfReportedCompletion(userInput: string): boolean {
+  const normalizedInput = userInput.trim()
+  return SELF_REPORTED_COMPLETION_PATTERN.test(normalizedInput)
+    && /\b(the|that|this|one|todo|task|ride)\b/i.test(normalizedInput)
 }

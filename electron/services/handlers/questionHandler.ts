@@ -1,6 +1,7 @@
 import { chat } from '../ollamaService'
 import { logger } from '../../logger'
 import {
+  multiQueryRetrieve,
   retrieveByFilters,
   retrieveWithAdaptiveThreshold,
   retrieveRelevantDocuments,
@@ -36,8 +37,10 @@ export async function* handleQuestion(
   const settings = getSettings()
 
   const retrievalOpts = buildRetrievalOptions(userInput, classification, retrievalOverrides)
-  const shouldUseMetadataOnlyRetrieval = looksLikeStructuralRetrievalQuery(userInput)
-    && (retrievalOpts.type !== undefined
+  const shouldUseMetadataOnlyRetrieval = (
+    looksLikeStructuralRetrievalQuery(userInput)
+    || (retrievalOpts.type === 'todo' && looksLikeTodoListingRequest(userInput))
+  ) && (retrievalOpts.type !== undefined
       || retrievalOpts.createdAtFrom !== undefined
       || retrievalOpts.dateFrom !== undefined)
 
@@ -46,7 +49,10 @@ export async function* handleQuestion(
   const result = shouldUseMetadataOnlyRetrieval
     ? await retrieveByFilters(retrievalOpts)
     : await retrieveWithAdaptiveThreshold(userInput, retrievalOpts)
-  const documents = selectDocumentsForAnswer(userInput, result.documents)
+  const fallbackResult = !shouldUseMetadataOnlyRetrieval && result.documents.length === 0
+    ? await multiQueryRetrieve(buildQuestionFallbackQueries(userInput, classification), retrievalOpts)
+    : result
+  const documents = selectDocumentsForAnswer(userInput, fallbackResult.documents)
 
   if (documents.length === 0) {
     yield { type: 'chunk', content: EMPTY_RESULT_RESPONSE }
@@ -58,13 +64,20 @@ export async function* handleQuestion(
     type: 'retrieved',
     documentIds: documents.map((document) => document.id),
     totalRetrieved: documents.length,
-    totalCandidates: documents.length,
-    cutoffScore: documents.length > 0 ? documents[documents.length - 1].score : result.cutoffScore,
+    totalCandidates: fallbackResult.totalCandidates,
+    cutoffScore: documents.length > 0 ? documents[documents.length - 1].score : fallbackResult.cutoffScore,
   }
 
   const clarificationMessage = buildQuestionClarification(userInput, documents)
   if (clarificationMessage) {
     yield { type: 'chunk', content: clarificationMessage }
+    yield { type: 'done' }
+    return
+  }
+
+  const directStructuredResponse = buildDirectStructuredResponse(userInput, documents)
+  if (directStructuredResponse) {
+    yield { type: 'chunk', content: directStructuredResponse }
     yield { type: 'done' }
     return
   }
@@ -207,6 +220,11 @@ function buildQuestionClarification(
   userInput: string,
   documents: readonly ScoredDocument[],
 ): string | null {
+  const structuredClarification = buildStructuredQuestionClarification(userInput, documents)
+  if (structuredClarification) {
+    return structuredClarification
+  }
+
   const referencedName = extractReferencedName(userInput)
   if (!referencedName || documents.length < 2) {
     return null
@@ -225,6 +243,30 @@ function buildQuestionClarification(
     .join('\n')
 
   return `I found multiple matches for ${referencedName}:\n${previewList}\n\nWhich one did you mean?`
+}
+
+function buildQuestionFallbackQueries(
+  userInput: string,
+  classification: ClassificationResult,
+): string[] {
+  const fallbackQueries = [
+    userInput,
+    ...extractStructuredFocusTokens(userInput),
+    ...classification.extractedTags.filter((tag) => tag.length >= 4),
+  ]
+
+  const focusTerms = extractQuestionFocusTerms(userInput)
+  if (focusTerms.length > 1) {
+    fallbackQueries.push(focusTerms.join(' '))
+  }
+
+  return [...new Set(fallbackQueries.map((query) => query.trim()).filter((query) => query.length > 0))]
+}
+
+function extractStructuredFocusTokens(userInput: string): string[] {
+  const dottedTerms = userInput.match(/\b[a-z0-9]+(?:[._-][a-z0-9]+)+\b/gi) ?? []
+  const uppercaseTerms = userInput.match(/\b[A-Z][A-Z0-9_]{2,}\b/g) ?? []
+  return [...new Set([...dottedTerms, ...uppercaseTerms])]
 }
 
 function extractReferencedName(userInput: string): string | null {
@@ -255,6 +297,82 @@ function truncateContent(value: string, maxLength: number): string {
   }
 
   return `${value.slice(0, maxLength)}...`
+}
+
+function buildStructuredQuestionClarification(
+  userInput: string,
+  documents: readonly ScoredDocument[],
+): string | null {
+  if (documents.length < 2 || !looksLikeStructuredQuestion(userInput, documents)) {
+    return null
+  }
+
+  const structuredFocusTokens = extractStructuredFocusTokens(userInput)
+  const narrowedDocuments = structuredFocusTokens.length === 0
+    ? documents
+    : documents.filter((document) =>
+      structuredFocusTokens.every((token) => document.content.toLowerCase().includes(token.toLowerCase())),
+    )
+
+  if (narrowedDocuments.length === 1) {
+    return null
+  }
+
+  const candidateDocuments = narrowedDocuments.length >= 2 ? narrowedDocuments : documents
+  const previewList = candidateDocuments
+    .slice(0, 3)
+    .map((document, index) => `${index + 1}. "${buildStructuredDocumentPreview(document.content)}"`)
+    .join('\n')
+
+  const clarificationQuestion = /\b(json|payload|webhook|event)\b/i.test(userInput)
+    ? 'Which event did you mean?'
+    : 'Which one did you mean?'
+
+  return `I found multiple matches:\n${previewList}\n\n${clarificationQuestion}`
+}
+
+function looksLikeStructuredQuestion(
+  userInput: string,
+  documents: readonly ScoredDocument[],
+): boolean {
+  return /\b(json|payload|webhook|endpoint|url)\b/i.test(userInput)
+    || containsRawStructuredContent(documents)
+}
+
+function buildStructuredDocumentPreview(content: string): string {
+  const providerMatch = content.match(/"provider":"([^"]+)"/)
+  const eventMatch = content.match(/"(?:event|eventCode)":"([^"]+)"/)
+  const urlMatch = content.match(/"url":"([^"]+)"/)
+  const previewParts = [providerMatch?.[1], eventMatch?.[1], urlMatch?.[1]].filter(
+    (part): part is string => typeof part === 'string' && part.length > 0,
+  )
+
+  if (previewParts.length > 0) {
+    return previewParts.join(' | ')
+  }
+
+  return truncateContent(content, 80)
+}
+
+function looksLikeTodoListingRequest(userInput: string): boolean {
+  return /\bwhat are my todos\b/i.test(userInput)
+    || /\b(list|show|summarize)\b[\s\S]{0,40}\btodos?\b/i.test(userInput)
+}
+
+function buildDirectStructuredResponse(
+  userInput: string,
+  documents: readonly ScoredDocument[],
+): string | null {
+  if (documents.length !== 1 || !/\b(json|payload)\b/i.test(userInput)) {
+    return null
+  }
+
+  const content = documents[0].content.trim()
+  if (!content.startsWith('{') && !content.startsWith('[')) {
+    return null
+  }
+
+  return `\`\`\`json\n${content}\n\`\`\``
 }
 
 // ── Date range resolution ─────────────────────────────────────

@@ -21,3 +21,5 @@ release/**/*.yaml
 *.log
 .DS_Store
 Thumbs.db
+evals/results/
+evals/.generated/

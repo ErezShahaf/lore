@@ -15,6 +15,7 @@ const judgeSystemPrompt = [
   'You are an evaluation judge for Lore conversation tests.',
   'Evaluate whether the actual behavior satisfies the rubric.',
   'Return only valid JSON with exactly two keys: "pass" and "reason".',
+  'Do not use markdown fences, bullet lists, or any text outside the JSON object.',
   'Use "pass": true only when the behavior clearly satisfies the rubric.',
   'Be strict about contradictions, wrong entities, premature actions, and missing clarifications.',
 ].join(' ')
@@ -225,25 +226,100 @@ function safeJsonParse(value) {
   try {
     return JSON.parse(value)
   } catch {
-    return null
+    if (typeof value !== 'string') {
+      return null
+    }
+
+    const normalizedValue = value.replace(/,\s*([}\]])/g, '$1')
+    if (normalizedValue === value) {
+      return null
+    }
+
+    try {
+      return JSON.parse(normalizedValue)
+    } catch {
+      return null
+    }
   }
 }
 
 function parseJudgeResponse(content) {
-  const directParse = safeJsonParse(content)
+  const normalizedContent = stripMarkdownCodeFences(String(content || '').trim())
+  const directParse = safeJsonParse(normalizedContent)
   if (directParse && typeof directParse.pass === 'boolean' && typeof directParse.reason === 'string') {
     return directParse
   }
 
-  const jsonMatch = typeof content === 'string' ? content.match(/\{[\s\S]*\}/) : null
-  if (jsonMatch) {
-    const extractedParse = safeJsonParse(jsonMatch[0])
-    if (
-      extractedParse
-      && typeof extractedParse.pass === 'boolean'
-      && typeof extractedParse.reason === 'string'
-    ) {
-      return extractedParse
+  const extractedJson = extractBalancedJsonObject(normalizedContent)
+  if (!extractedJson) {
+    return null
+  }
+
+  const extractedParse = safeJsonParse(extractedJson)
+  if (
+    extractedParse
+    && typeof extractedParse.pass === 'boolean'
+    && typeof extractedParse.reason === 'string'
+  ) {
+    return extractedParse
+  }
+
+  return null
+}
+
+function stripMarkdownCodeFences(value) {
+  return value
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim()
+}
+
+function extractBalancedJsonObject(value) {
+  const startIndex = value.indexOf('{')
+  if (startIndex === -1) {
+    return null
+  }
+
+  let depth = 0
+  let isInsideString = false
+  let isEscaped = false
+
+  for (let index = startIndex; index < value.length; index += 1) {
+    const character = value[index]
+
+    if (isInsideString) {
+      if (isEscaped) {
+        isEscaped = false
+        continue
+      }
+
+      if (character === '\\') {
+        isEscaped = true
+        continue
+      }
+
+      if (character === '"') {
+        isInsideString = false
+      }
+
+      continue
+    }
+
+    if (character === '"') {
+      isInsideString = true
+      continue
+    }
+
+    if (character === '{') {
+      depth += 1
+      continue
+    }
+
+    if (character === '}') {
+      depth -= 1
+      if (depth === 0) {
+        return value.slice(startIndex, index + 1)
+      }
     }
   }
 
@@ -260,6 +336,39 @@ function stringifyValue(value) {
   } catch {
     return String(value)
   }
+}
+
+function buildRegexMatcher(regexExpectation) {
+  if (typeof regexExpectation === 'string' && regexExpectation.length > 0) {
+    return {
+      regex: new RegExp(regexExpectation),
+      description: regexExpectation,
+    }
+  }
+
+  if (
+    regexExpectation
+    && typeof regexExpectation === 'object'
+    && typeof regexExpectation.pattern === 'string'
+    && regexExpectation.pattern.length > 0
+  ) {
+    return {
+      regex: new RegExp(
+        regexExpectation.pattern,
+        typeof regexExpectation.flags === 'string' ? regexExpectation.flags : '',
+      ),
+      description: typeof regexExpectation.description === 'string' && regexExpectation.description.length > 0
+        ? regexExpectation.description
+        : regexExpectation.pattern,
+    }
+  }
+
+  return null
+}
+
+function matchesRegex(regex, value) {
+  regex.lastIndex = 0
+  return regex.test(value)
 }
 
 function pushFailedCheck({
@@ -520,6 +629,48 @@ async function validateStepExpectations({
           expected: `Response must exclude "${forbiddenSnippet}"`,
           actual: actualState.response,
           reason: `response unexpectedly included "${forbiddenSnippet}".`,
+        })
+      }
+    }
+  }
+
+  if (Array.isArray(expect.responseMatchesRegex)) {
+    for (const regexExpectation of expect.responseMatchesRegex) {
+      const matcher = buildRegexMatcher(regexExpectation)
+      if (!matcher) {
+        continue
+      }
+
+      if (!matchesRegex(matcher.regex, actualState.response)) {
+        pushFailedCheck({
+          failures,
+          failedChecks,
+          stepIndex,
+          checkType: 'responseMatchesRegex',
+          expected: matcher.description,
+          actual: actualState.response,
+          reason: `expected response to match regex "${matcher.description}".`,
+        })
+      }
+    }
+  }
+
+  if (Array.isArray(expect.responseExcludesRegex)) {
+    for (const regexExpectation of expect.responseExcludesRegex) {
+      const matcher = buildRegexMatcher(regexExpectation)
+      if (!matcher) {
+        continue
+      }
+
+      if (matchesRegex(matcher.regex, actualState.response)) {
+        pushFailedCheck({
+          failures,
+          failedChecks,
+          stepIndex,
+          checkType: 'responseExcludesRegex',
+          expected: `Response must not match regex "${matcher.description}"`,
+          actual: actualState.response,
+          reason: `response unexpectedly matched regex "${matcher.description}".`,
         })
       }
     }

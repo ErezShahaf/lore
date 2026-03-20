@@ -286,8 +286,27 @@ function renderFailureExampleMarkdown(failureExample) {
   return lines.join('\n')
 }
 
+function buildOverallTotals(summaryRows) {
+  const totalCount = summaryRows.reduce((sum, summaryRow) => sum + summaryRow.totalCount, 0)
+  const passCount = summaryRows.reduce((sum, summaryRow) => sum + summaryRow.passCount, 0)
+  const failedCount = totalCount - passCount
+
+  return {
+    totalCount,
+    passCount,
+    failedCount,
+    passPercentage: totalCount === 0 ? 0 : (passCount / totalCount) * 100,
+  }
+}
+
 function printSummary(resultPath, summaryRows) {
+  const overallTotals = buildOverallTotals(summaryRows)
+
   console.log(`Promptfoo summary for ${resultPath}`)
+  console.log('')
+  console.log(
+    `Overall: ${overallTotals.passCount} passed, ${overallTotals.failedCount} failed, ${overallTotals.totalCount} total (${overallTotals.passPercentage.toFixed(1)}% pass rate)`,
+  )
   console.log('')
 
   for (const summaryRow of summaryRows) {
@@ -342,6 +361,10 @@ function printSummary(resultPath, summaryRows) {
 
     console.log('')
   }
+
+  console.log(
+    `Final totals: ${overallTotals.passCount} passed, ${overallTotals.failedCount} failed, ${overallTotals.totalCount} total`,
+  )
 }
 
 function createSummaryArtifactPaths(resultPath) {
@@ -357,9 +380,11 @@ function createSummaryArtifactPaths(resultPath) {
 
 function writeSummaryArtifacts(resultPath, summaryRows) {
   const artifactPaths = createSummaryArtifactPaths(resultPath)
+  const overallTotals = buildOverallTotals(summaryRows)
   const summaryPayload = {
     resultPath,
     generatedAt: new Date().toISOString(),
+    totals: overallTotals,
     scenarios: summaryRows.map((summaryRow) => ({
       providerLabel: summaryRow.providerLabel,
       scenarioId: summaryRow.scenarioId,
@@ -381,6 +406,8 @@ function writeSummaryArtifacts(resultPath, summaryRows) {
     `# Promptfoo Summary`,
     '',
     `Result file: \`${resultPath}\``,
+    '',
+    `Overall: ${overallTotals.passCount} passed, ${overallTotals.failedCount} failed, ${overallTotals.totalCount} total (${overallTotals.passPercentage.toFixed(1)}% pass rate)`,
     '',
   ]
 
@@ -433,6 +460,8 @@ function writeSummaryArtifacts(resultPath, summaryRows) {
       markdownLines.push('')
     }
   }
+
+  markdownLines.push(`Final totals: ${overallTotals.passCount} passed, ${overallTotals.failedCount} failed, ${overallTotals.totalCount} total`)
 
   writeFileSync(artifactPaths.jsonPath, JSON.stringify(summaryPayload, null, 2), 'utf-8')
   writeFileSync(artifactPaths.markdownPath, `${markdownLines.join('\n').trim()}\n`, 'utf-8')

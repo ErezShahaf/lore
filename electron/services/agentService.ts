@@ -7,10 +7,14 @@ import { handleInstruction } from './handlers/instructionHandler'
 import { handleConversational } from './handlers/conversationalHandler'
 import {
   looksLikeClarificationFollowUp,
+  looksLikeBehaviorPreferenceInstruction,
   looksLikeExplicitStorageRequest,
   looksLikeExplicitModificationRequest,
   looksLikeInstructionManagementRequest,
+  looksLikeQuestionRequest,
+  looksLikeRawStructuredDataInput,
   looksLikeReferentialCommandRequest,
+  looksLikeSelfReportedCompletion,
   looksLikeShortReaction,
   looksLikeStoredDataQuestion,
   looksLikeTodoQuery,
@@ -68,10 +72,27 @@ export function applyDeterministicRoutingHints(
   },
   conversationHistory: readonly ConversationEntry[] = [],
 ): void {
-  if (classification.intent === 'conversational' && looksLikeStoredDataQuestion(userInput)) {
+  if (
+    classification.intent !== 'command'
+    && classification.intent !== 'instruction'
+    && !looksLikeExplicitStorageRequest(userInput)
+    && !looksLikeExplicitModificationRequest(userInput)
+    && (looksLikeStoredDataQuestion(userInput) || looksLikeQuestionRequest(userInput))
+  ) {
     classification.intent = 'question'
     classification.confidence = Math.max(classification.confidence, CLASSIFICATION_CONFIDENCE_THRESHOLD)
-    classification.reasoning = 'Heuristic override: explicit stored-data retrieval request.'
+    classification.reasoning = 'Heuristic override: question-like request should use the retrieval pipeline.'
+  }
+
+  if (
+    !looksLikeInstructionManagementRequest(userInput)
+    && looksLikeBehaviorPreferenceInstruction(userInput)
+    && !looksLikeExplicitModificationRequest(userInput)
+  ) {
+    classification.intent = 'instruction'
+    classification.subtype = 'general'
+    classification.confidence = Math.max(classification.confidence, CLASSIFICATION_CONFIDENCE_THRESHOLD)
+    classification.reasoning = 'Heuristic override: persistent behavior preference should be saved as an instruction.'
   }
 
   if (classification.intent === 'instruction' && looksLikeInstructionManagementRequest(userInput)) {
@@ -104,6 +125,17 @@ export function applyDeterministicRoutingHints(
   if (looksLikeVagueImperativeRequest(userInput)) {
     classification.confidence = Math.min(classification.confidence, 0.35)
     classification.reasoning = 'Heuristic override: vague imperative request lacks enough detail to act safely.'
+  }
+
+  if (
+    (classification.intent === 'thought' || classification.intent === 'conversational')
+    && looksLikeSelfReportedCompletion(userInput)
+    && session.lastDocumentIds.length > 0
+  ) {
+    classification.intent = 'command'
+    classification.subtype = 'delete'
+    classification.confidence = Math.max(classification.confidence, CLASSIFICATION_CONFIDENCE_THRESHOLD)
+    classification.reasoning = 'Heuristic override: self-reported completion after task context should try the command pipeline.'
   }
 
   const lastAssistantMessage = [...conversationHistory]
@@ -143,6 +175,20 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
   }
 
   applyDeterministicRoutingHints(userInput, classification, priorHistory)
+
+  if (
+    looksLikeRawStructuredDataInput(userInput)
+    && !looksLikeExplicitStorageRequest(userInput)
+    && !looksLikeExplicitModificationRequest(userInput)
+    && !looksLikeStoredDataQuestion(userInput)
+  ) {
+    const clarificationResponse = buildStructuredDataClarificationResponse(userInput)
+    yield { type: 'chunk', content: clarificationResponse }
+    yield { type: 'done' }
+    session.history.push({ role: 'assistant', content: clarificationResponse })
+    session.lastIntent = 'conversational'
+    return
+  }
 
   logger.debug(
     { intent: classification.intent, subtype: classification.subtype, confidence: classification.confidence },
@@ -267,4 +313,10 @@ function lastAssistantAskedForClarification(message: string): boolean {
     || /\bmultiple matches\b/i.test(message)
     || /\bi found (?:a few|multiple)\b/i.test(message)
     || /\bcould you be more specific\b/i.test(message)
+}
+
+function buildStructuredDataClarificationResponse(userInput: string): string {
+  const trimmedInput = userInput.trim()
+  const structuredDataLabel = trimmedInput.startsWith('[') ? 'that structured list' : 'that structured data'
+  return `I can help with ${structuredDataLabel}, but I need one thing first: do you want me to save it, explain it, or retrieve something related to it?`
 }
