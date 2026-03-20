@@ -6,7 +6,7 @@ export const ambiguousReferenceScenarios = [
     suites: ['smoke', 'full'],
     steps: [
       {
-        userInput: 'Todos: ride a dragon, ride a motorcycle, ride a bike, ride a woman',
+        userInput: 'Todos: ride a dragon, ride a motorcycle, ride a bike, ride a turtle',
         expect: {
           storedCount: 4,
           todoCount: 4,
@@ -30,7 +30,7 @@ export const ambiguousReferenceScenarios = [
     suites: ['full'],
     steps: [
       {
-        userInput: 'Todos: ride a dragon, ride a motorcycle, ride a bike, ride a woman',
+        userInput: 'Todos: ride a dragon, ride a motorcycle, ride a bike, ride a turtle',
         expect: {
           storedCount: 4,
           todoCount: 4,
@@ -49,7 +49,7 @@ export const ambiguousReferenceScenarios = [
         expect: {
           deletedCount: 1,
           todoCount: 3,
-          todoContentsIncludeExact: ['ride a dragon', 'ride a bike', 'ride a woman'],
+          todoContentsIncludeExact: ['ride a dragon', 'ride a bike', 'ride a turtle'],
           todoContentsExcludeExact: ['ride a motorcycle'],
         },
       },
@@ -62,7 +62,7 @@ export const ambiguousReferenceScenarios = [
     suites: ['full'],
     steps: [
       {
-        userInput: 'Todos: ride a dragon, ride a motorcycle, ride a bike, ride a woman',
+        userInput: 'Todos: ride a dragon, ride a motorcycle, ride a bike, ride a turtle',
         expect: {
           storedCount: 4,
           todoCount: 4,
@@ -147,6 +147,63 @@ export const ambiguousReferenceScenarios = [
           todoCount: 2,
           todoContentsIncludeExact: ['jump on the water', 'water the plants'],
           todoContentsExcludeExact: ['drink the water'],
+        },
+      },
+    ],
+  },
+  {
+    id: 'ambiguous-ten-times-completion-offers-all-option',
+    topic: 'ambiguous-reference',
+    title: 'Ambiguous ten-times completion lists matches and offers an all option',
+    suites: ['full'],
+    steps: [
+      {
+        userInput: 'Todos: cry 10 times, clean 10 times, slide b duck, jump 10 times, run 10 times',
+        expect: {
+          storedCount: 5,
+          todoCount: 5,
+        },
+      },
+      {
+        userInput: 'i finished the 10 times',
+        expect: {
+          requiresClarification: true,
+          deletedCount: 0,
+          todoCount: 5,
+          responseJudge:
+            'The assistant should treat several todos as matching "10 times" (cry, clean, jump, run) and ask the user to narrow which one they mean. It must also explicitly offer that the user may have finished all of those matching ten-times tasks (for example by asking whether they mean all of them, every ten-times task, or all four), not only "which specific one" with no way to choose every matching todo.',
+        },
+      },
+    ],
+  },
+  {
+    id: 'ambiguous-ten-times-completion-all-follow-up-removes-four',
+    topic: 'ambiguous-reference',
+    title: 'Follow-up can complete every ten-times todo at once',
+    suites: ['full'],
+    steps: [
+      {
+        userInput: 'Todos: cry 10 times, clean 10 times, slide b duck, jump 10 times, run 10 times',
+        expect: {
+          storedCount: 5,
+          todoCount: 5,
+        },
+      },
+      {
+        userInput: 'i finished the 10 times',
+        expect: {
+          requiresClarification: true,
+          deletedCount: 0,
+          todoCount: 5,
+        },
+      },
+      {
+        userInput: 'I meant all four ten-times tasks.',
+        expect: {
+          deletedCount: 4,
+          todoCount: 1,
+          todoContentsIncludeExact: ['slide b duck'],
+          todoContentsExcludeExact: ['cry 10 times', 'clean 10 times', 'jump 10 times', 'run 10 times'],
         },
       },
     ],

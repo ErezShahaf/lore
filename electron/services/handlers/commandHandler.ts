@@ -2,7 +2,6 @@ import { retrieveRelevantDocuments } from '../documentPipeline'
 import { hardDeleteDocument, updateDocument } from '../lanceService'
 import { embedText } from '../embeddingService'
 import { resolveCommandTargets } from '../commandDecompositionService'
-import { looksLikeInstructionManagementRequest } from '../userIntentHeuristics'
 import type {
   ClassificationResult,
   ConversationEntry,
@@ -32,10 +31,6 @@ export async function* handleCommand(
 
   if (!retrievalOpts.type && isTodoCompletion) {
     retrievalOpts.type = 'todo'
-  }
-
-  if (!retrievalOpts.type && looksLikeInstructionManagementRequest(userInput)) {
-    retrievalOpts.type = 'instruction'
   }
 
   const documents = await retrieveRelevantDocuments(userInput, retrievalOpts)

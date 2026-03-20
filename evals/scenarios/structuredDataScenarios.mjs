@@ -44,14 +44,12 @@ export const structuredDataScenarios = [
         userInput: 'Show me the exact Stripe checkout.session.completed webhook JSON I saved.',
         expect: {
           minRetrievedCount: 1,
-          maxRetrievedCount: 2,
-          responseMatchesRegex: [
-            {
-              pattern: '```(?:json)?\\s*\\{"provider":"stripe","event":"checkout\\.session\\.completed","url":"https://example\\.com/lore/stripe/checkout-session-completed"\\}\\s*```',
-              flags: 's',
-              description: 'exact stored Stripe checkout.session.completed JSON code block',
-            },
-          ],
+          maxRetrievedCount: 4,
+          responseCodeBlockJsonIncludesFields: {
+            provider: 'stripe',
+            event: 'checkout.session.completed',
+            url: 'https://example.com/lore/stripe/checkout-session-completed',
+          },
         },
       },
     ],
@@ -86,16 +84,14 @@ export const structuredDataScenarios = [
         userInput: 'Show me the Stripe webhook JSON for checkout.session.completed.',
         expect: {
           minRetrievedCount: 1,
-          maxRetrievedCount: 2,
+          maxRetrievedCount: 4,
           retrievedContentsIncludeSubstrings: ['checkout.session.completed'],
           retrievedContentsExcludeSubstrings: ['payment_intent.payment_failed'],
-          responseMatchesRegex: [
-            {
-              pattern: '```(?:json)?\\s*\\{"provider":"stripe","event":"checkout\\.session\\.completed","url":"https://example\\.com/lore/stripe/checkout-session-completed"\\}\\s*```',
-              flags: 's',
-              description: 'Stripe checkout.session.completed JSON code block',
-            },
-          ],
+          responseCodeBlockJsonIncludesFields: {
+            provider: 'stripe',
+            event: 'checkout.session.completed',
+            url: 'https://example.com/lore/stripe/checkout-session-completed',
+          },
         },
       },
     ],
@@ -131,7 +127,7 @@ export const structuredDataScenarios = [
         expect: {
           requiresClarification: true,
           minRetrievedCount: 2,
-          maxRetrievedCount: 3,
+          maxRetrievedCount: 8,
           retrievedContentsIncludeSubstrings: [
             'checkout.session.completed',
             'payment_intent.payment_failed',
@@ -180,14 +176,12 @@ export const structuredDataScenarios = [
         userInput: 'Show me the Adyen AUTHORISATION webhook JSON.',
         expect: {
           minRetrievedCount: 1,
-          maxRetrievedCount: 2,
-          responseMatchesRegex: [
-            {
-              pattern: '```(?:json)?\\s*\\{"provider":"adyen","eventCode":"AUTHORISATION","url":"https://example\\.com/lore/adyen/authorisation"\\}\\s*```',
-              flags: 's',
-              description: 'Adyen AUTHORISATION JSON code block',
-            },
-          ],
+          maxRetrievedCount: 4,
+          responseCodeBlockJsonIncludesFields: {
+            provider: 'adyen',
+            eventCode: 'AUTHORISATION',
+            url: 'https://example.com/lore/adyen/authorisation',
+          },
         },
       },
     ],

@@ -20,6 +20,19 @@ const judgeSystemPrompt = [
   'Be strict about contradictions, wrong entities, premature actions, and missing clarifications.',
 ].join(' ')
 
+const judgeVerdictJsonSchema = {
+  type: 'object',
+  properties: {
+    pass: { type: 'boolean' },
+    reason: { type: 'string' },
+  },
+  required: ['pass', 'reason'],
+}
+
+const judgeRepairUserMessage =
+  'Your last reply was not a single JSON object with exactly two keys: "pass" (boolean) and "reason" (string). '
+  + 'Reply again with only that JSON object. No markdown fences, no bullet lists, no text before or after the JSON.'
+
 function normalizeText(value) {
   return String(value || '').toLowerCase().replace(/\s+/g, ' ').trim()
 }
@@ -274,6 +287,62 @@ function stripMarkdownCodeFences(value) {
     .trim()
 }
 
+function extractMarkdownJsonFenceBodies(markdown) {
+  const bodies = []
+  const fencePattern = /```(?:json)?\s*([\s\S]*?)```/gi
+  let match = fencePattern.exec(markdown)
+  while (match !== null) {
+    const body = match[1].trim()
+    if (body.length > 0) {
+      bodies.push(body)
+    }
+    match = fencePattern.exec(markdown)
+  }
+  return bodies
+}
+
+function parsedObjectMatchesStringFields(parsed, expectedFields) {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return false
+  }
+
+  for (const [fieldKey, expectedFragment] of Object.entries(expectedFields)) {
+    const candidateValue = parsed[fieldKey]
+    if (candidateValue === undefined || candidateValue === null) {
+      return false
+    }
+    if (!includesNormalized(String(candidateValue), String(expectedFragment))) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function responseContainsCodeBlockJsonMatchingFields(responseText, expectedFields) {
+  const fenceBodies = extractMarkdownJsonFenceBodies(String(responseText || ''))
+  for (const body of fenceBodies) {
+    const jsonSlice = extractBalancedJsonObject(body) || body
+    const parsed = safeJsonParse(jsonSlice)
+    if (!parsed) {
+      continue
+    }
+    if (parsedObjectMatchesStringFields(parsed, expectedFields)) {
+      return true
+    }
+  }
+
+  const fallbackExtracted = extractBalancedJsonObject(String(responseText || '').trim())
+  if (fallbackExtracted) {
+    const parsed = safeJsonParse(fallbackExtracted)
+    if (parsed && parsedObjectMatchesStringFields(parsed, expectedFields)) {
+      return true
+    }
+  }
+
+  return false
+}
+
 function extractBalancedJsonObject(value) {
   const startIndex = value.indexOf('{')
   if (startIndex === -1) {
@@ -476,44 +545,69 @@ async function evaluateSimulatedUserFollowUp({
 }
 
 async function judgeRubric({ judgeModel, ollamaHost, rubric, actualState }) {
-  const response = await fetch(`${ollamaHost}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    signal: AbortSignal.timeout(120_000),
-    body: JSON.stringify({
+  const initialUserContent = [
+    `Rubric:\n${rubric}`,
+    'Actual state:',
+    JSON.stringify(actualState, null, 2),
+  ].join('\n\n')
+
+  let messages = [
+    { role: 'system', content: judgeSystemPrompt },
+    { role: 'user', content: initialUserContent },
+  ]
+
+  let lastRawContent = ''
+
+  for (let attemptIndex = 0; attemptIndex < 2; attemptIndex += 1) {
+    const schemaPayload = {
       model: judgeModel,
       stream: false,
       think: false,
-      format: 'json',
-      messages: [
-        { role: 'system', content: judgeSystemPrompt },
-        {
-          role: 'user',
-          content: [
-            `Rubric:\n${rubric}`,
-            'Actual state:',
-            JSON.stringify(actualState, null, 2),
-          ].join('\n\n'),
-        },
-      ],
-    }),
-  })
+      format: judgeVerdictJsonSchema,
+      messages,
+    }
+    let judgeResponse = await fetch(`${ollamaHost}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(120_000),
+      body: JSON.stringify(schemaPayload),
+    })
 
-  if (!response.ok) {
-    const responseText = await response.text().catch(() => response.statusText)
-    throw new Error(`Judge request failed: ${responseText}`)
-  }
+    if (!judgeResponse.ok) {
+      const fallbackPayload = { ...schemaPayload, format: 'json' }
+      judgeResponse = await fetch(`${ollamaHost}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(120_000),
+        body: JSON.stringify(fallbackPayload),
+      })
+    }
 
-  const data = await response.json()
-  const parsed = parseJudgeResponse(data.message?.content ?? '')
-  if (!parsed) {
-    return {
-      pass: false,
-      reason: `Judge returned invalid JSON: ${data.message?.content ?? ''}`,
+    if (!judgeResponse.ok) {
+      const responseText = await judgeResponse.text().catch(() => judgeResponse.statusText)
+      throw new Error(`Judge request failed: ${responseText}`)
+    }
+
+    const data = await judgeResponse.json()
+    lastRawContent = data.message?.content ?? ''
+    const parsed = parseJudgeResponse(lastRawContent)
+    if (parsed) {
+      return parsed
+    }
+
+    if (attemptIndex === 0) {
+      messages = [
+        ...messages,
+        { role: 'assistant', content: lastRawContent },
+        { role: 'user', content: judgeRepairUserMessage },
+      ]
     }
   }
 
-  return parsed
+  return {
+    pass: false,
+    reason: `Judge returned invalid JSON: ${lastRawContent}`,
+  }
 }
 
 async function evaluateClarificationExpectation({
@@ -650,6 +744,30 @@ async function validateStepExpectations({
           expected: matcher.description,
           actual: actualState.response,
           reason: `expected response to match regex "${matcher.description}".`,
+        })
+      }
+    }
+  }
+
+  if (
+    expect.responseCodeBlockJsonIncludesFields
+    && typeof expect.responseCodeBlockJsonIncludesFields === 'object'
+    && !Array.isArray(expect.responseCodeBlockJsonIncludesFields)
+  ) {
+    const fieldEntries = Object.entries(expect.responseCodeBlockJsonIncludesFields).filter(
+      (entry) => typeof entry[1] === 'string',
+    )
+    if (fieldEntries.length > 0) {
+      const expectedFieldObject = Object.fromEntries(fieldEntries)
+      if (!responseContainsCodeBlockJsonMatchingFields(actualState.response, expectedFieldObject)) {
+        pushFailedCheck({
+          failures,
+          failedChecks,
+          stepIndex,
+          checkType: 'responseCodeBlockJsonIncludesFields',
+          expected: expectedFieldObject,
+          actual: actualState.response,
+          reason: 'expected a markdown JSON code block (or raw JSON object) whose parsed fields include the expected string values (case and whitespace normalized).',
         })
       }
     }

@@ -22,6 +22,7 @@ Literal-first storage:
 - Do not invent IDs, amounts, examples, interpretations, or extra context.
 - Only resolve references from conversation history when the current message is explicitly referential, such as "save that", "add the last one", "the second example", or similar.
 - When resolving a referential message, store the resolved content itself, not the confirmation phrase.
+- For `type: "todo"` items, do not store wrapper/list prefixes. Strip common prefixes so the stored `content` is only the actionable todo text (e.g. store `buy milk` instead of `Add to my todo list: buy milk` or `todos: buy milk`).
 
 Splitting rules:
 - Split only when the message clearly contains separate list items that should be managed independently later.
@@ -29,6 +30,7 @@ Splitting rules:
 - Each split item must remain self-contained.
 - Preserve shared context or headers when needed so each item still makes sense on its own.
 - For explicit list prefixes like "todos:" or "notes:", return one item per list element and keep each item literal.
+- If the user explicitly asks to store the whole message "once", "verbatim", "as one note", or "as raw text", return exactly one item and do not split just because the text contains embedded “show me” / “remember” / “list” phrases.
 
 Content rules:
 - Keep wording identical to the user's original wording whenever possible.

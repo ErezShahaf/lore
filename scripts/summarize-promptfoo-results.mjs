@@ -299,7 +299,61 @@ function buildOverallTotals(summaryRows) {
   }
 }
 
-function printSummary(resultPath, summaryRows) {
+function getRowLatencyMilliseconds(row) {
+  if (typeof row.latencyMs !== 'number' || Number.isNaN(row.latencyMs)) {
+    return 0
+  }
+
+  return row.latencyMs
+}
+
+function summarizeByProvider(rows) {
+  const byLabel = new Map()
+
+  for (const row of rows) {
+    const providerLabel = getProviderLabel(row)
+    if (!byLabel.has(providerLabel)) {
+      byLabel.set(providerLabel, {
+        providerLabel,
+        passCount: 0,
+        failCount: 0,
+        totalCount: 0,
+        totalLatencyMs: 0,
+      })
+    }
+
+    const entry = byLabel.get(providerLabel)
+    entry.totalCount += 1
+    if (row.success) {
+      entry.passCount += 1
+    } else {
+      entry.failCount += 1
+    }
+
+    entry.totalLatencyMs += getRowLatencyMilliseconds(row)
+  }
+
+  return [...byLabel.values()].sort((left, right) =>
+    left.providerLabel.localeCompare(right.providerLabel),
+  )
+}
+
+function formatDurationMilliseconds(durationMilliseconds) {
+  if (durationMilliseconds < 1000) {
+    return `${Math.round(durationMilliseconds)} ms`
+  }
+
+  const totalSeconds = durationMilliseconds / 1000
+  if (totalSeconds < 60) {
+    return `${totalSeconds.toFixed(1)} s`
+  }
+
+  const wholeMinutes = Math.floor(totalSeconds / 60)
+  const remainderSeconds = totalSeconds % 60
+  return `${wholeMinutes}m ${remainderSeconds.toFixed(0)}s`
+}
+
+function printSummary(resultPath, summaryRows, providerSummaries) {
   const overallTotals = buildOverallTotals(summaryRows)
 
   console.log(`Promptfoo summary for ${resultPath}`)
@@ -307,6 +361,19 @@ function printSummary(resultPath, summaryRows) {
   console.log(
     `Overall: ${overallTotals.passCount} passed, ${overallTotals.failedCount} failed, ${overallTotals.totalCount} total (${overallTotals.passPercentage.toFixed(1)}% pass rate)`,
   )
+  console.log('')
+  console.log('Per model (pass/fail counts are over all scenario repeats; time is sum of per-test latencyMs):')
+  for (const providerSummary of providerSummaries) {
+    const passRate = providerSummary.totalCount === 0
+      ? 0
+      : (providerSummary.passCount / providerSummary.totalCount) * 100
+    console.log(
+      `  [${providerSummary.providerLabel}] ${providerSummary.passCount} passed, ` +
+        `${providerSummary.failCount} failed, ${providerSummary.totalCount} total ` +
+        `(${passRate.toFixed(1)}% pass) — ${formatDurationMilliseconds(providerSummary.totalLatencyMs)} ` +
+        `(${Math.round(providerSummary.totalLatencyMs)} ms total latency)`,
+    )
+  }
   console.log('')
 
   for (const summaryRow of summaryRows) {
@@ -378,13 +445,24 @@ function createSummaryArtifactPaths(resultPath) {
   }
 }
 
-function writeSummaryArtifacts(resultPath, summaryRows) {
+function writeSummaryArtifacts(resultPath, summaryRows, providerSummaries) {
   const artifactPaths = createSummaryArtifactPaths(resultPath)
   const overallTotals = buildOverallTotals(summaryRows)
   const summaryPayload = {
     resultPath,
     generatedAt: new Date().toISOString(),
     totals: overallTotals,
+    byProvider: providerSummaries.map((providerSummary) => ({
+      providerLabel: providerSummary.providerLabel,
+      passCount: providerSummary.passCount,
+      failCount: providerSummary.failCount,
+      totalCount: providerSummary.totalCount,
+      passPercentage: providerSummary.totalCount === 0
+        ? 0
+        : (providerSummary.passCount / providerSummary.totalCount) * 100,
+      totalLatencyMs: Math.round(providerSummary.totalLatencyMs),
+      totalLatencyHuman: formatDurationMilliseconds(providerSummary.totalLatencyMs),
+    })),
     scenarios: summaryRows.map((summaryRow) => ({
       providerLabel: summaryRow.providerLabel,
       scenarioId: summaryRow.scenarioId,
@@ -409,7 +487,24 @@ function writeSummaryArtifacts(resultPath, summaryRows) {
     '',
     `Overall: ${overallTotals.passCount} passed, ${overallTotals.failedCount} failed, ${overallTotals.totalCount} total (${overallTotals.passPercentage.toFixed(1)}% pass rate)`,
     '',
+    `## Per model`,
+    '',
+    '_Pass/fail counts are over all scenario repeats; time is the sum of each row\'s \`latencyMs\` (serial-ish wall time when concurrency is 1)._',
+    '',
   ]
+
+  for (const providerSummary of providerSummaries) {
+    const passRate = providerSummary.totalCount === 0
+      ? 0
+      : (providerSummary.passCount / providerSummary.totalCount) * 100
+    markdownLines.push(
+      `### ${providerSummary.providerLabel}`,
+      '',
+      `- Passed: ${providerSummary.passCount}, failed: ${providerSummary.failCount}, total: ${providerSummary.totalCount} (${passRate.toFixed(1)}% pass)`,
+      `- Summed latency: **${formatDurationMilliseconds(providerSummary.totalLatencyMs)}** (${Math.round(providerSummary.totalLatencyMs)} ms)`,
+      '',
+    )
+  }
 
   for (const summaryRow of summaryRows) {
     const passPercentage = summaryRow.totalCount === 0
@@ -479,8 +574,9 @@ function main() {
   }
 
   const summaryRows = summarizeResults(rows)
-  printSummary(resultPath, summaryRows)
-  const artifactPaths = writeSummaryArtifacts(resultPath, summaryRows)
+  const providerSummaries = summarizeByProvider(rows)
+  printSummary(resultPath, summaryRows, providerSummaries)
+  const artifactPaths = writeSummaryArtifacts(resultPath, summaryRows, providerSummaries)
   console.log(`Wrote summary JSON to ${artifactPaths.jsonPath}`)
   console.log(`Wrote summary Markdown to ${artifactPaths.markdownPath}`)
 }

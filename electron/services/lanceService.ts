@@ -210,7 +210,7 @@ export async function searchSimilar(
     const row = r as unknown as Record<string, unknown>
     const doc = rowToDoc(row)
     if ('_distance' in row) {
-      ;(doc as unknown as Record<string, unknown>)._distance = row._distance
+      (doc as unknown as Record<string, unknown>)._distance = row._distance
     }
     return doc
   })

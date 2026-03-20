@@ -2,11 +2,6 @@ import { generateStructuredResponse } from './ollamaService'
 import { getSettings } from './settingsService'
 import { loadSkill } from './skillLoader'
 import { logger } from '../logger'
-import {
-  looksLikeAmbiguousDocumentReference,
-  looksLikeExplicitMultiTargetRequest,
-  looksLikeOrdinalReference,
-} from './userIntentHeuristics'
 import type {
   CommandResolution,
   CommandOperation,
@@ -79,11 +74,6 @@ export async function resolveCommandTargets(
   documents: readonly LoreDocument[],
   conversationHistory: readonly ConversationEntry[] = [],
 ): Promise<CommandResolution> {
-  const deterministicResolution = tryResolveCommandDeterministically(userInput, documents)
-  if (deterministicResolution) {
-    return deterministicResolution
-  }
-
   const settings = getSettings()
 
   const docsForPrompt = documents
@@ -223,8 +213,16 @@ function buildSafetyClarification(
   operations: readonly CommandOperation[],
   documents: readonly LoreDocument[],
 ): string | null {
-  const allowsMultiTargetAction = looksLikeExplicitMultiTargetRequest(userInput)
-  const hasOrdinalReference = looksLikeOrdinalReference(userInput)
+  const allowsMultiTargetAction = /\b(all of them|all of|every one|every|both|either|any of them|any of|all)\b/i.test(userInput)
+
+  // This should be true only when the user provides a strong disambiguator like:
+  // "the first one", "the one about X", "that one", "the other", etc.
+  const hasOrdinalReference = /\b(first|second|third|fourth|last|next)\b/i.test(userInput)
+    || /\b\d+(st|nd|rd|th)\b/i.test(userInput)
+    || /\bthe one about\b/i.test(userInput)
+    || /\bthe one on\b/i.test(userInput)
+    || /\bthat one\b/i.test(userInput)
+    || /\bthe other\b/i.test(userInput)
 
   for (const operation of operations) {
     const referenceText = extractReferenceTextForSafety(userInput, operation)
@@ -263,8 +261,7 @@ function buildSafetyClarification(
       continue
     }
 
-    const needsClarification = looksLikeAmbiguousDocumentReference(userInput)
-      || candidateMatches.length > 1
+    const needsClarification = candidateMatches.length > 1
       || plausibleCandidates.length > 1
 
     if (needsClarification) {
@@ -284,14 +281,13 @@ interface CandidateMatch {
   readonly score: number
 }
 
+// Not used anymore after moving to LLM-only resolution.
+// Keeping the implementation for potential future regression debugging.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function tryResolveCommandDeterministically(
   userInput: string,
   documents: readonly LoreDocument[],
 ): CommandResolution | null {
-  if (looksLikeExplicitMultiTargetRequest(userInput) || looksLikeOrdinalReference(userInput)) {
-    return null
-  }
-
   const parsedCommand = parseDeterministicCommand(userInput)
   if (!parsedCommand) {
     return null
@@ -482,6 +478,8 @@ function scoreDocumentMatch(salientTerms: readonly string[], content: string): n
   return matchedTerms / salientTerms.length
 }
 
+const MAX_CLARIFICATION_LIST_ITEMS = 8
+
 function buildCandidateClarification(
   candidateMatches: readonly CandidateMatch[],
   documents: readonly LoreDocument[],
@@ -492,7 +490,7 @@ function buildCandidateClarification(
     : documents.map((document) => ({ document, score: 0 }))
 
   const previewList = previewCandidates
-    .slice(0, 3)
+    .slice(0, MAX_CLARIFICATION_LIST_ITEMS)
     .map((candidate, index) => `${index + 1}. "${truncateContent(candidate.document.content, 60)}"`)
     .join('\n')
 
@@ -500,7 +498,12 @@ function buildCandidateClarification(
     return `${prefix} Could you be more specific?`
   }
 
-  return `${prefix}\n${previewList}\n\nWhich one did you mean?`
+  const listedCount = Math.min(previewCandidates.length, MAX_CLARIFICATION_LIST_ITEMS)
+  const bulkHint = listedCount >= 2
+    ? '\n\nIf you finished every matching item in this list, say **all of them** (or **all**) so I can complete each one.'
+    : ''
+
+  return `${prefix}\n${previewList}\n\nWhich one did you mean?${bulkHint}`
 }
 
 function extractSalientTerms(text: string): string[] {

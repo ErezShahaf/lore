@@ -61,6 +61,9 @@ async function readJsonBody(request: IncomingMessage): Promise<Record<string, un
 
 function sanitizeDocument(document: LoreDocument): Omit<LoreDocument, 'vector'> {
   const { vector: _vector, ...documentWithoutVector } = document
+  // Explicitly mark the destructured vector as intentionally unused.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  void _vector
   return documentWithoutVector
 }
 

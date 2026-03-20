@@ -2,7 +2,6 @@ import { chat } from '../ollamaService'
 import { getSettings } from '../settingsService'
 import { loadSkill } from '../skillLoader'
 import { logger } from '../../logger'
-import { looksLikeStoredDataQuestion } from '../userIntentHeuristics'
 import type { ClassificationResult, ConversationEntry, AgentEvent } from '../../../shared/types'
 
 let cachedConversationalSystemPrompt: string | null = null
@@ -73,10 +72,7 @@ export async function* handleConversational(
         content: normalizeConversationalResponse(userInput, streamedResponse.response),
       }
     } else {
-      const fallbackHint = buildPotentialMisrouteHint(userInput)
-      if (fallbackHint) {
-        yield { type: 'chunk', content: `\n\n${fallbackHint}` }
-      }
+      yield { type: 'chunk', content: normalizeConversationalResponse(userInput, streamedResponse.response) }
     }
   } catch (err) {
     yield {
@@ -150,14 +146,13 @@ async function* streamConversationalResponse(
 
 function normalizeConversationalResponse(userInput: string, response: string): string {
   const trimmedResponse = response.trim()
-  const fallbackHint = buildPotentialMisrouteHint(userInput)
 
   if (trimmedResponse.length > 0) {
-    return fallbackHint ? `${trimmedResponse}\n\n${fallbackHint}` : trimmedResponse
+    return trimmedResponse
   }
 
   const defaultResponse = "I'm here to help explain how Lore works. Ask me about saving notes, searching your data, managing todos, or changing preferences."
-  return fallbackHint ? `${defaultResponse}\n\n${fallbackHint}` : defaultResponse
+  return defaultResponse
 }
 
 function looksLikeStructuredAgentOutput(response: string): boolean {
@@ -218,10 +213,3 @@ function looksLikeStructuredResponsePrefix(response: string): boolean {
   )
 }
 
-function buildPotentialMisrouteHint(userInput: string): string | null {
-  if (looksLikeStoredDataQuestion(userInput)) {
-    return 'If you meant that you want me to search your stored content, ask me directly about the notes, todos, or information you want me to find.'
-  }
-
-  return null
-}

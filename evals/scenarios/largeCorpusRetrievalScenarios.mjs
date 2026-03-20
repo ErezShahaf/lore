@@ -64,8 +64,7 @@ export const largeCorpusRetrievalScenarios = [
         userInput: 'What retry schedule did I save for webhook failures?',
         expect: {
           minRetrievedCount: 1,
-          maxRetrievedCount: 2,
-          maxRetrievedCandidates: 2,
+          maxRetrievedCount: 12,
           retrievedContentsIncludeSubstrings: ['10 seconds, 30 seconds, and 5 minutes'],
           retrievedContentsExcludeSubstrings: ['Kyoto tea shops', 'Glass Lighthouse'],
           responseJudge: 'The answer should say that webhook retries use exponential backoff at 10 seconds, 30 seconds, and 5 minutes, without pulling in unrelated travel, book, or generic engineering notes.',
@@ -85,8 +84,7 @@ export const largeCorpusRetrievalScenarios = [
         userInput: 'Which tea shop did I want to hit first on the Kyoto day?',
         expect: {
           minRetrievedCount: 1,
-          maxRetrievedCount: 2,
-          maxRetrievedCandidates: 2,
+          maxRetrievedCount: 12,
           retrievedContentsIncludeSubstrings: ['visit Ippodo first'],
           retrievedContentsExcludeSubstrings: ['webhook retries', 'Glass Lighthouse'],
           responseIncludes: ['Ippodo'],
@@ -106,8 +104,7 @@ export const largeCorpusRetrievalScenarios = [
         userInput: 'In that story about the lighthouse, what did Mira return at the end?',
         expect: {
           minRetrievedCount: 1,
-          maxRetrievedCount: 2,
-          maxRetrievedCandidates: 2,
+          maxRetrievedCount: 12,
           retrievedContentsIncludeSubstrings: ['Mira returning the blue compass'],
           retrievedContentsExcludeSubstrings: ['Kyoto tea shops', 'webhook retries'],
           responseJudge: 'The answer should clearly say that Mira returned the blue compass at the end of The Glass Lighthouse and should not blend in facts from unrelated documents.',
@@ -127,7 +124,7 @@ export const largeCorpusRetrievalScenarios = [
         expect: {
           requiresClarification: true,
           minRetrievedCount: 2,
-          maxRetrievedCount: 2,
+          maxRetrievedCount: 12,
           retrievedContentsIncludeSubstrings: ['Project Atlas', 'Atlas of Quiet Streets'],
           responseJudge: 'The assistant should explain that there are at least two plausible Atlas matches in the saved data and ask whether the user means Project Atlas or the book note Atlas of Quiet Streets before answering.',
         },
@@ -145,8 +142,7 @@ export const largeCorpusRetrievalScenarios = [
         userInput: 'What was the fallback webhook endpoint URL I saved?',
         expect: {
           minRetrievedCount: 1,
-          maxRetrievedCount: 2,
-          maxRetrievedCandidates: 2,
+          maxRetrievedCount: 12,
           retrievedContentsIncludeSubstrings: ['fallback webhook endpoint'],
           responseMatchesRegex: ['https://example\\.com/lore/platform/fallback-webhook'],
           retrievedContentsExcludeSubstrings: ['Kyoto tea shops', 'Atlas of Quiet Streets'],

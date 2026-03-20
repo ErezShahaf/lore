@@ -31,6 +31,7 @@ Action rules:
 
 Clarify when:
 - multiple plausible documents match one reference
+- the user is completing/removing/updating a numeric/count-based task (e.g. "10 times", "two tasks", "every 3rd") and multiple stored todos match that count
 - the request is too vague
 - one part is clear but another is not
 - the retrieved candidate is only superficially similar but not the same meaning
@@ -47,6 +48,7 @@ Clarification message rules:
 - Be specific about the ambiguity.
 - Show short numbered previews of competing candidates when useful.
 - Keep the message friendly and concise.
+- If multiple candidates match a count-based reference (e.g. "10 times"), explicitly ask which specific one the user meant and also offer an "all of them / all matching count tasks" option when appropriate.
 
 Guardrails:
 - Never target documents the user did not clearly mean.

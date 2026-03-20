@@ -2,19 +2,12 @@ import { chat } from '../ollamaService'
 import { logger } from '../../logger'
 import {
   multiQueryRetrieve,
-  retrieveByFilters,
   retrieveWithAdaptiveThreshold,
   retrieveRelevantDocuments,
 } from '../documentPipeline'
 import { formatLocalDate, getLocalDateRangeForDay, getLocalDateRangeForWeek } from '../localDate'
 import { getSettings } from '../settingsService'
 import { loadSkill } from '../skillLoader'
-import {
-  looksLikeStructuralRetrievalQuery,
-  userAskedForDateInformation,
-  userAskedForTagInformation,
-  usesCreatedAtSemantics,
-} from '../userIntentHeuristics'
 import type {
   ClassificationResult,
   AgentEvent,
@@ -37,19 +30,10 @@ export async function* handleQuestion(
   const settings = getSettings()
 
   const retrievalOpts = buildRetrievalOptions(userInput, classification, retrievalOverrides)
-  const shouldUseMetadataOnlyRetrieval = (
-    looksLikeStructuralRetrievalQuery(userInput)
-    || (retrievalOpts.type === 'todo' && looksLikeTodoListingRequest(userInput))
-  ) && (retrievalOpts.type !== undefined
-      || retrievalOpts.createdAtFrom !== undefined
-      || retrievalOpts.dateFrom !== undefined)
-
   logger.debug({ userInput, tags: classification.extractedTags }, '[question] searching')
 
-  const result = shouldUseMetadataOnlyRetrieval
-    ? await retrieveByFilters(retrievalOpts)
-    : await retrieveWithAdaptiveThreshold(userInput, retrievalOpts)
-  const fallbackResult = !shouldUseMetadataOnlyRetrieval && result.documents.length === 0
+  const result = await retrieveWithAdaptiveThreshold(userInput, retrievalOpts)
+  const fallbackResult = result.documents.length === 0
     ? await multiQueryRetrieve(buildQuestionFallbackQueries(userInput, classification), retrievalOpts)
     : result
   const documents = selectDocumentsForAnswer(userInput, fallbackResult.documents)
@@ -88,8 +72,8 @@ export async function* handleQuestion(
 
   const contextBlock = formatRetrievedDocuments(documents)
   const instructionBlock = formatInstructions(instructions)
-  const shouldMentionDates = userAskedForDateInformation(userInput)
-  const shouldMentionTags = userAskedForTagInformation(userInput)
+  const shouldMentionDates = classification.extractedDate !== null
+  const shouldMentionTags = classification.extractedTags.length > 0
 
   const ragPrompt = buildRagPrompt({
     context: contextBlock,
@@ -354,11 +338,6 @@ function buildStructuredDocumentPreview(content: string): string {
   return truncateContent(content, 80)
 }
 
-function looksLikeTodoListingRequest(userInput: string): boolean {
-  return /\bwhat are my todos\b/i.test(userInput)
-    || /\b(list|show|summarize)\b[\s\S]{0,40}\btodos?\b/i.test(userInput)
-}
-
 function buildDirectStructuredResponse(
   userInput: string,
   documents: readonly ScoredDocument[],
@@ -389,22 +368,9 @@ function resolveDateRange(
 ): DateRange | null {
   if (!classification.extractedDate) return null
 
+  // Without regex heuristics, treat any resolved date as a single-day range.
   const date = classification.extractedDate
-  const tags = classification.extractedTags.map((t) => t.toLowerCase())
-  const usesCreatedAt = usesCreatedAtSemantics(userInput)
-
-  if (tags.includes('week') || tags.includes('this week') || tags.includes('last week')) {
-    const ref = new Date(date)
-    const endOfWeek = new Date(ref)
-    endOfWeek.setDate(ref.getDate() + 6)
-    return {
-      from: date,
-      to: formatLocalDate(endOfWeek),
-      usesCreatedAt,
-    }
-  }
-
-  return { from: date, to: date, usesCreatedAt }
+  return { from: date, to: date, usesCreatedAt: false }
 }
 
 function buildRetrievalOptions(

@@ -1,4 +1,5 @@
 import { ambiguousReferenceScenarios } from './ambiguousReferenceScenarios.mjs'
+import { intentHeuristicTrapScenarios } from './intentHeuristicTrapScenarios.mjs'
 import { conversationRobustnessScenarios } from './conversationRobustnessScenarios.mjs'
 import { instructionPersistenceScenarios } from './instructionPersistenceScenarios.mjs'
 import { largeCorpusRetrievalScenarios } from './largeCorpusRetrievalScenarios.mjs'
@@ -13,6 +14,7 @@ import { todoUpdateScenarios } from './todoUpdateScenarios.mjs'
 
 export const scenarios = [
   ...ambiguousReferenceScenarios,
+  ...intentHeuristicTrapScenarios,
   ...todoCreationScenarios,
   ...conversationRobustnessScenarios,
   ...structuredDataScenarios,

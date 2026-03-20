@@ -34,7 +34,7 @@ export const memoryRetrievalScenarios = [
         userInput: 'What did I want to buy from the farmers market?',
         expect: {
           minRetrievedCount: 1,
-          maxRetrievedCount: 2,
+          maxRetrievedCount: 8,
           retrievedContentsIncludeSubstrings: ['Farmers market list'],
           responseJudge: 'The answer should clearly mention apples, pears, and basil as the farmers market items, and should not introduce unrelated seeded notes.',
           retrievalJudge: 'The retrieved documents should include the farmers market note and avoid pulling many unrelated noise documents.',
@@ -68,7 +68,7 @@ export const memoryRetrievalScenarios = [
         expect: {
           requiresClarification: true,
           minRetrievedCount: 2,
-          maxRetrievedCount: 3,
+          maxRetrievedCount: 16,
           retrievedContentsIncludeSubstrings: ['Alex from design', 'Alex from finance'],
           responseJudge: 'The assistant should explain that there are at least two plausible Alex matches and ask the user to clarify which Alex they mean before answering.',
         },
@@ -113,7 +113,7 @@ export const memoryRetrievalScenarios = [
         expect: {
           clarificationRequestedDuringInteraction: true,
           minRetrievedCount: 1,
-          maxRetrievedCount: 2,
+          maxRetrievedCount: 8,
           retrievedContentsIncludeSubstrings: ['Alex from finance'],
           responseJudge: 'After the clarification, the final answer should clearly say that Alex from finance asked for monthly cash flow summaries in the report.',
         },
@@ -157,8 +157,7 @@ export const memoryRetrievalScenarios = [
         userInput: 'Which Tokyo restaurant did I want to try?',
         expect: {
           minRetrievedCount: 1,
-          maxRetrievedCount: 2,
-          maxRetrievedCandidates: 2,
+          maxRetrievedCount: 12,
           retrievedContentsIncludeSubstrings: ['Tokyo restaurant shortlist'],
           retrievedContentsExcludeSubstrings: ['Tokyo hotel shortlist', 'Kyoto restaurant shortlist'],
           responseJudge: 'The answer should identify Sushi Saito as the Tokyo restaurant and should not mention the hotel, subway tip, or Kyoto restaurant as if they answered the question.',

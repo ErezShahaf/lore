@@ -174,10 +174,13 @@ export async function pullModel(
   let buffer = ''
 
   try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
+    let done = false
+    while (!done) {
+      const result = await reader.read()
+      done = result.done
+      const value = result.value
 
+      if (done) break
       buffer += decoder.decode(value, { stream: true })
       const lines = buffer.split('\n')
       buffer = lines.pop() ?? ''

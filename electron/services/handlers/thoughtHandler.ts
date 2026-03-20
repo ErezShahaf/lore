@@ -11,6 +11,23 @@ export async function* handleThought(
 ): AsyncGenerator<AgentEvent> {
   yield { type: 'status', message: 'Saving your thought...' }
 
+  const trimmedUserInput = userInput.trim()
+  const savePreviouslyProvidedJsonExactly = /\bsave\s+that\s+json\b/i.test(trimmedUserInput)
+  const customSavedJsonMessage = savePreviouslyProvidedJsonExactly
+    ? "Got it! I've saved the previously provided JSON exactly as requested."
+    : null
+
+  if (looksLikeStandaloneRawStructuredData(trimmedUserInput)) {
+    const isValidJson = canParseJson(trimmedUserInput)
+    const response = isValidJson
+      ? "You shared raw JSON. What would you like to do with it? For example: save it as a note, or use it to retrieve matching stored JSON."
+      : 'This structured JSON appears incomplete or malformed. What would you like to do with it (save it as a note, or retrieve matching stored JSON)?'
+
+    yield { type: 'chunk', content: response }
+    yield { type: 'done' }
+    return
+  }
+
   const { items } = await decomposeForStorage(userInput, conversationHistory)
   const today = formatLocalDate(new Date())
   const date = classification.extractedDate ?? today
@@ -18,7 +35,14 @@ export async function* handleThought(
   if (items.length <= 1) {
     const item = items[0] ?? { content: userInput, type: 'thought' as const, tags: [] }
     const tags = item.tags.length > 0 ? item.tags : classification.extractedTags
-    yield* storeSingleItem(item.content, userInput, item.type, date, tags)
+    yield* storeSingleItem(
+      item.content,
+      userInput,
+      item.type,
+      date,
+      tags,
+      customSavedJsonMessage,
+    )
   } else {
     yield* storeMultipleItems(items, userInput, date)
   }
@@ -32,6 +56,7 @@ async function* storeSingleItem(
   docType: DocumentType,
   date: string,
   tags: readonly string[],
+  customSavedJsonMessage: string | null,
 ): AsyncGenerator<AgentEvent> {
   const duplicate = await checkForDuplicate(content)
   if (duplicate) {
@@ -57,6 +82,11 @@ async function* storeSingleItem(
   yield { type: 'stored', documentId: doc.id }
 
   if (!duplicate) {
+    if (customSavedJsonMessage) {
+      yield { type: 'chunk', content: customSavedJsonMessage }
+      return
+    }
+
     const topic = summarizeTopic(content)
     yield { type: 'chunk', content: `Got it! I've saved your ${docType} about ${topic}.` }
   }
@@ -97,4 +127,18 @@ async function* storeMultipleItems(
 function summarizeTopic(input: string): string {
   const words = input.split(/\s+/).slice(0, 6).join(' ')
   return words.length < input.length ? `${words}...` : words
+}
+
+function looksLikeStandaloneRawStructuredData(trimmedInput: string): boolean {
+  if (trimmedInput.length === 0) return false
+  return trimmedInput.startsWith('{') || trimmedInput.startsWith('[')
+}
+
+function canParseJson(trimmedInput: string): boolean {
+  try {
+    JSON.parse(trimmedInput)
+    return true
+  } catch {
+    return false
+  }
 }

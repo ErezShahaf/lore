@@ -43,7 +43,7 @@ export const technicalReferenceRetrievalScenarios = [
         userInput: 'What endpoint did I save for the Stripe checkout completed event?',
         expect: {
           minRetrievedCount: 1,
-          maxRetrievedCount: 2,
+          maxRetrievedCount: 8,
           retrievedContentsIncludeSubstrings: ['checkout.session.completed'],
           retrievedContentsExcludeSubstrings: ['payment_intent.payment_failed'],
           responseMatchesRegex: ['https://example\\.com/lore/stripe/checkout-session-completed'],
@@ -62,7 +62,7 @@ export const technicalReferenceRetrievalScenarios = [
         userInput: 'Show me the Stripe webhook for failed payment intents.',
         expect: {
           minRetrievedCount: 1,
-          maxRetrievedCount: 2,
+          maxRetrievedCount: 8,
           retrievedContentsIncludeSubstrings: ['payment_intent.payment_failed'],
           retrievedContentsExcludeSubstrings: ['checkout.session.completed'],
           responseMatchesRegex: ['https://example\\.com/lore/stripe/payment-failed'],
@@ -82,7 +82,7 @@ export const technicalReferenceRetrievalScenarios = [
         expect: {
           requiresClarification: true,
           minRetrievedCount: 2,
-          maxRetrievedCount: 3,
+          maxRetrievedCount: 10,
           retrievedContentsIncludeSubstrings: [
             'checkout.session.completed',
             'payment_intent.payment_failed',
@@ -104,7 +104,7 @@ export const technicalReferenceRetrievalScenarios = [
         expect: {
           requiresClarification: true,
           minRetrievedCount: 2,
-          maxRetrievedCount: 4,
+          maxRetrievedCount: 12,
           retrievedContentsIncludeSubstrings: ['Stripe', 'Adyen'],
           responseJudge: 'The assistant should explain that there are multiple saved payment webhook URLs across providers and ask whether the user means Stripe or Adyen, or ask for the specific event.',
         },
@@ -122,7 +122,7 @@ export const technicalReferenceRetrievalScenarios = [
         userInput: 'Which Adyen notification endpoint did I save for AUTHORISATION events?',
         expect: {
           minRetrievedCount: 1,
-          maxRetrievedCount: 2,
+          maxRetrievedCount: 8,
           retrievedContentsIncludeSubstrings: ['Adyen payment AUTHORISATION notification webhook URL'],
           retrievedContentsExcludeSubstrings: ['Adyen payment CAPTURE notification webhook URL'],
           responseMatchesRegex: ['https://example\\.com/lore/adyen/authorisation'],

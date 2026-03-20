@@ -1,10 +1,6 @@
 import { generateStructuredResponse } from './ollamaService'
 import { getSettings } from './settingsService'
 import { loadSkill } from './skillLoader'
-import {
-  looksLikeExplicitTypedList,
-  looksLikeReferentialStorageRequest,
-} from './userIntentHeuristics'
 import { logger } from '../logger'
 import type {
   DecomposedDocumentType,
@@ -14,14 +10,6 @@ import type {
 } from '../../shared/types'
 
 const DECOMPOSED_DOCUMENT_TYPES = ['thought', 'todo', 'meeting', 'note'] as const
-const EXPLICIT_TYPED_LIST_PATTERN = /^\s*(?:add\s+to\s+(?:my\s+)?(todos?|todo\s+list|tasks?|notes?|ideas?|reminders?|meetings?)|(todos?|tasks?|notes?|ideas?|reminders?|meetings?))\s*:\s*(.+)$/is
-const EMBEDDED_TYPED_LIST_PATTERN = /\b(?:add\s+to\s+(?:my\s+)?(todos?|todo\s+list|tasks?|notes?|ideas?|reminders?|meetings?)|(todos?|tasks?|notes?|ideas?|reminders?|meetings?))\s*:\s*(.+)$/is
-const QUOTED_TODO_REQUEST_PATTERN = /\b(?:please\s+)?(?:put|add|save|store|remember|track)\s+["“]([^"”]+)["”]\s+(?:on|to)\s+(?:my\s+)?(?:todo(?:\s+list)?|task\s+list|tasks?|reminders?)\b/i
-const TODO_REQUEST_PATTERNS = [
-  /\b(?:add|save|store|remember|track)\b[\s\S]{0,160}\b(?:to\s+(?:my\s+)?(?:todo(?:\s+list)?|task\s+list|tasks?|reminders?))\b/i,
-  /\bput\b[\s\S]{0,160}\b(?:on|in)\s+(?:my\s+)?(?:todo(?:\s+list)?|task\s+list|tasks?|reminders?)\b/i,
-  /\bremind me to\b/i,
-] as const
 
 const DECOMPOSITION_SCHEMA = {
   type: 'object',
@@ -49,23 +37,11 @@ export async function decomposeForStorage(
   userInput: string,
   conversationHistory: readonly ConversationEntry[] = [],
 ): Promise<SaveDecompositionResult> {
-  const parsedTypedList = tryParseExplicitTypedList(userInput)
-  if (parsedTypedList) {
-    return parsedTypedList
-  }
-
-  const parsedEmbeddedTypedList = tryParseEmbeddedTypedList(userInput)
-  if (parsedEmbeddedTypedList) {
-    return parsedEmbeddedTypedList
-  }
-
-  const parsedQuotedTodoRequest = tryParseQuotedTodoRequest(userInput)
-  if (parsedQuotedTodoRequest) {
-    return parsedQuotedTodoRequest
-  }
-
   const settings = getSettings()
   const systemPrompt = loadSkill('save-decomposition')
+
+  const decompositionInput = resolveRawStructuredDataReference(userInput, conversationHistory)
+    ?? userInput
 
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     { role: 'system', content: systemPrompt },
@@ -75,7 +51,7 @@ export async function decomposeForStorage(
     messages.push({ role: entry.role, content: entry.content })
   }
 
-  messages.push({ role: 'user', content: userInput })
+  messages.push({ role: 'user', content: decompositionInput })
 
   try {
     const result = await generateStructuredResponse({
@@ -83,10 +59,10 @@ export async function decomposeForStorage(
       messages,
       schema: DECOMPOSITION_SCHEMA,
       maxAttempts: MAX_RETRIES,
-      validate: (parsed) => ({ items: validateItems(parsed.items, userInput) }),
+      validate: (parsed) => ({ items: validateItems(parsed.items, decompositionInput) }),
     })
     const validatedResult = {
-      items: validateItems(result.items, userInput),
+      items: validateItems(result.items, decompositionInput),
     }
 
     logger.debug(
@@ -100,7 +76,7 @@ export async function decomposeForStorage(
       { error },
       '[SaveDecomposition] All attempts failed, falling back to single item',
     )
-    return { items: [buildFallbackItem(userInput.trim())] }
+    return { items: [buildFallbackItem(decompositionInput.trim())] }
   }
 }
 
@@ -119,9 +95,10 @@ function validateItems(rawItems: unknown, originalInput: string): DecomposedItem
         ? (item.tags as unknown[]).filter((tag): tag is string => typeof tag === 'string')
         : []
       const type = resolveDocumentType(item.type, originalInput, rawTags)
+      const rawContent = (item.content as string).trim()
 
       return {
-        content: (item.content as string).trim(),
+        content: type === 'todo' ? normalizeTodoContent(rawContent) : rawContent,
         type,
         tags: ensureDefaultTags(type, rawTags),
       }
@@ -130,15 +107,6 @@ function validateItems(rawItems: unknown, originalInput: string): DecomposedItem
 
   if (items.length === 0) {
     return [buildFallbackItem(trimmedInput)]
-  }
-
-  if (items.length === 1 && !looksLikeReferentialStorageRequest(originalInput)) {
-    const [item] = items
-    return [{
-      ...item,
-      content: trimmedInput,
-      type: resolveDocumentType(item.type, originalInput, item.tags),
-    }]
   }
 
   return items
@@ -151,6 +119,82 @@ function buildFallbackItem(originalInput: string): DecomposedItem {
     type,
     tags: getDefaultTags(type),
   }
+}
+
+function resolveRawStructuredDataReference(
+  userInput: string,
+  conversationHistory: readonly ConversationEntry[],
+): string | null {
+  // Handles cases like: "Save that JSON exactly as a note."
+  // In these cases, we want to store the previously provided JSON payload verbatim,
+  // not the instruction text.
+  const isReferentialJsonSave = /\b(save|store|capture|remember|log|put)\b/i.test(userInput)
+    && /\bthat\b/i.test(userInput)
+    && /\bjson\b/i.test(userInput)
+
+  if (!isReferentialJsonSave) return null
+
+  const lastUserStructuredPayload = getLastUserStandaloneStructuredPayload(conversationHistory)
+  return lastUserStructuredPayload
+}
+
+function getLastUserStandaloneStructuredPayload(
+  conversationHistory: readonly ConversationEntry[],
+): string | null {
+  for (let index = conversationHistory.length - 1; index >= 0; index -= 1) {
+    const entry = conversationHistory[index]
+    if (entry.role !== 'user') continue
+
+    const trimmed = entry.content.trim()
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) continue
+    if (trimmed.length < 2) continue
+
+    // Even if parsing fails (malformed JSON), we still return the raw string:
+    // the rubric expects verbatim storage of what the user previously provided.
+    return trimmed
+  }
+
+  return null
+}
+
+function normalizeTodoContent(content: string): string {
+  // If the model captured todo wrapper text like:
+  // "Add to my todo list: buy milk"
+  // we should store only the actionable todo portion ("buy milk").
+  // The heuristic is applied only when the content looks like a todo wrapper.
+  const trimmed = content.trim()
+
+  const wrapperPatterns: ReadonlyArray<RegExp> = [
+    /^\s*add to (?:my )?todo list\s*:\s*/i,
+    /^\s*add to (?:my )?todos\s*:\s*/i,
+    /^\s*todos\s*:\s*/i,
+    /^\s*todo\s*:\s*/i,
+    /^\s*add\s+(.+?)\s+to (?:my )?todo list\s*:\s*/i,
+  ]
+
+  for (const pattern of wrapperPatterns) {
+    const match = trimmed.match(pattern)
+    if (match) {
+      const replaced = trimmed.replace(pattern, '')
+      if (replaced.trim().length > 0) return replaced.trim()
+    }
+  }
+
+  // Support common phrasing: `put "X" on my todo list`
+  const putOnTodoListPattern = /^\s*put\s+.+?\s+on (?:my )?todo list\s*:\s*/i
+  if (putOnTodoListPattern.test(trimmed)) {
+    return trimmed.replace(putOnTodoListPattern, '').trim()
+  }
+
+  // If model stored "Add to my todo list: <task>" inside the content but with minor casing,
+  // we attempt a final fallback: strip everything up to the last colon.
+  const colonIndex = trimmed.lastIndexOf(':')
+  if (colonIndex > 0 && /\b(todo list|todos|todo)\b/i.test(trimmed.slice(0, colonIndex))) {
+    const afterColon = trimmed.slice(colonIndex + 1).trim()
+    if (afterColon.length > 0) return afterColon
+  }
+
+  return trimmed
 }
 
 function resolveDocumentType(
@@ -178,28 +222,7 @@ function resolveDocumentType(
     return 'note'
   }
 
-  return inferDocumentTypeFromInput(originalInput)
-}
-
-function inferDocumentTypeFromInput(userInput: string): DecomposedDocumentType {
-  const normalizedInput = userInput.trim().toLowerCase()
-
-  if (/^\s*(todos?|tasks?|reminders?)\s*:/.test(normalizedInput)) {
-    return 'todo'
-  }
-
-  if (TODO_REQUEST_PATTERNS.some((pattern) => pattern.test(normalizedInput))) {
-    return 'todo'
-  }
-
-  if (/^\s*meetings?\s*:/.test(normalizedInput)) {
-    return 'meeting'
-  }
-
-  if (/^\s*(notes?|ideas?)\s*:/.test(normalizedInput)) {
-    return 'note'
-  }
-
+  // If type is missing/invalid, trust the model-produced tags only (no regex intent heuristics).
   return 'thought'
 }
 
@@ -225,87 +248,4 @@ function ensureDefaultTags(type: DecomposedDocumentType, tags: readonly string[]
 
 function isDecomposedDocumentType(value: string): value is DecomposedDocumentType {
   return DECOMPOSED_DOCUMENT_TYPES.includes(value as DecomposedDocumentType)
-}
-
-function tryParseExplicitTypedList(userInput: string): SaveDecompositionResult | null {
-  if (!looksLikeExplicitTypedList(userInput)) {
-    return null
-  }
-
-  const match = EXPLICIT_TYPED_LIST_PATTERN.exec(userInput)
-  if (!match) {
-    return null
-  }
-
-  const prefix = match[1] || match[2]
-  const rawListContent = match[3].trim()
-  const type = inferDocumentTypeFromPrefix(prefix)
-  const items = splitExplicitListContent(rawListContent)
-    .map((content) => ({
-      content,
-      type,
-      tags: getDefaultTags(type),
-    }))
-
-  return items.length > 0 ? { items } : null
-}
-
-function tryParseEmbeddedTypedList(userInput: string): SaveDecompositionResult | null {
-  const match = EMBEDDED_TYPED_LIST_PATTERN.exec(userInput)
-  if (!match) {
-    return null
-  }
-
-  const prefix = match[1] || match[2]
-  const rawListContent = match[3].trim()
-  const type = inferDocumentTypeFromPrefix(prefix)
-  const items = splitExplicitListContent(rawListContent)
-    .map((content) => ({
-      content,
-      type,
-      tags: getDefaultTags(type),
-    }))
-
-  return items.length > 0 ? { items } : null
-}
-
-function tryParseQuotedTodoRequest(userInput: string): SaveDecompositionResult | null {
-  const match = QUOTED_TODO_REQUEST_PATTERN.exec(userInput.trim())
-  if (!match) {
-    return null
-  }
-
-  const content = match[1].trim()
-  if (content.length === 0) {
-    return null
-  }
-
-  return {
-    items: [{
-      content,
-      type: 'todo',
-      tags: getDefaultTags('todo'),
-    }],
-  }
-}
-
-function inferDocumentTypeFromPrefix(prefix: string): DecomposedDocumentType {
-  const normalizedPrefix = prefix.toLowerCase()
-
-  if (normalizedPrefix.startsWith('todo') || normalizedPrefix.startsWith('task') || normalizedPrefix.startsWith('reminder')) {
-    return 'todo'
-  }
-
-  if (normalizedPrefix.startsWith('meeting')) {
-    return 'meeting'
-  }
-
-  return 'note'
-}
-
-function splitExplicitListContent(rawListContent: string): string[] {
-  return rawListContent
-    .split(/\r?\n|,/)
-    .map((segment) => segment.trim().replace(/^(and|&)\s+/i, ''))
-    .filter((segment) => segment.length > 0)
 }

@@ -37,10 +37,12 @@ Intent policy:
 - "conversational" is the safe fallback when the last user message does not clearly ask Lore to store, retrieve, modify, or change future behavior.
 
 Critical routing rules:
-- Requests to list, show, find, search, recall, summarize, or answer from stored data are ALWAYS "question", even if phrased casually.
+- Requests to list, show, find, search, recall, summarize, or answer from stored data are "question" when the PRIMARY user intent is retrieval.
+  If those words appear only as embedded content inside the message to be saved (for example: quoted dialogue, screenplay/fiction, or prose), classify as "thought" instead.
 - Questions about how Lore works or how to use Lore are ALWAYS "conversational".
 - If the user confirms a previously discussed creation task, classify as "thought", not "conversational".
 - If the user references something from prior conversation and asks to add, create, save, store, or remember it, classify as "thought", not "command".
+- If the user asks you to save/store/capture/log/put this text into Lore (for later recall), classify as "thought" even if the text contains embedded phrases that look like retrieval or todo requests.
 - Requests like "add to my todos: buy milk", "add to my todo list: call mom", or "todos: buy milk, call mom" are ALWAYS "thought" because they create new stored items.
 - Requests like "remove the todo about milk", "mark the jumping task done", or "change my todo about mom" are "command" because they modify existing stored items.
 - "command" is ONLY for modifying already stored data.
