@@ -262,10 +262,20 @@ function safeJsonParse(value) {
 }
 
 function parseJudgeResponse(content) {
-  const normalizedContent = stripMarkdownCodeFences(String(content || '').trim())
+  const raw = String(content || '').trim()
+  const normalizedContent = stripMarkdownCodeFences(raw)
   const directParse = safeJsonParse(normalizedContent)
   if (directParse && typeof directParse.pass === 'boolean' && typeof directParse.reason === 'string') {
     return directParse
+  }
+
+  const fenceBodies = extractMarkdownJsonFenceBodies(raw)
+  for (const body of fenceBodies) {
+    const slice = extractBalancedJsonObject(body) || body
+    const parsed = safeJsonParse(slice)
+    if (parsed && typeof parsed.pass === 'boolean' && typeof parsed.reason === 'string') {
+      return parsed
+    }
   }
 
   const extractedJson = extractBalancedJsonObject(normalizedContent)
@@ -551,10 +561,14 @@ async function evaluateSimulatedUserFollowUp({
 
 async function judgeRubric({ judgeModel, ollamaHost, rubric, actualState }) {
   const initialUserContent = [
+    'You are the judge. Your entire reply must be one JSON object: {"pass":boolean,"reason":"string"}.',
+    'The Lore assistant\'s message in actual state (e.g. "response") may be plain language, numbered lists, or markdown — that is correct for Lore and is not a format error.',
+    'Do not fail Lore for "not outputting JSON"; only you output JSON.',
+    '',
     `Rubric:\n${rubric}`,
     'Actual state:',
     JSON.stringify(actualState, null, 2),
-  ].join('\n\n')
+  ].join('\n')
 
   let messages = [
     { role: 'system', content: judgeSystemPrompt },
@@ -563,7 +577,7 @@ async function judgeRubric({ judgeModel, ollamaHost, rubric, actualState }) {
 
   let lastRawContent = ''
 
-  for (let attemptIndex = 0; attemptIndex < 2; attemptIndex += 1) {
+  for (let attemptIndex = 0; attemptIndex < 4; attemptIndex += 1) {
     const schemaPayload = {
       model: judgeModel,
       stream: false,

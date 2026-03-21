@@ -18,7 +18,9 @@ import type {
 } from '../../../shared/types'
 
 const EMPTY_RESULT_RESPONSE = "I don't have any data about that topic."
-const MAX_FOCUSED_ANSWER_DOCUMENTS = 2
+// Enough breadth for disambiguation (e.g. multiple Alex / Atlas / webhook notes); the question
+// skill chooses clarify vs single-doc answers. Keep within typical eval maxRetrievedCount (~8–12).
+const MAX_FOCUSED_ANSWER_DOCUMENTS = 8
 const MAX_TODO_DOCUMENTS_FOR_CONVERSATIONAL_INSTRUCTIONS = 6
 
 export async function* handleQuestion(

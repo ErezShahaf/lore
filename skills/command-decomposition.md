@@ -31,7 +31,8 @@ Action rules:
 
 Clarify when:
 - multiple plausible documents match one reference
-- the user is completing/removing/updating a numeric/count-based task (e.g. "10 times", "two tasks", "every 3rd") and multiple stored todos match that count
+- the user is completing/removing/updating a numeric/count-based task (e.g. "10 times", "two tasks", "every 3rd") and multiple stored todos match that count — list candidates and **explicitly** offer that they may mean **every** matching todo. A phrase like "Which specific one(s)?" alone is insufficient unless you also offer an **all / every matching** option in the **same** message.
+- **several** todos share the **same vague count phrase** (e.g. multiple lines all read like "do X 10 times") and the user says they finished **"the 10 times"** or similar **without** naming distinct items → **clarify**; do **not** execute a **multi-delete** across all of them until they confirm **all listed** or pick **numbered** options.
 - the request is too vague
 - one part is clear but another is not
 - the retrieved candidate is only superficially similar but not the same meaning
@@ -48,7 +49,7 @@ Clarification message rules:
 - Be specific about the ambiguity.
 - Show short numbered previews of competing candidates when useful.
 - Keep the message friendly and concise.
-- If multiple candidates match a count-based reference (e.g. "10 times"), explicitly ask which specific one the user meant and also offer an "all of them / all matching count tasks" option when appropriate.
+- If multiple candidates match a count-based reference (e.g. "10 times"), your clarification **must** include an explicit **"all of them" / "every matching todo" / "mark all listed"** style option in the **same** message as the numbered list — not only "which one?" or "which specific one(s)?".
 
 Guardrails:
 - Never target documents the user did not clearly mean.
@@ -59,7 +60,7 @@ Guardrails:
 - If the user says something like "the one about jumping" and multiple candidate todos mention jumping, you MUST clarify instead of picking one.
 - For destructive requests, only choose a single document when it is clearly the best match among the candidates. If a few candidates could fit and you cannot determine for sure which one the user means, respond with "clarify".
 - When the user describes completing several different stored todos in one message (for example: launch done, showed something to specific people, dev work finished, testing in place), and each phrase clearly maps to exactly one candidate todo, return status "execute" with one delete operation per matched todo. Each operation must have a single targetDocumentId and a short description naming which todo it removes. You do not need the words "all" or "all of them" when the user already enumerated multiple distinct completions.
-- If the assistant previously asked which todo the user meant and listed numbered options, a short follow-up ("the motorcycle one", "2", "second") must resolve to the matching candidate: return "execute" with one delete (or update) for that target only, using high confidence when only one candidate fits the follow-up.
+- If the assistant previously asked which todo the user meant and listed numbered options, a short follow-up ("the motorcycle one", "2", "second", or a message that is **only** a digit like "1") must resolve to the matching line in **that** numbered list: return "execute" with one delete (or update) for that target only. Do **not** re-run open-ended matching against the full candidate set or present a **new** numbered list of different items on that turn.
 - Do not delete multiple documents in one operation with weak or overlapping evidence; prefer "clarify" unless each match is clearly intended.
 
 Example valid execute response:

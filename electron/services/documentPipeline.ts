@@ -18,7 +18,7 @@ import type {
 const DEFAULT_MAX_RESULTS = 1000
 const DUPLICATE_THRESHOLD = 0.92
 const RELEVANCE_CLIFF_RATIO = 0.3
-const MINIMUM_RELEVANCE_SCORE = 0.3
+const MINIMUM_RELEVANCE_SCORE = 0.26
 
 const TAG_BOOST_FACTOR = 0.2
 
@@ -44,6 +44,17 @@ function buildFilter(options?: RetrievalOptions): string | undefined {
     parts.push(`createdAt < '${escapeFilterValue(options.createdAtTo)}'`)
   }
   return parts.length > 0 ? parts.join(' AND ') : undefined
+}
+
+const DEFAULT_TODO_COMMAND_CANDIDATE_LIMIT = 200
+
+export async function retrieveTodoCandidatesForCommand(
+  options?: RetrievalOptions,
+): Promise<LoreDocument[]> {
+  const filter = buildFilter({ ...options, type: 'todo' })
+  const limit = options?.maxResults ?? DEFAULT_TODO_COMMAND_CANDIDATE_LIMIT
+  const documents = await getDocumentsByFilter(filter, limit)
+  return [...documents].sort((left, right) => right.createdAt.localeCompare(left.createdAt))
 }
 
 function boostByTags(docs: ScoredDocument[], queryTags: string[]): ScoredDocument[] {

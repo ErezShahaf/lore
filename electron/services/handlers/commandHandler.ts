@@ -1,4 +1,4 @@
-import { retrieveRelevantDocuments } from '../documentPipeline'
+import { retrieveRelevantDocuments, retrieveTodoCandidatesForCommand } from '../documentPipeline'
 import { hardDeleteDocument, updateDocument } from '../lanceService'
 import { embedText } from '../embeddingService'
 import { resolveCommandTargets } from '../commandDecompositionService'
@@ -33,7 +33,10 @@ export async function* handleCommand(
     retrievalOpts.type = 'todo'
   }
 
-  const documents = await retrieveRelevantDocuments(userInput, retrievalOpts)
+  const documents =
+    retrievalOpts.type === 'todo'
+      ? await retrieveTodoCandidatesForCommand(retrievalOpts)
+      : await retrieveRelevantDocuments(userInput, retrievalOpts)
 
   if (documents.length === 0) {
     yield {

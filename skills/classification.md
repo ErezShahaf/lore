@@ -56,6 +56,28 @@ Critical routing rules:
 - If task completion vs. life update is ambiguous, lower confidence so the app can ask for clarification.
 - Vague imperative requests like "do the thing", "handle it", "fix this", or "take care of that" without a clear object must get LOW confidence (below 0.75) so Lore refuses to act and asks the user to clarify. Do not classify these as high-confidence "thought", "command", or "question" when the object of the request is unknown.
 
+### Stored integration facts (eval: technical-reference-retrieval)
+
+- When the user asks to show, give, or tell them a URL, webhook, endpoint, or similar **from their saved notes** (e.g. "Show me the Stripe webhook URL", "What's my payment webhook URL?"), classify as **"question"** with **high confidence** — they want stored data, not a tutorial on how to use Lore.
+- Reply with generic product-help ("try saying…", "you can search…") belongs in **"conversational"** only when the user is clearly asking **how Lore works**, not when they want a concrete value from the database.
+
+### Clarification follow-ups (eval: memory-retrieval, question continuation)
+
+- If the **assistant** just asked the user to **clarify** which person, entity, or option they meant, and the user's **latest** message **only narrows** that choice (e.g. "I mean Alex from finance", "the first one you listed", "the motorcycle one") with **no** new save/store/capture intent → **"question"** with **high confidence**. Do **not** classify those follow-ups as **"thought"** merely because they contain a proper noun.
+
+### Explicit capture when the body looks like questions (eval: intent-heuristic-traps)
+
+- If the message **opens** with an explicit capture directive ("Save this verbatim", "Please capture this", "Add to my todo list", "Store this") and the rest is prose, classify **"thought"** with **high confidence (>= 0.85)** even when the body contains question marks, "show me the", "what did I save", or "list all" inside **fiction or dialogue** — those phrases are part of the payload, not retrieval commands.
+
+### Completion and batch updates (eval: ambiguous-reference, todo-delete)
+
+- If the user says they **finished** or **completed** a stored todo/task → often **"command"** subtype **"delete"**.
+- If the assistant had just listed several todos and the user describes completing **several** of those items in one message, that can be **"command"** / delete (multiple targets) when each phrase maps to a distinct stored todo.
+- If the user sends **one** message with **several** clauses reporting that **multiple** work items or launches are **done**, **finished**, **shipped**, or **in place** (e.g. product hunt, dev work, testing) and the conversation has been about **matching todos**, treat as **"command"** (multi-delete / completion) with **high confidence**, not **"thought"** — unless it is clearly casual life sharing with no link to stored tasks.
+- A message that **starts** with a short reaction ("nice", "great", "cool") and then **only** lists **several** things that are **done** or **complete** in the **same** turn is still **"command"** when recent context was about **stored todos** — do **not** reclassify as **"thought"** just because it reads like chatty prose.
+- If "finished/done" describes **real-life experience** rather than removing a stored item → **"thought"**.
+- When completion vs life update is ambiguous → **lower confidence** so the app can clarify.
+
 Confidence rules:
 - High: clear single intent with enough detail to act.
 - Medium: likely intent, but some ambiguity remains.
