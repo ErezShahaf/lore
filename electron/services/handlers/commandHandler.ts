@@ -1,8 +1,9 @@
-import { retrieveRelevantDocuments } from '../documentPipeline'
+import { retrieveRelevantDocuments, retrieveTodoCandidatesForCommand } from '../documentPipeline'
 import { hardDeleteDocument, updateDocument } from '../lanceService'
 import { embedText } from '../embeddingService'
 import { resolveCommandTargets } from '../commandDecompositionService'
-import { looksLikeInstructionManagementRequest } from '../userIntentHeuristics'
+import { streamAssistantUserReplyWithFallback } from '../assistantReplyComposer'
+import type { AssistantReplyFacts } from '../assistantReplyTypes'
 import type {
   ClassificationResult,
   ConversationEntry,
@@ -15,6 +16,7 @@ import type {
 interface ExecutionResult {
   action: CommandOperation['action']
   documents: LoreDocument[]
+  updatedContent: string | null
 }
 
 export async function* handleCommand(
@@ -22,8 +24,9 @@ export async function* handleCommand(
   classification: ClassificationResult,
   conversationHistory: readonly ConversationEntry[] = [],
   retrievalOverrides?: RetrievalOptions,
+  userInstructionsBlock: string = '',
 ): AsyncGenerator<AgentEvent> {
-  yield { type: 'status', message: 'Finding relevant documents...' }
+  yield { type: 'status', message: 'Searching your library for matching documents…' }
 
   const isTodoCompletion = classification.extractedTags.some(
     (tag) => tag.toLowerCase() === 'todo',
@@ -34,26 +37,33 @@ export async function* handleCommand(
     retrievalOpts.type = 'todo'
   }
 
-  if (!retrievalOpts.type && looksLikeInstructionManagementRequest(userInput)) {
-    retrievalOpts.type = 'instruction'
-  }
-
-  const documents = await retrieveRelevantDocuments(userInput, retrievalOpts)
+  const documents =
+    retrievalOpts.type === 'todo'
+      ? await retrieveTodoCandidatesForCommand(retrievalOpts)
+      : await retrieveRelevantDocuments(userInput, retrievalOpts)
 
   if (documents.length === 0) {
-    yield {
-      type: 'chunk',
-      content: "I couldn't find any documents matching your request. Could you be more specific?",
+    for await (const chunk of streamAssistantUserReplyWithFallback({
+      userInstructionsBlock,
+      facts: { kind: 'command_no_documents' },
+    })) {
+      yield { type: 'chunk', content: chunk }
     }
     yield { type: 'done' }
     return
   }
 
-  yield { type: 'status', message: 'Analyzing your request...' }
+  yield {
+    type: 'retrieved',
+    documentIds: documents.map((document) => document.id),
+    totalRetrieved: documents.length,
+  }
+
+  yield { type: 'status', message: 'Resolving which documents to change (command agent)…' }
 
   let resolution
   try {
-    resolution = await resolveCommandTargets(userInput, documents, conversationHistory)
+    resolution = await resolveCommandTargets(userInput, documents, conversationHistory, userInstructionsBlock)
   } catch {
     yield {
       type: 'error',
@@ -73,9 +83,11 @@ export async function* handleCommand(
   }
 
   if (resolution.operations.length === 0) {
-    yield {
-      type: 'chunk',
-      content: "I couldn't match your request to any stored documents.",
+    for await (const chunk of streamAssistantUserReplyWithFallback({
+      userInstructionsBlock,
+      facts: { kind: 'command_no_match' },
+    })) {
+      yield { type: 'chunk', content: chunk }
     }
     yield { type: 'done' }
     return
@@ -97,10 +109,20 @@ export async function* handleCommand(
     if (affected.length === 0) continue
 
     yield* executeOperation(operation, affected)
-    results.push({ action: operation.action, documents: affected })
+    results.push({
+      action: operation.action,
+      documents: affected,
+      updatedContent: operation.updatedContent,
+    })
   }
 
-  yield { type: 'chunk', content: buildConfirmationMessage(results) }
+  const executedFacts = buildCommandExecutedFacts(results)
+  for await (const chunk of streamAssistantUserReplyWithFallback({
+    userInstructionsBlock,
+    facts: executedFacts,
+  })) {
+    yield { type: 'chunk', content: chunk }
+  }
   yield { type: 'done' }
 }
 
@@ -129,38 +151,23 @@ async function* executeOperation(
   }
 }
 
-function buildConfirmationMessage(results: ExecutionResult[]): string {
-  if (results.length === 0) return 'No changes were made.'
+function buildCommandExecutedFacts(results: ExecutionResult[]): AssistantReplyFacts {
+  const operations: Array<{ readonly action: 'delete' | 'update'; readonly contentPreview: string }> = []
 
-  const deletedDocuments = results.filter((result) => result.action === 'delete').flatMap((result) => result.documents)
-  const updatedDocuments = results.filter((result) => result.action === 'update').flatMap((result) => result.documents)
-
-  const parts: string[] = []
-
-  if (deletedDocuments.length > 0) {
-    parts.push(formatDeletedSummary(deletedDocuments))
+  for (const result of results) {
+    for (const document of result.documents) {
+      const preview =
+        result.action === 'update' && result.updatedContent
+          ? result.updatedContent
+          : document.content
+      operations.push({
+        action: result.action,
+        contentPreview: truncateContent(preview, 60),
+      })
+    }
   }
 
-  if (updatedDocuments.length > 0) {
-    parts.push(formatUpdatedSummary(updatedDocuments))
-  }
-
-  return `Done! I've ${parts.join(', and ')}.`
-}
-
-function formatDeletedSummary(documents: LoreDocument[]): string {
-  if (documents.length <= 3) {
-    const previews = documents.map((document) => `"${truncateContent(document.content, 60)}"`)
-    return `removed ${previews.join(' and ')}`
-  }
-  return `removed ${documents.length} documents`
-}
-
-function formatUpdatedSummary(documents: LoreDocument[]): string {
-  if (documents.length === 1) {
-    return `updated "${truncateContent(documents[0].content, 60)}"`
-  }
-  return `updated ${documents.length} documents`
+  return { kind: 'command_executed', operations }
 }
 
 function truncateContent(text: string, maxLength: number): string {

@@ -5,6 +5,7 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
+    "build:app": "vite build",
     "build": "npm run build:icons && tsc --noEmit && vite build && electron-builder",
     "build:icons": "electron-icon-builder --input=resources/icon.png --output=resources --flatten",
     "build:win": "npm run build:icons && tsc --noEmit && vite build && electron-builder --win",
@@ -15,7 +16,12 @@
     "lint": "eslint . --ext .ts,.tsx",
     "test": "vitest run",
     "test:watch": "vitest",
-    "reset-db": "node scripts/reset-db.mjs"
+    "reset-db": "node scripts/reset-db.mjs",
+    "reset-db:dev": "node scripts/reset-db.mjs --profile dev",
+    "reset-db:eval": "node scripts/reset-db.mjs --profile eval",
+    "eval:promptfoo": "node scripts/run-promptfoo.mjs",
+    "eval:promptfoo:smoke": "node scripts/run-promptfoo.mjs --suite smoke",
+    "eval:promptfoo:summary": "node scripts/summarize-promptfoo-results.mjs"
   },
   "author": "",
   "license": "MIT",
@@ -66,6 +72,7 @@
     "eslint": "^8.57.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "lucide-react": "^0.475.0",
+    "promptfoo": "^0.121.2",
     "tailwind-merge": "^3.0.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.0",

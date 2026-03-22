@@ -1,3 +1,4 @@
+import { app } from 'electron'
 import { readFileSync, readdirSync, statSync } from 'fs'
 import { join, basename, extname } from 'path'
 import { logger } from '../logger'
@@ -11,9 +12,8 @@ const skillCache = new Map<string, string>()
 let allSkillsCache: SkillFile[] | null = null
 
 function getSkillsDirectory(): string {
-  const isDev = !!process.env.VITE_DEV_SERVER_URL
-  if (isDev) {
-    return join(__dirname, '..', 'skills')
+  if (!app.isPackaged) {
+    return join(process.cwd(), 'skills')
   }
   return join(process.resourcesPath, 'skills')
 }

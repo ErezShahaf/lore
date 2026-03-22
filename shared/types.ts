@@ -165,6 +165,40 @@ export type CommandSubtype = 'delete' | 'update' | 'reorder'
 export type InstructionSubtype = 'general'
 export type ConversationalSubtype = 'greeting' | 'usage' | 'reaction'
 
+export interface SituationSummary {
+  readonly situationSummary: string
+  readonly assistantRecentlyAskedForClarification: boolean
+}
+
+export interface IntentRouteResult {
+  readonly intent: InputClassification
+  readonly confidence: number
+  readonly reasoning: string
+}
+
+export interface ThoughtClarification {
+  readonly type: 'clarify' | 'suggest_description'
+  readonly message: string
+}
+
+export interface MetadataExtractionResult {
+  readonly subtype: string
+  readonly extractedDate: string | null
+  readonly extractedTags: string[]
+  /** When intent is thought: clarify bare data, suggest description, or null to proceed. */
+  readonly thoughtClarification: ThoughtClarification | null
+}
+
+export interface SaveShapePlan {
+  readonly splitStrategy: 'single' | 'list' | 'verbatim_single'
+  readonly notesForDecomposer: string
+}
+
+export interface QuestionStrategyResult {
+  readonly mode: 'answer' | 'ask_clarification'
+  readonly clarificationMessage: string | null
+}
+
 export interface ClassificationResult {
   intent: InputClassification
   subtype: string
@@ -172,7 +206,28 @@ export interface ClassificationResult {
   extractedTags: string[]
   confidence: number
   reasoning: string
+  situationSummary: string
+  /** When intent is thought: clarify bare data, suggest description, or null to proceed. */
+  thoughtClarification: ThoughtClarification | null
 }
+
+/** Mutable accumulator for one user turn; updated by [orchestratorService](electron/services/orchestratorService.ts). */
+export interface OrchestratorTurnResult {
+  assistantResponse: string
+  classification: ClassificationResult | null
+  lastDocumentIds: string[]
+  completedDispatcherIds: string[]
+  /** All saved instruction documents loaded once per turn for system-prompt injection. */
+  userInstructionDocuments: readonly LoreDocument[]
+  /** Formatted block derived from [userInstructionDocuments](OrchestratorTurnResult.userInstructionDocuments). */
+  userInstructionsBlock: string
+}
+
+/**
+ * Max loop iterations for the orchestrator (future: retrieve → branch → re-dispatch).
+ * Current implementation uses a single dispatch after classification.
+ */
+export const ORCHESTRATOR_MAX_STEPS = 8
 
 export interface CommandTarget {
   targetDocumentIds: string[]
@@ -195,10 +250,18 @@ export type CommandResolution =
   | { status: 'execute'; operations: CommandOperation[]; clarificationMessage: null }
   | { status: 'clarify'; operations: []; clarificationMessage: string }
 
+export interface RetrievedAgentEvent {
+  readonly type: 'retrieved'
+  readonly documentIds: string[]
+  readonly totalRetrieved?: number
+  readonly totalCandidates?: number
+  readonly cutoffScore?: number
+}
+
 export type AgentEvent =
   | { type: 'status'; message: string }
   | { type: 'chunk'; content: string }
-  | { type: 'retrieved'; documentIds: string[] }
+  | RetrievedAgentEvent
   | { type: 'stored'; documentId: string }
   | { type: 'deleted'; documentId: string }
   | { type: 'duplicate'; existingContent: string }

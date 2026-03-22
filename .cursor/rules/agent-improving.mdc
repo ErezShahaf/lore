@@ -1,0 +1,13 @@
+In our project, there are evals that simulate user interactions with our system, which can be used to see regression and find new issues. But there are a few points you need to know:
+
+If I ask you to suggest improvements for the failed cases, never try to use regex to determine what the user wants,
+this is because its not scaleable. Our base assumption is that LLMs are going improve with time and we need to trust them.
+When you suggest a fix, those are your options
+
+- Tweak params like thresholds and configurable settings we have such as db retreival or any other.
+- Improve the prompts (skills)
+- Suggest a new agent architecture - more agents in the flow, change the communication between agents, and so on.
+- Outside the box thinking, you are definitely allowed to toss new solutions into the air, as long as they are scaleable you will never be judged.
+- You can argue with me about my assumptions, and prove me wrong. We are building together, sometimes I may be wrong.
+- When you think of a solution, always ask yourself the question - "did I solve a test case by cheating the test case and ruining something else that is not in the test?" if yes, it is not a real solution. For example if the test failed to get a json because it inserted something and you tell the classifier "when the user gives you a json, always get it, do not save it" it is not a real solution because you ruined saving.
+- Never use a super specific case just because that's what happened in reality or in the test, try to explain it generically.

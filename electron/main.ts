@@ -12,6 +12,9 @@ import { startHealthCheck, stopHealthCheck, preloadModels } from './services/oll
 import { bootstrapOllama, stopOllama, isOllamaSetupNeeded } from './services/ollamaBootstrap'
 import { initialize as initLanceDB, cleanupOldDeleted, compactTable } from './services/lanceService'
 import { applyAutoStart } from './services/autoStartService'
+import { startEvalServer, stopEvalServer } from './services/evalServer'
+import { configureRuntimeProfile, isEvalRuntimeProfile } from './services/runtimeProfileService'
+import type { AppSettings } from '../shared/types'
 
 function logErrorToFile(label: string, err: unknown): void {
   try {
@@ -40,7 +43,12 @@ function onSignal(): void {
     process.exit(code)
   }
   const timeout = setTimeout(() => exitAfterCleanup(1), 15_000)
-  stopOllama()
+  stopEvalServer()
+    .then(async () => {
+      if (!isEvalMode) {
+        await stopOllama()
+      }
+    })
     .then(() => {
       clearTimeout(timeout)
       exitAfterCleanup(0)
@@ -61,21 +69,58 @@ process.env.VITE_PUBLIC = process.env.VITE_DEV_SERVER_URL
   ? join(process.env.DIST_ELECTRON, '../public')
   : process.env.DIST
 
-const gotLock = app.requestSingleInstanceLock()
+const runtimeProfileState = configureRuntimeProfile()
+const isEvalMode = isEvalRuntimeProfile()
+
+function getEnvironmentSettingsOverrides(): Partial<AppSettings> {
+  const settingsUpdate: Partial<AppSettings> = {}
+
+  if (typeof process.env.LORE_SELECTED_MODEL === 'string') {
+    settingsUpdate.selectedModel = process.env.LORE_SELECTED_MODEL
+  }
+
+  if (typeof process.env.LORE_EMBEDDING_MODEL === 'string') {
+    settingsUpdate.embeddingModel = process.env.LORE_EMBEDDING_MODEL
+  }
+
+  if (typeof process.env.LORE_OLLAMA_HOST === 'string') {
+    settingsUpdate.ollamaHost = process.env.LORE_OLLAMA_HOST
+  }
+
+  if (isEvalMode) {
+    settingsUpdate.ollamaSetupComplete = true
+  }
+
+  return settingsUpdate
+}
+
+const gotLock = isEvalMode ? true : app.requestSingleInstanceLock()
 
 if (!gotLock) {
   app.quit()
 } else {
-  app.on('second-instance', () => {
-    showChatWindow()
-  })
+  if (!isEvalMode) {
+    app.on('second-instance', () => {
+      showChatWindow()
+    })
+  }
 
   app.whenReady().then(async () => {
-    registerIpcHandlers()
+    if (!isEvalMode) {
+      registerIpcHandlers()
+    }
+
+    const environmentSettingsOverrides = getEnvironmentSettingsOverrides()
+    if (Object.keys(environmentSettingsOverrides).length > 0) {
+      updateSettings(environmentSettingsOverrides)
+    }
 
     try {
       await initLanceDB()
-      logger.info('[Lore] LanceDB initialized')
+      logger.info({
+        profile: runtimeProfileState.profile,
+        userDataPath: runtimeProfileState.userDataPath,
+      }, '[Lore] LanceDB initialized')
 
       cleanupOldDeleted(30).then((count) => {
         if (count > 0) logger.info({ count }, '[Lore] Cleaned up old deleted documents')
@@ -84,6 +129,16 @@ if (!gotLock) {
       compactTable().catch(() => {})
     } catch (err) {
       logger.error({ err }, '[Lore] Failed to initialize LanceDB')
+    }
+
+    if (isEvalMode) {
+      try {
+        await startEvalServer()
+      } catch (err) {
+        logger.error({ err }, '[Lore] Failed to start eval server')
+        app.quit()
+      }
+      return
     }
 
     const settings = getSettings()
@@ -122,6 +177,10 @@ if (!gotLock) {
   })
 
   app.on('activate', () => {
+    if (isEvalMode) {
+      return
+    }
+
     if (getChatWindow()) {
       showChatWindow()
     } else {
@@ -134,10 +193,17 @@ if (!gotLock) {
     if (isQuitting) return
     event.preventDefault()
     isQuitting = true
-    unregisterShortcuts()
-    destroyTray()
+    if (!isEvalMode) {
+      unregisterShortcuts()
+      destroyTray()
+    }
     stopHealthCheck()
-    stopOllama()
+    stopEvalServer()
+      .then(async () => {
+        if (!isEvalMode) {
+          await stopOllama()
+        }
+      })
       .then(() => app.quit())
       .catch((err) => {
         logger.error({ err }, '[Lore] Error during quit cleanup')

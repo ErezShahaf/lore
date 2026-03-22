@@ -1,117 +1,61 @@
-import { generateStructuredResponse } from './ollamaService'
-import { formatLocalDate } from './localDate'
 import { logger } from '../logger'
-import { getSettings } from './settingsService'
-import { loadSkill } from './skillLoader'
-import type { ClassificationResult, ConversationEntry } from '../../shared/types'
+import type { AgentEvent, ClassificationResult, ConversationEntry } from '../../shared/types'
+import { extractMetadata } from './metadataExtractionService'
+import { routeIntent } from './intentRouteService'
+import { synthesizeSituation } from './situationService'
 
-const CLASSIFICATION_SCHEMA = {
-  type: 'object',
-  properties: {
-    intent: {
-      type: 'string',
-      enum: ['thought', 'question', 'command', 'instruction', 'conversational'],
-    },
-    subtype: { type: 'string' },
-    extractedDate: {
-      anyOf: [{ type: 'string' }, { type: 'null' }],
-    },
-    extractedTags: {
-      type: 'array',
-      items: { type: 'string' },
-    },
-    confidence: { type: 'number' },
-    reasoning: { type: 'string' },
-  },
-  required: ['intent', 'subtype', 'extractedDate', 'extractedTags', 'confidence', 'reasoning'],
-  additionalProperties: false,
+export async function* classifyInputWithStatusEvents(
+  userInput: string,
+  conversationHistory: readonly ConversationEntry[] = [],
+  userInstructionsBlock: string = '',
+): AsyncGenerator<AgentEvent, ClassificationResult> {
+  const now = new Date()
+
+  yield { type: 'status', message: 'Summarizing conversation and situation…' }
+  const situation = await synthesizeSituation(userInput, conversationHistory, userInstructionsBlock)
+
+  yield { type: 'status', message: 'Routing intent…' }
+  let route
+  try {
+    route = await routeIntent(situation, userInput, conversationHistory, userInstructionsBlock)
+  } catch (err) {
+    logger.error({ err }, '[Classifier] Intent routing failed')
+    throw new Error(
+      `Intent routing failed: ${err instanceof Error ? err.message : String(err)}`,
+    )
+  }
+
+  yield { type: 'status', message: 'Extracting tags and dates…' }
+  const metadata = await extractMetadata(
+    route.intent,
+    situation,
+    userInput,
+    conversationHistory,
+    now,
+    userInstructionsBlock,
+  )
+
+  return {
+    intent: route.intent,
+    subtype: metadata.subtype,
+    extractedDate: metadata.extractedDate,
+    extractedTags: metadata.extractedTags,
+    confidence: route.confidence,
+    reasoning: `${route.reasoning} | Metadata: subtype=${metadata.subtype}`,
+    situationSummary: situation.situationSummary,
+    thoughtClarification: metadata.thoughtClarification,
+  }
 }
-
-const MAX_RETRIES = 3
 
 export async function classifyInput(
   userInput: string,
   conversationHistory: readonly ConversationEntry[] = [],
+  userInstructionsBlock: string = '',
 ): Promise<ClassificationResult> {
-  const settings = getSettings()
-  const now = new Date()
-  const systemPrompt = buildSystemPrompt(now)
-
-  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
-    { role: 'system', content: systemPrompt },
-  ]
-
-  for (const entry of conversationHistory) {
-    messages.push({ role: entry.role, content: entry.content })
+  const iterator = classifyInputWithStatusEvents(userInput, conversationHistory, userInstructionsBlock)
+  let step = await iterator.next()
+  while (!step.done) {
+    step = await iterator.next()
   }
-
-  messages.push({ role: 'user', content: userInput })
-
-  try {
-    return await generateStructuredResponse({
-      model: settings.selectedModel,
-      messages,
-      schema: CLASSIFICATION_SCHEMA,
-      maxAttempts: MAX_RETRIES,
-      validate: validateClassificationResponse,
-    })
-  } catch (err) {
-    logger.error({ err }, '[Classifier] All attempts failed, throwing error')
-    throw new Error(
-      `Classification failed after ${MAX_RETRIES} attempts: ${err instanceof Error ? err.message : String(err)}`,
-    )
-  }
-}
-
-function validateIntent(value: unknown): ClassificationResult['intent'] {
-  const valid = ['thought', 'question', 'command', 'instruction', 'conversational']
-  return valid.includes(value as string)
-    ? (value as ClassificationResult['intent'])
-    : 'conversational'
-}
-
-function validateClassificationResponse(parsed: Record<string, unknown>): ClassificationResult {
-  return {
-    intent: validateIntent(parsed.intent),
-    subtype: typeof parsed.subtype === 'string' ? parsed.subtype : 'general',
-    extractedDate: typeof parsed.extractedDate === 'string' && parsed.extractedDate !== ''
-      ? parsed.extractedDate
-      : null,
-    extractedTags: Array.isArray(parsed.extractedTags)
-      ? parsed.extractedTags.filter((tag): tag is string => typeof tag === 'string')
-      : [],
-    confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.5,
-    reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
-  }
-}
-
-function toISODate(d: Date): string {
-  return formatLocalDate(d)
-}
-
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-
-function getMondayOfWeek(date: Date): Date {
-  const d = new Date(date)
-  const day = d.getDay()
-  const diff = day === 0 ? 6 : day - 1
-  d.setDate(d.getDate() - diff)
-  return d
-}
-
-function buildSystemPrompt(now: Date): string {
-  const currentDate = toISODate(now)
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
-
-  const thisMonday = getMondayOfWeek(now)
-  const lastMonday = new Date(thisMonday)
-  lastMonday.setDate(lastMonday.getDate() - 7)
-
-  return loadSkill('classification')
-    .replace(/\{currentDate\}/g, currentDate)
-    .replace('{currentDay}', DAY_NAMES[now.getDay()])
-    .replace('{yesterdayDate}', toISODate(yesterday))
-    .replace('{thisWeekStart}', toISODate(thisMonday))
-    .replace('{lastWeekStart}', toISODate(lastMonday))
+  return step.value as ClassificationResult
 }

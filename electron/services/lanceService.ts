@@ -152,21 +152,26 @@ export async function updateDocument(
   updates: Partial<LoreDocument>,
 ): Promise<void> {
   const table = getTable()
+  const existingDocument = await getDocumentById(id)
+  if (!existingDocument) {
+    logger.warn({ id }, '[LanceDB] updateDocument called for missing document')
+    return
+  }
 
-  const valueUpdates: Record<string, string> = {}
+  const updatedDocument: LoreDocument = {
+    ...existingDocument,
+    ...updates,
+    vector: updates.vector ?? existingDocument.vector,
+    updatedAt: new Date().toISOString(),
+  }
 
-  if (updates.content !== undefined) valueUpdates.content = `'${escapeSql(updates.content)}'`
-  if (updates.type !== undefined) valueUpdates.type = `'${escapeSql(updates.type)}'`
-  if (updates.date !== undefined) valueUpdates.date = `'${escapeSql(updates.date)}'`
-  if (updates.tags !== undefined) valueUpdates.tags = `'${escapeSql(updates.tags)}'`
-  if (updates.metadata !== undefined) valueUpdates.metadata = `'${escapeSql(updates.metadata)}'`
-  if (updates.isDeleted !== undefined) valueUpdates.isDeleted = String(updates.isDeleted)
-
-  valueUpdates.updatedAt = `'${new Date().toISOString()}'`
-
-  const result = await table.update(valueUpdates, { where: `id = '${escapeSql(id)}'` })
+  await table.delete(`id = '${escapeSql(id)}'`)
+  await table.add([docToRow(updatedDocument)])
   logger.debug(
-    { id: id.slice(0, 8), updatedColumns: Object.keys(valueUpdates), rowsUpdated: result?.rowsUpdated },
+    {
+      id: id.slice(0, 8),
+      updatedColumns: Object.keys(updates),
+    },
     '[LanceDB] updateDocument',
   )
 }
@@ -205,7 +210,7 @@ export async function searchSimilar(
     const row = r as unknown as Record<string, unknown>
     const doc = rowToDoc(row)
     if ('_distance' in row) {
-      ;(doc as unknown as Record<string, unknown>)._distance = row._distance
+      (doc as unknown as Record<string, unknown>)._distance = row._distance
     }
     return doc
   })

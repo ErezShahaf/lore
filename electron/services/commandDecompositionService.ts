@@ -2,11 +2,7 @@ import { generateStructuredResponse } from './ollamaService'
 import { getSettings } from './settingsService'
 import { loadSkill } from './skillLoader'
 import { logger } from '../logger'
-import {
-  looksLikeAmbiguousDocumentReference,
-  looksLikeExplicitMultiTargetRequest,
-  looksLikeOrdinalReference,
-} from './userIntentHeuristics'
+import { appendUserInstructionsToSystemPrompt } from './userInstructionsContext'
 import type {
   CommandResolution,
   CommandOperation,
@@ -56,11 +52,29 @@ const MAX_RETRIES = 2
 const MIN_OPERATION_CONFIDENCE = 0.5
 const MIN_CLEAR_MATCH_SCORE = 0.6
 const MIN_CLEAR_MATCH_GAP = 0.2
+const QUOTED_REPLACEMENT_PATTERNS = [
+  /\bchange\s+"([^"]+)"\s+to\s+"([^"]+)"\s*$/i,
+  /\bedit\s+"([^"]+)"\s+to\s+"([^"]+)"\s*$/i,
+  /\breplace\s+"([^"]+)"\s+with\s+"([^"]+)"\s*$/i,
+] as const
+const REFERENTIAL_UPDATE_PATTERNS = [
+  /\bchange\s+(?:it|that|this|the one[^.]*)\s+to\s+(.+)$/i,
+  /\bedit\s+(?:it|that|this|the one[^.]*)\s+to\s+(.+)$/i,
+  /\breplace\s+(?:it|that|this|the one[^.]*)\s+with\s+(.+)$/i,
+] as const
+
+interface ParsedDeterministicCommand {
+  readonly action: CommandOperation['action']
+  readonly referenceText: string
+  readonly updatedContent: string | null
+  readonly exactReferenceContent: string | null
+}
 
 export async function resolveCommandTargets(
   userInput: string,
   documents: readonly LoreDocument[],
   conversationHistory: readonly ConversationEntry[] = [],
+  userInstructionsBlock: string = '',
 ): Promise<CommandResolution> {
   const settings = getSettings()
 
@@ -68,7 +82,7 @@ export async function resolveCommandTargets(
     .map((document) => `ID: ${document.id}\nType: ${document.type}\nDate: ${document.date}\nContent: ${document.content}`)
     .join('\n---\n')
 
-  const systemPrompt = loadSkill('command-decomposition')
+  const systemPrompt = appendUserInstructionsToSystemPrompt(loadSkill('command-decomposition'), userInstructionsBlock)
 
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     { role: 'system', content: systemPrompt },
@@ -173,15 +187,6 @@ function validateResolution(
     }
   }
 
-  const safetyClarification = buildSafetyClarification(userInput, operations, documents)
-  if (safetyClarification) {
-    return {
-      status: 'clarify',
-      operations: [],
-      clarificationMessage: safetyClarification,
-    }
-  }
-
   return {
     status: 'execute',
     operations,
@@ -196,70 +201,177 @@ function validateAction(value: unknown): CommandOperation['action'] {
     : 'delete'
 }
 
-function buildSafetyClarification(
+interface CandidateMatch {
+  readonly document: LoreDocument
+  readonly score: number
+}
+
+// Not used anymore after moving to LLM-only resolution.
+// Keeping the implementation for potential future regression debugging.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function tryResolveCommandDeterministically(
   userInput: string,
-  operations: readonly CommandOperation[],
   documents: readonly LoreDocument[],
-): string | null {
-  const allowsMultiTargetAction = looksLikeExplicitMultiTargetRequest(userInput)
-  const hasOrdinalReference = looksLikeOrdinalReference(userInput)
+): CommandResolution | null {
+  const parsedCommand = parseDeterministicCommand(userInput)
+  if (!parsedCommand) {
+    return null
+  }
 
-  for (const operation of operations) {
-    const referenceText = operation.description.length > 0 ? operation.description : userInput
-    const candidateMatches = rankCandidateMatches(referenceText, documents)
+  const exactReferenceMatch = parsedCommand.exactReferenceContent
+    ? findUniqueExactContentMatch(parsedCommand.exactReferenceContent, documents)
+    : null
+  if (exactReferenceMatch) {
+    return buildSingleTargetExecutionResolution(
+      parsedCommand.action,
+      exactReferenceMatch,
+      parsedCommand.updatedContent,
+      userInput,
+    )
+  }
 
-    if (!allowsMultiTargetAction && operation.targetDocumentIds.length !== 1) {
-      return buildCandidateClarification(
-        candidateMatches,
-        documents,
-        "I found a few possible matches, but I'm not sure which one you mean.",
-      )
-    }
+  const candidateMatches = rankCandidateMatches(parsedCommand.referenceText, documents)
+  const clearCandidate = selectClearSingleCandidate(candidateMatches)
+  if (!clearCandidate) {
+    return null
+  }
 
-    if (allowsMultiTargetAction || hasOrdinalReference) {
+  return buildSingleTargetExecutionResolution(
+    parsedCommand.action,
+    clearCandidate.document,
+    parsedCommand.updatedContent,
+    userInput,
+  )
+}
+
+function parseDeterministicCommand(userInput: string): ParsedDeterministicCommand | null {
+  for (const pattern of QUOTED_REPLACEMENT_PATTERNS) {
+    const match = pattern.exec(userInput)
+    if (!match) {
       continue
     }
 
-    const chosenDocumentId = operation.targetDocumentIds[0]
-    if (!chosenDocumentId) {
-      return buildCandidateClarification(
-        candidateMatches,
-        documents,
-        "I couldn't determine which document you mean.",
-      )
+    return {
+      action: 'update',
+      referenceText: match[1],
+      updatedContent: match[2].trim(),
+      exactReferenceContent: match[1],
     }
+  }
 
-    const chosenCandidate = candidateMatches.find((candidate) => candidate.document.id === chosenDocumentId)
-    const plausibleCandidates = candidateMatches.filter((candidate) => candidate.score >= MIN_CLEAR_MATCH_SCORE)
-    const runnerUp = candidateMatches[1]
-    const chosenIsClearlyBest = chosenCandidate !== undefined
-      && chosenCandidate.score >= MIN_CLEAR_MATCH_SCORE
-      && (!runnerUp || chosenCandidate.score - runnerUp.score >= MIN_CLEAR_MATCH_GAP)
-      && candidateMatches[0]?.document.id === chosenDocumentId
-
-    if (chosenIsClearlyBest && plausibleCandidates.length <= 1) {
+  for (const pattern of REFERENTIAL_UPDATE_PATTERNS) {
+    const match = pattern.exec(userInput.trim())
+    if (!match) {
       continue
     }
 
-    const needsClarification = looksLikeAmbiguousDocumentReference(userInput)
-      || candidateMatches.length > 1
-      || plausibleCandidates.length > 1
+    const updatedContent = trimTrailingPunctuation(match[1])
+    const referenceText = userInput.slice(0, match.index).trim()
 
-    if (needsClarification) {
-      return buildCandidateClarification(
-        plausibleCandidates.length > 0 ? plausibleCandidates : candidateMatches,
-        documents,
-        "I found a few possible matches, but I can't tell for sure which one you mean.",
-      )
+    if (referenceText.length === 0 || updatedContent.length === 0) {
+      continue
+    }
+
+    return {
+      action: 'update',
+      referenceText,
+      updatedContent,
+      exactReferenceContent: null,
+    }
+  }
+
+  if (/\b(delete|remove|forget|clear|done|finished|completed|complete)\b/i.test(userInput)) {
+    return {
+      action: 'delete',
+      referenceText: userInput,
+      updatedContent: null,
+      exactReferenceContent: extractQuotedReference(userInput),
+    }
+  }
+
+  if (/\b(update|change|replace|edit|rename)\b/i.test(userInput)) {
+    return {
+      action: 'update',
+      referenceText: userInput,
+      updatedContent: null,
+      exactReferenceContent: extractQuotedReference(userInput),
     }
   }
 
   return null
 }
 
-interface CandidateMatch {
-  readonly document: LoreDocument
-  readonly score: number
+function extractQuotedReference(userInput: string): string | null {
+  const quotedMatch = userInput.match(/"([^"]+)"/)
+  return quotedMatch ? quotedMatch[1] : null
+}
+
+function trimTrailingPunctuation(value: string): string {
+  return value.trim().replace(/[.?!]+$/, '').trim()
+}
+
+function normalizeContentForMatching(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+function findUniqueExactContentMatch(
+  referenceContent: string,
+  documents: readonly LoreDocument[],
+): LoreDocument | null {
+  const normalizedReferenceContent = normalizeContentForMatching(referenceContent)
+  const matches = documents.filter((document) =>
+    normalizeContentForMatching(document.content) === normalizedReferenceContent,
+  )
+
+  return matches.length === 1 ? matches[0] : null
+}
+
+function selectClearSingleCandidate(candidateMatches: readonly CandidateMatch[]): CandidateMatch | null {
+  const chosenCandidate = candidateMatches[0]
+  const runnerUp = candidateMatches[1]
+  const plausibleCandidates = candidateMatches.filter((candidate) => candidate.score >= MIN_CLEAR_MATCH_SCORE)
+
+  const chosenIsClearlyBest = chosenCandidate !== undefined
+    && chosenCandidate.score >= MIN_CLEAR_MATCH_SCORE
+    && (!runnerUp || chosenCandidate.score - runnerUp.score >= MIN_CLEAR_MATCH_GAP)
+    && plausibleCandidates.length <= 1
+
+  return chosenIsClearlyBest ? chosenCandidate : null
+}
+
+function buildSingleTargetExecutionResolution(
+  action: CommandOperation['action'],
+  document: LoreDocument,
+  updatedContent: string | null,
+  userInput: string,
+): CommandResolution {
+  const description = action === 'delete'
+    ? `Delete "${truncateContent(document.content, 60)}"`
+    : `Update "${truncateContent(document.content, 60)}"`
+
+  return {
+    status: 'execute',
+    operations: [{
+      targetDocumentIds: [document.id],
+      action,
+      updatedContent,
+      confidence: 0.99,
+      description: userInput.length > 0 ? description : '',
+    }],
+    clarificationMessage: null,
+  }
+}
+
+function extractReferenceTextForSafety(
+  userInput: string,
+  operation: CommandOperation,
+): string {
+  const parsedCommand = parseDeterministicCommand(userInput)
+  if (parsedCommand && parsedCommand.referenceText.length > 0) {
+    return parsedCommand.referenceText
+  }
+
+  return userInput.length > 0 ? userInput : operation.description
 }
 
 function rankCandidateMatches(referenceText: string, documents: readonly LoreDocument[]): CandidateMatch[] {
@@ -291,17 +403,22 @@ function scoreDocumentMatch(salientTerms: readonly string[], content: string): n
   return matchedTerms / salientTerms.length
 }
 
+const MAX_CLARIFICATION_LIST_ITEMS = 8
+
 function buildCandidateClarification(
   candidateMatches: readonly CandidateMatch[],
   documents: readonly LoreDocument[],
   prefix: string,
 ): string {
-  const previewCandidates = candidateMatches.length > 0
+  const rawCandidates = candidateMatches.length > 0
     ? candidateMatches
     : documents.map((document) => ({ document, score: 0 }))
+  const previewCandidates = [...rawCandidates].sort((a, b) =>
+    a.document.content.localeCompare(b.document.content) || a.document.id.localeCompare(b.document.id),
+  )
 
   const previewList = previewCandidates
-    .slice(0, 3)
+    .slice(0, MAX_CLARIFICATION_LIST_ITEMS)
     .map((candidate, index) => `${index + 1}. "${truncateContent(candidate.document.content, 60)}"`)
     .join('\n')
 
@@ -309,7 +426,12 @@ function buildCandidateClarification(
     return `${prefix} Could you be more specific?`
   }
 
-  return `${prefix}\n${previewList}\n\nWhich one did you mean?`
+  const listedCount = Math.min(previewCandidates.length, MAX_CLARIFICATION_LIST_ITEMS)
+  const replyHint = listedCount >= 2
+    ? '\n\nYou can reply with the number as it appears (1, 2, …), say **all** or **all of them** for every item, or describe which one.'
+    : '\n\nYou can reply with the number (1) or describe which one.'
+
+  return `${prefix}\n${previewList}\n\nWhich one did you mean?${replyHint}`
 }
 
 function extractSalientTerms(text: string): string[] {

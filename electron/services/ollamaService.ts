@@ -174,10 +174,13 @@ export async function pullModel(
   let buffer = ''
 
   try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
+    let done = false
+    while (!done) {
+      const result = await reader.read()
+      done = result.done
+      const value = result.value
 
+      if (done) break
       buffer += decoder.decode(value, { stream: true })
       const lines = buffer.split('\n')
       buffer = lines.pop() ?? ''
@@ -353,9 +356,61 @@ function parseStructuredResponse(rawResponse: string): Record<string, unknown> {
   return parsed as Record<string, unknown>
 }
 
+function extractFirstBalancedJsonObject(value: string): string | null {
+  const startIndex = value.indexOf('{')
+  if (startIndex === -1) {
+    return null
+  }
+
+  let depth = 0
+  let isInsideString = false
+  let isEscaped = false
+
+  for (let index = startIndex; index < value.length; index += 1) {
+    const character = value[index]
+
+    if (isInsideString) {
+      if (isEscaped) {
+        isEscaped = false
+        continue
+      }
+      if (character === '\\') {
+        isEscaped = true
+        continue
+      }
+      if (character === '"') {
+        isInsideString = false
+      }
+      continue
+    }
+
+    if (character === '"') {
+      isInsideString = true
+      continue
+    }
+    if (character === '{') {
+      depth += 1
+      continue
+    }
+    if (character === '}') {
+      depth -= 1
+      if (depth === 0) {
+        return value.slice(startIndex, index + 1)
+      }
+    }
+  }
+
+  return null
+}
+
 function sanitizeStructuredJsonResponse(rawResponse: string): string {
   let cleaned = rawResponse.trim()
   cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/g, '')
+
+  const balanced = extractFirstBalancedJsonObject(cleaned)
+  if (balanced !== null) {
+    return balanced
+  }
 
   const firstBraceIndex = cleaned.indexOf('{')
   const lastBraceIndex = cleaned.lastIndexOf('}')

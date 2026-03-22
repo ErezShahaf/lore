@@ -18,9 +18,9 @@ import type {
 const DEFAULT_MAX_RESULTS = 1000
 const DUPLICATE_THRESHOLD = 0.92
 const RELEVANCE_CLIFF_RATIO = 0.3
-const MINIMUM_RELEVANCE_SCORE = 0.3
+const MINIMUM_RELEVANCE_SCORE = 0.26
 
-const TAG_BOOST_FACTOR = 0.2
+const TAG_BOOST_FACTOR = 0.32
 
 function buildFilter(options?: RetrievalOptions): string | undefined {
   const parts: string[] = []
@@ -44,6 +44,17 @@ function buildFilter(options?: RetrievalOptions): string | undefined {
     parts.push(`createdAt < '${escapeFilterValue(options.createdAtTo)}'`)
   }
   return parts.length > 0 ? parts.join(' AND ') : undefined
+}
+
+const DEFAULT_TODO_COMMAND_CANDIDATE_LIMIT = 200
+
+export async function retrieveTodoCandidatesForCommand(
+  options?: RetrievalOptions,
+): Promise<LoreDocument[]> {
+  const filter = buildFilter({ ...options, type: 'todo' })
+  const limit = options?.maxResults ?? DEFAULT_TODO_COMMAND_CANDIDATE_LIMIT
+  const documents = await getDocumentsByFilter(filter, limit)
+  return [...documents].sort((left, right) => right.createdAt.localeCompare(left.createdAt))
 }
 
 function boostByTags(docs: ScoredDocument[], queryTags: string[]): ScoredDocument[] {
@@ -183,15 +194,20 @@ export async function retrieveWithAdaptiveThreshold(
   if (boosted.length > 0) {
     logger.debug(
       { scores: boosted.map((d) => `${d.score.toFixed(3)}${d.tags ? ` [${d.tags}]` : ''}`) },
-      '[retrieval] top scores',
+      '[retrieval] adaptive threshold: top scores (before relevance cliff)',
     )
   }
 
   const relevant = applyRelevanceCliff(boosted)
 
   logger.debug(
-    { candidates: boosted.length, afterCliff: relevant.length, minScore: MINIMUM_RELEVANCE_SCORE },
-    '[retrieval] candidates after cliff+floor',
+    {
+      preCliffCandidateCount: boosted.length,
+      finalDocumentCount: relevant.length,
+      minimumScoreFloor: MINIMUM_RELEVANCE_SCORE,
+      note: 'Top scores above are pre-cliff; finalDocumentCount is what the question handler uses.',
+    },
+    '[retrieval] adaptive threshold: after relevance cliff',
   )
 
   return {
@@ -279,7 +295,8 @@ export async function multiQueryRetrieve(
     }
   }
 
-  const scored = [...bestById.values()].sort((a, b) => b.score - a.score)
+  const merged = [...bestById.values()]
+  const scored = boostByTags(merged, options?.tags ?? []).sort((left, right) => right.score - left.score)
 
   if (scored.length > 0) {
     logger.debug(
@@ -291,8 +308,13 @@ export async function multiQueryRetrieve(
   const relevant = applyRelevanceCliff(scored)
 
   logger.debug(
-    { candidates: scored.length, afterCliff: relevant.length, minScore: MINIMUM_RELEVANCE_SCORE },
-    '[multi-query] candidates after cliff+floor',
+    {
+      preCliffCandidateCount: scored.length,
+      finalDocumentCount: relevant.length,
+      minimumScoreFloor: MINIMUM_RELEVANCE_SCORE,
+      note: 'Unique docs are pre-cliff; finalDocumentCount is what the question handler uses.',
+    },
+    '[multi-query] after relevance cliff',
   )
 
   return {

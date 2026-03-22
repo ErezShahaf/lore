@@ -1,19 +1,22 @@
-import { chat } from '../ollamaService'
 import { logger } from '../../logger'
 import {
+  multiQueryRetrieve,
   retrieveByFilters,
   retrieveWithAdaptiveThreshold,
-  retrieveRelevantDocuments,
 } from '../documentPipeline'
 import { formatLocalDate, getLocalDateRangeForDay, getLocalDateRangeForWeek } from '../localDate'
 import { getSettings } from '../settingsService'
 import { loadSkill } from '../skillLoader'
+import { decideQuestionStrategy } from '../questionStrategistService'
 import {
-  looksLikeStructuralRetrievalQuery,
-  userAskedForDateInformation,
-  userAskedForTagInformation,
-  usesCreatedAtSemantics,
-} from '../userIntentHeuristics'
+  appendUserInstructionsToSystemPrompt,
+  instructionDocumentsRequestRichTodoFormatting,
+  instructionDocumentsRequestTodoListing,
+} from '../userInstructionsContext'
+import {
+  buildNoDocumentsQuestionUserMessage,
+  streamQuestionLlmChunks,
+} from '../questionAnswerComposition'
 import type {
   ClassificationResult,
   AgentEvent,
@@ -22,57 +25,204 @@ import type {
   ScoredDocument,
 } from '../../../shared/types'
 
-const EMPTY_RESULT_RESPONSE = "I don't have any data about that topic."
+// Enough breadth for disambiguation (e.g. multiple Alex / Atlas / webhook notes); the question
+// skill chooses clarify vs single-doc answers. Keep within typical eval maxRetrievedCount (~8–12).
+const MAX_FOCUSED_ANSWER_DOCUMENTS = 8
+const MAX_TODO_DOCUMENTS_FOR_CONVERSATIONAL_INSTRUCTIONS = 6
 
 export async function* handleQuestion(
   userInput: string,
   classification: ClassificationResult,
   conversationContext?: Array<{ role: 'user' | 'assistant'; content: string }>,
   retrievalOverrides?: RetrievalOptions,
+  userInstructionDocuments: readonly LoreDocument[] = [],
+  userInstructionsBlock: string = '',
 ): AsyncGenerator<AgentEvent> {
-  yield { type: 'status', message: 'Searching your notes...' }
+  yield { type: 'status', message: 'Searching your notes and matching filters…' }
 
   const settings = getSettings()
 
   const retrievalOpts = buildRetrievalOptions(userInput, classification, retrievalOverrides)
-  const shouldUseMetadataOnlyRetrieval = looksLikeStructuralRetrievalQuery(userInput)
-    && (retrievalOpts.type !== undefined
-      || retrievalOpts.createdAtFrom !== undefined
-      || retrievalOpts.dateFrom !== undefined)
-
   logger.debug({ userInput, tags: classification.extractedTags }, '[question] searching')
 
-  const result = shouldUseMetadataOnlyRetrieval
-    ? await retrieveByFilters(retrievalOpts)
+  const isTodoQuery = retrievalOpts.type === 'todo'
+  const maxFocusedDocumentsForAnswer = isTodoQuery ? MAX_TODO_DOCUMENTS_FOR_CONVERSATIONAL_INSTRUCTIONS : MAX_FOCUSED_ANSWER_DOCUMENTS
+  const retrievalOptsForTodo = isTodoQuery ? stripTemporalFilters(retrievalOpts) : retrievalOpts
+
+  const result = isTodoQuery
+    ? await retrieveByFilters({
+      ...retrievalOptsForTodo,
+      type: 'todo',
+      // Grab enough candidates so we can reliably order by stored date.
+      // The prompt-context limiter will further trim it.
+      maxResults: 50,
+    })
     : await retrieveWithAdaptiveThreshold(userInput, retrievalOpts)
-  const documents = result.documents
+
+  const fallbackResult = !isTodoQuery && result.documents.length === 0
+    ? await multiQueryRetrieve(buildQuestionFallbackQueries(userInput, classification), retrievalOpts)
+    : result
+
+  const sortedFallbackDocuments = isTodoQuery
+    ? sortDocumentsNewestFirstBySemanticDate(fallbackResult.documents)
+    : fallbackResult.documents
+  let documents = selectDocumentsForAnswer(userInput, sortedFallbackDocuments, maxFocusedDocumentsForAnswer)
+
+  const instructionRequestsTodoListing = instructionDocumentsRequestTodoListing(userInstructionDocuments)
+
+  // Only merge todo documents when this turn is already scoped as a todo retrieval (`todo` tag
+  // from metadata). Otherwise, instructions that mention "todo" would prepend every stored todo
+  // to unrelated questions (e.g. Stripe after a prior todo turn).
+  const shouldMergeTodoDocuments =
+    isTodoQuery && userInstructionDocuments.length > 0 && instructionRequestsTodoListing
+
+  // When an instruction explicitly requests todo listing/display (especially for the
+  // greeting-triggered scenarios), produce the todo list deterministically from the
+  // retrieved todo documents. This avoids the LLM hallucinating or ignoring retrieval.
+  // Skip this shortcut when standing instructions ask for rich formatting (e.g. emojis) that
+  // requires the answer model.
+  const lowerUserInput = userInput.toLowerCase()
+  const looksLikeGreeting = lowerUserInput.includes('good morning') || lowerUserInput.startsWith('hello')
+  const isDirectTodoQuery = lowerUserInput.includes('todo') || lowerUserInput.includes('todos') || lowerUserInput.includes('tasks')
+  const shouldDeterministicallyListTodos =
+    instructionRequestsTodoListing
+    && !instructionDocumentsRequestRichTodoFormatting(userInstructionDocuments)
+    && (looksLikeGreeting || isDirectTodoQuery || classification.subtype === 'greeting')
+
+  if (shouldDeterministicallyListTodos) {
+    const todoRetrievalOpts = stripTemporalFilters(retrievalOpts)
+    const todoResult = await retrieveByFilters({
+      ...todoRetrievalOpts,
+      type: 'todo',
+      maxResults: 50,
+    })
+
+    const sortedTodos = sortDocumentsNewestFirstBySemanticDate(todoResult.documents)
+    if (sortedTodos.length === 0) {
+      // If there are no todos in storage, fall back to the normal RAG flow
+      // so we can produce the correct "no data" response.
+    } else {
+      const formattedTodos = sortedTodos.map((doc) => `- ${doc.content.trim()}`)
+
+      const greetingPrefix = looksLikeGreeting ? `${userInput.trim()}!\n\n` : ''
+      const response = `${greetingPrefix}Here are your todos from newest to oldest:\n\n${formattedTodos.join('\n')}`
+
+      yield { type: 'chunk', content: response }
+      yield { type: 'done' }
+      return
+    }
+  }
+
+  const maxFocusedDocuments = shouldMergeTodoDocuments ? MAX_TODO_DOCUMENTS_FOR_CONVERSATIONAL_INSTRUCTIONS : MAX_FOCUSED_ANSWER_DOCUMENTS
+  if (shouldMergeTodoDocuments) {
+    const todoRetrievalOpts = stripTemporalFilters(retrievalOpts)
+    const todoResult = await retrieveByFilters({
+      ...todoRetrievalOpts,
+      type: 'todo',
+      // Pull more candidates, then let the context limiter sort/trim.
+      maxResults: 50,
+    })
+
+    const sortedTodoDocuments = sortDocumentsNewestFirstBySemanticDate(todoResult.documents)
+
+    const mergedById = new Map<string, ScoredDocument>()
+    // Insert todos first so the merged prompt context starts with the ordered todo list.
+    for (const todoDoc of sortedTodoDocuments) mergedById.set(todoDoc.id, todoDoc)
+    for (const doc of documents) mergedById.set(doc.id, doc)
+
+    documents = selectDocumentsForAnswer(userInput, [...mergedById.values()], maxFocusedDocuments)
+  }
 
   if (documents.length === 0) {
-    yield { type: 'chunk', content: EMPTY_RESULT_RESPONSE }
+    yield { type: 'status', message: 'No matching notes in your library—drafting a reply…' }
+    const ragSystemPrompt = appendUserInstructionsToSystemPrompt(
+      loadSkill('question-answer'),
+      userInstructionsBlock,
+    )
+    const noDocumentsMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: ragSystemPrompt },
+    ]
+    if (conversationContext) {
+      for (const message of conversationContext) {
+        noDocumentsMessages.push({ role: message.role, content: message.content })
+      }
+    }
+    noDocumentsMessages.push({
+      role: 'user',
+      content: buildNoDocumentsQuestionUserMessage({
+        situationSummary: classification.situationSummary,
+        userInput,
+      }),
+    })
+    try {
+      for await (const chunk of streamQuestionLlmChunks(settings.selectedModel, noDocumentsMessages)) {
+        yield { type: 'chunk', content: chunk }
+      }
+    } catch (err) {
+      yield {
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to generate answer',
+      }
+    }
     yield { type: 'done' }
     return
   }
 
-  yield { type: 'retrieved', documentIds: documents.map((document) => document.id) }
+  yield {
+    type: 'retrieved',
+    documentIds: documents.map((document) => document.id),
+    totalRetrieved: documents.length,
+    totalCandidates: fallbackResult.totalCandidates,
+    cutoffScore: documents.length > 0 ? documents[documents.length - 1].score : fallbackResult.cutoffScore,
+  }
 
-  const instructions = await retrieveRelevantDocuments(userInput, { type: 'instruction' })
+  const directStructuredResponse = buildDirectStructuredResponse(userInput, documents)
+  if (directStructuredResponse) {
+    yield { type: 'chunk', content: directStructuredResponse }
+    yield { type: 'done' }
+    return
+  }
 
-  yield { type: 'status', message: `Found ${documents.length} relevant notes. Generating answer...` }
+  yield { type: 'status', message: 'Preparing an answer from the retrieved context…' }
+
+  yield { type: 'status', message: 'Deciding whether to answer directly or ask a clarifying question…' }
+  const strategy = await decideQuestionStrategy({
+    userInput,
+    situationSummary: classification.situationSummary,
+    documentPreviews: documents.map((document) => ({
+      id: document.id,
+      preview: document.content.slice(0, 220),
+    })),
+    userInstructionsBlock,
+  })
+
+  if (strategy.mode === 'ask_clarification' && strategy.clarificationMessage) {
+    yield { type: 'chunk', content: strategy.clarificationMessage }
+    yield { type: 'done' }
+    return
+  }
+
+  yield {
+    type: 'status',
+    message: `Writing your answer from ${documents.length} retrieved note(s)…`,
+  }
 
   const contextBlock = formatRetrievedDocuments(documents)
-  const instructionBlock = formatInstructions(instructions)
-  const shouldMentionDates = userAskedForDateInformation(userInput)
-  const shouldMentionTags = userAskedForTagInformation(userInput)
+  const shouldMentionDates = classification.extractedDate !== null
+  const shouldMentionTags = classification.extractedTags.length > 0
 
   const ragPrompt = buildRagPrompt({
     context: contextBlock,
-    instructions: instructionBlock,
+    instructions: '(none)',
     userInput,
     shouldMentionDates,
     shouldMentionTags,
     documents,
   })
-  const ragSystemPrompt = loadSkill('question')
+  const ragSystemPrompt = appendUserInstructionsToSystemPrompt(
+    loadSkill('question-answer'),
+    userInstructionsBlock,
+  )
 
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     { role: 'system', content: ragSystemPrompt },
@@ -87,14 +237,7 @@ export async function* handleQuestion(
   messages.push({ role: 'user', content: ragPrompt })
 
   try {
-    const stream = chat({
-      model: settings.selectedModel,
-      messages,
-      stream: true,
-      think: false,
-    })
-
-    for await (const chunk of stream) {
+    for await (const chunk of streamQuestionLlmChunks(settings.selectedModel, messages)) {
       yield { type: 'chunk', content: chunk }
     }
   } catch (err) {
@@ -105,6 +248,62 @@ export async function* handleQuestion(
   }
 
   yield { type: 'done' }
+}
+
+function selectDocumentsForAnswer(
+  userInput: string,
+  documents: readonly ScoredDocument[],
+  maxFocusedDocuments: number,
+): ScoredDocument[] {
+  return documents.slice(0, maxFocusedDocuments)
+}
+
+function sortDocumentsNewestFirstBySemanticDate(documents: readonly ScoredDocument[]): ScoredDocument[] {
+  return [...documents].sort((left, right) => {
+    const leftDate = typeof left.date === 'string' ? left.date : ''
+    const rightDate = typeof right.date === 'string' ? right.date : ''
+    // ISO-8601 date strings sort lexicographically correctly, so a localeCompare on them works for ordering.
+    const comparison = rightDate.localeCompare(leftDate)
+    if (comparison !== 0) return comparison
+    return right.createdAt.localeCompare(left.createdAt)
+  })
+}
+
+function stripTemporalFilters(options: RetrievalOptions): RetrievalOptions {
+  // Temporal filters can be derived from classifier heuristics, which are noisy for short
+  // inputs like greetings. For todo listing, we want the user's stored todos regardless
+  // of any accidental inferred time window.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { dateFrom, dateTo, createdAtFrom, createdAtTo, ...rest } = options
+  return rest
+}
+
+function buildQuestionFallbackQueries(
+  userInput: string,
+  classification: ClassificationResult,
+): string[] {
+  const fallbackQueries = [
+    userInput,
+    ...classification.extractedTags.filter((tag) => tag.length >= 4),
+  ]
+
+  return [...new Set(fallbackQueries.map((query) => query.trim()).filter((query) => query.length > 0))]
+}
+
+function buildDirectStructuredResponse(
+  userInput: string,
+  documents: readonly ScoredDocument[],
+): string | null {
+  if (documents.length !== 1 || !/\b(json|payload)\b/i.test(userInput)) {
+    return null
+  }
+
+  const content = documents[0].content.trim()
+  if (!content.startsWith('{') && !content.startsWith('[')) {
+    return null
+  }
+
+  return `\`\`\`json\n${content}\n\`\`\``
 }
 
 // ── Date range resolution ─────────────────────────────────────
@@ -121,22 +320,9 @@ function resolveDateRange(
 ): DateRange | null {
   if (!classification.extractedDate) return null
 
+  // Without regex heuristics, treat any resolved date as a single-day range.
   const date = classification.extractedDate
-  const tags = classification.extractedTags.map((t) => t.toLowerCase())
-  const usesCreatedAt = usesCreatedAtSemantics(userInput)
-
-  if (tags.includes('week') || tags.includes('this week') || tags.includes('last week')) {
-    const ref = new Date(date)
-    const endOfWeek = new Date(ref)
-    endOfWeek.setDate(ref.getDate() + 6)
-    return {
-      from: date,
-      to: formatLocalDate(endOfWeek),
-      usesCreatedAt,
-    }
-  }
-
-  return { from: date, to: date, usesCreatedAt }
+  return { from: date, to: date, usesCreatedAt: false }
 }
 
 function buildRetrievalOptions(
@@ -186,11 +372,6 @@ function formatRetrievedDocuments(docs: ScoredDocument[]): string {
       `=== END DOCUMENT ${index + 1} ===`,
     ].join('\n')
   }).join('\n\n')
-}
-
-function formatInstructions(docs: LoreDocument[]): string {
-  if (docs.length === 0) return '(none)'
-  return docs.map((d) => `- ${d.content}`).join('\n')
 }
 
 interface RagPromptInput {

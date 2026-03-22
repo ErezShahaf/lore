@@ -2,7 +2,7 @@ import { chat } from '../ollamaService'
 import { getSettings } from '../settingsService'
 import { loadSkill } from '../skillLoader'
 import { logger } from '../../logger'
-import { looksLikeStoredDataQuestion } from '../userIntentHeuristics'
+import { appendUserInstructionsToSystemPrompt } from '../userInstructionsContext'
 import type { ClassificationResult, ConversationEntry, AgentEvent } from '../../../shared/types'
 
 let cachedConversationalSystemPrompt: string | null = null
@@ -25,11 +25,15 @@ export async function* handleConversational(
   userInput: string,
   _classification: ClassificationResult,
   conversationHistory: readonly ConversationEntry[] = [],
+  userInstructionsBlock: string = '',
 ): AsyncGenerator<AgentEvent> {
-  yield { type: 'status', message: 'Thinking...' }
+  yield { type: 'status', message: 'Drafting a conversational reply…' }
 
   const settings = getSettings()
-  const systemPrompt = buildConversationalSystemPrompt()
+  const systemPrompt = appendUserInstructionsToSystemPrompt(
+    buildConversationalSystemPrompt(),
+    userInstructionsBlock,
+  )
 
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     { role: 'system', content: systemPrompt },
@@ -67,15 +71,12 @@ export async function* handleConversational(
       }
     }
 
+    // When streaming already emitted visible chunks, the assistant message is complete—do not
+    // send the full response again or the UI will append duplicate text.
     if (!streamedResponse.didEmitVisibleContent) {
       yield {
         type: 'chunk',
         content: normalizeConversationalResponse(userInput, streamedResponse.response),
-      }
-    } else {
-      const fallbackHint = buildPotentialMisrouteHint(userInput)
-      if (fallbackHint) {
-        yield { type: 'chunk', content: `\n\n${fallbackHint}` }
       }
     }
   } catch (err) {
@@ -150,14 +151,13 @@ async function* streamConversationalResponse(
 
 function normalizeConversationalResponse(userInput: string, response: string): string {
   const trimmedResponse = response.trim()
-  const fallbackHint = buildPotentialMisrouteHint(userInput)
 
   if (trimmedResponse.length > 0) {
-    return fallbackHint ? `${trimmedResponse}\n\n${fallbackHint}` : trimmedResponse
+    return trimmedResponse
   }
 
   const defaultResponse = "I'm here to help explain how Lore works. Ask me about saving notes, searching your data, managing todos, or changing preferences."
-  return fallbackHint ? `${defaultResponse}\n\n${fallbackHint}` : defaultResponse
+  return defaultResponse
 }
 
 function looksLikeStructuredAgentOutput(response: string): boolean {
@@ -181,6 +181,11 @@ function looksLikeStructuredAgentOutput(response: string): boolean {
     '"targetdocumentids"',
     '"updatedcontent"',
     '"action"',
+    '"situationsummary"',
+    '"splitstrategy"',
+    '"assistantrecentlyaskedforclarification"',
+    '"mode"',
+    '"notesfordecomposer"',
   ]
 
   return structuredMarkers.some((marker) => lowerResponse.includes(marker))
@@ -218,10 +223,3 @@ function looksLikeStructuredResponsePrefix(response: string): boolean {
   )
 }
 
-function buildPotentialMisrouteHint(userInput: string): string | null {
-  if (looksLikeStoredDataQuestion(userInput)) {
-    return 'If you meant that you want me to search your stored content, ask me directly about the notes, todos, or information you want me to find.'
-  }
-
-  return null
-}

@@ -3,29 +3,6 @@ import type { RecommendedModel, ModelVariant } from './types'
 export const RECOMMENDED_MODELS: RecommendedModel[] = [
 
   {
-    displayName: 'Qwen 3.5 0.8B',
-    parametersBillions: 0.8,
-    tier: 'small',
-    category: 'chat',
-    description: 'Ultra-fast fallback for low-RAM systems',
-    gpuRecommended: false,
-    variants: [
-      { tag: 'qwen3.5:0.8b', quantization: 'Q8', sizeOnDisk: '~1 GB', minRAMGB: 4 },
-    ],
-  },
-  {
-    displayName: 'Qwen 3.5 2B',
-    parametersBillions: 2,
-    tier: 'small',
-    category: 'chat',
-    description: 'Fast and capable — good fallback when 4B/9B do not fit',
-    gpuRecommended: false,
-    variants: [
-      { tag: 'qwen3.5:2b-q4_K_M', quantization: 'Q4_K_M', sizeOnDisk: '~1.9 GB', minRAMGB: 4 },
-      { tag: 'qwen3.5:2b', quantization: 'Q8', sizeOnDisk: '~2.7 GB', minRAMGB: 6 },
-    ],
-  },
-  {
     displayName: 'Qwen 3.5 4B',
     parametersBillions: 4,
     tier: 'medium',

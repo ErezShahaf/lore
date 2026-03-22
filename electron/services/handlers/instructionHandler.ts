@@ -1,18 +1,22 @@
 import { storeThought } from '../documentPipeline'
 import { retrieveRelevantDocuments } from '../documentPipeline'
 import { formatLocalDate } from '../localDate'
+import { streamAssistantUserReplyWithFallback } from '../assistantReplyComposer'
 import type { ClassificationResult, AgentEvent } from '../../../shared/types'
 
 export async function* handleInstruction(
   userInput: string,
   classification: ClassificationResult,
+  userInstructionsBlock: string = '',
 ): AsyncGenerator<AgentEvent> {
-  yield { type: 'status', message: 'Saving instruction...' }
+  yield { type: 'status', message: 'Checking for similar saved instructions…' }
 
   const existing = await retrieveRelevantDocuments(userInput, {
     type: 'instruction',
     similarityThreshold: 0.8,
   })
+
+  yield { type: 'status', message: 'Saving your instruction…' }
 
   const today = formatLocalDate(new Date())
 
@@ -26,15 +30,18 @@ export async function* handleInstruction(
 
   yield { type: 'stored', documentId: doc.id }
 
-  let response = "Got it! I'll remember that from now on."
+  const similarInstructionPreviews = existing.map((document) =>
+    `${document.content.slice(0, 60)}${document.content.length > 60 ? '...' : ''}`,
+  )
 
-  if (existing.length > 0) {
-    const previews = existing
-      .map((d) => `"${d.content.slice(0, 60)}${d.content.length > 60 ? '...' : ''}"`)
-      .join(', ')
-    response += `\n\nNote: I found similar existing instructions: ${previews}. Both will stay active unless you ask me to delete or replace that instruction explicitly.`
+  for await (const chunk of streamAssistantUserReplyWithFallback({
+    userInstructionsBlock,
+    facts: {
+      kind: 'instruction_stored',
+      similarInstructionPreviews,
+    },
+  })) {
+    yield { type: 'chunk', content: chunk }
   }
-
-  yield { type: 'chunk', content: response }
   yield { type: 'done' }
 }
