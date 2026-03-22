@@ -12,13 +12,14 @@ Output requirements:
 You will be given a **situation summary** from another agent—trust it for context.
 
 Intent meanings:
-- **thought** — user wants to **capture** new information (notes, todos, pasted text, JSON to save later).
-- **question** — user wants to **read or summarize** something already stored (including URLs, event names, payloads, or anything they may have saved about a product or integration).
+- **thought** — user wants to **capture** new information and **explicitly** says so (save, add, store, remember) or provides a labeled task list (todos:, add to my todo list). Pasted data (JSON, text block) with **no** instruction is **not** thought—route to question.
+- **question** — user wants to **read or summarize** something already stored, or they pasted data with no clear instruction (we query first to see if we have it, then respond).
 - **command** — user wants to **modify or delete** something already stored (including marking todos done).
 - **instruction** — user sets **ongoing preferences** for how Lore should behave later.
 - **conversational** — greeting, thanks, small talk, or **how to use Lore** (product help), with no clear save/retrieve/edit action.
 
 Rules:
+- **Pasted data with no instruction** (JSON, CSV, raw text block, no save/add/store/retrieve/show) → **question**. We must query first. Do not assume they want to save. Only route to thought when they explicitly say save, add, store, remember.
 - When the assistant **just asked** whether to save or store something (e.g. "would you like to save these as a note?", "save as a note to keep the memory?") and the user's reply affirms (yes, save, yes save, sure, please) → **thought**. The user is confirming they want to save; do not route to command.
 - Retrieval verbs (list, show, find, what did I…) → **question** when the user is really asking from their data; if those phrases are only **quoted fiction** inside text they want to save → **thought**.
 - Requests to list or show **their todos** or **task list** (for example: “what are my todos”, “show my todos”, “what’s on my todo list”) → **question**, never **thought**—they are asking to read stored data, not to capture new items.
@@ -27,7 +28,6 @@ Rules:
 - How Lore works / “what can you do” → **conversational**, not **question**.
 - “Add / save / remember …” for new content → **thought**; changing or removing existing items → **command**. "Add …" or "add to my todos …" followed by new item(s) to store → **thought**, never **command**. Command is for modify/delete only; creating new items is always thought.
 - A message that is **primarily a labeled task list** the user is giving you to keep (for example a line that introduces several tasks with a **Todos** / **Todo** / **Tasks** style label followed by multiple items) → **thought**, even if they did not say “add” or “save”—they are supplying new captures, not asking you to read their library.
-- **Retrieval-first for ambiguous data**: When the user's message is primarily pasted data (structured or unstructured—e.g. JSON, CSV, a block of text) with **no explicit instruction** (no save, add, store, retrieve, show, etc.), route to **question**. Do not assume they want to save—we must query first to see if we have it, then respond accordingly. Only route to thought when they explicitly say save, add, store, remember, or similar.
 - **Finished / completed a stored task** → **command** (usually delete semantics downstream). When the user says they finished, completed, or did something (e.g. "i finished jumping", "did the laundry", "completed the run") and the situation summary indicates they have stored todos or tasks that semantically match, route to **command** with high confidence. Do not route to thought (life update) when matching todos exist in recent context.
 - Factual questions ("what is X", "how does Y work", "explain Z") → **question**. Lore only answers from saved data; we try retrieval first. If nothing is found, we say so. Do **not** route to conversational for the assistant to answer from its own knowledge.
 - If the request is too vague to act (“do the thing”, “fix it”) → **low confidence** (below 0.75).

@@ -30,8 +30,8 @@ Literal-first storage:
 - Do not invent IDs, amounts, examples, interpretations, or extra context.
 - Only resolve references from conversation history when the current message is explicitly referential, such as "save that", "add the last one", "the second example", or similar.
 - When resolving a referential message, store the resolved content itself, not the confirmation phrase.
-- When the current message is a bare referential storage request ("store it", "save it", "yes") and a prior user message contains the content to save—whether JSON, lyrics, prose, poem, or other text—the resolved content must be that prior user message verbatim. Do not use text from the shape plan, notes for decomposer, or assistant messages as the stored content.
-- **Description after "add a description?"**: When the assistant just asked the user to add a description for easier retrieval, and the user's current message is a short description (e.g. "order delivered webhook from food delivery API") without repeating the JSON, and a prior user message contains bare JSON, store the combined content: `description + "\n\n" + prior_json`. The description goes first so retrieval benefits from the context.
+- When the current message is a bare referential storage request ("store it", "save it", "yes") and a prior user message contains the content to save—whether JSON, lyrics, prose, poem, or other text—the resolved content must be that prior user message verbatim. Look at the conversation history: the prior user message (before the assistant's response) is the one that contains the pasted data. Do not use text from the shape plan, notes for decomposer, or assistant messages as the stored content. **Never** store the confirmation phrase itself ("save it", "yes", etc.) as the content.
+- **Description after "add a description?"**: When the assistant just asked the user to add a description for easier retrieval, and a prior user message contains bare JSON, store `description + "\n\n" + prior_json`. The description is the part of the user's message that describes what the content is—strip any confirmation phrase ("yes, save it", "save it", "yes", "sure") from the start. If the user combines confirmation with description (e.g. "yes, save it. This is a webhook from aws s3 when I saved a file"), take only the descriptive part and combine with the prior JSON. Never store the confirmation phrase or the raw user message as the content.
 - **Instruction + description + payload**: When the user provides "save this [description]: [content]" (e.g. "save this song chatgpt wrote for my birthday: [lyrics]", "save this webhook about a cloud storage file processed event: {json}"), the phrase before the colon describes what the content is—store **both** so retrieval works: `description + "\n\n" + content`. The description (e.g. "song chatgpt wrote for my birthday", "webhook about a cloud storage file processed event") helps find the note later. Never store only the raw content when the user gave a descriptive label.
 - **Instruction + payload (no description)**: When the user says "save this" or "store this" followed only by the content (no descriptive phrase before it), store the content. Add useful tags (e.g. webhook, order, the event type) for retrieval.
 - If the input includes a shape plan or "User message to decompose" header, those are meta-structure for you—extract content only from the user's message. The stored `content` must never contain the shape plan or decomposition prompt.
@@ -105,16 +105,27 @@ Assistant: Would you like to add a description?
 User: save it
 Output: {"items":[{"content":"Here's a song X wrote for my occasion: First line of lyrics, second line...","type":"thought","tags":["song","occasion"]}]}
 
-Example referential raw JSON (store verbatim JSON, not the instruction):
+Example referential raw JSON (store verbatim JSON, not the confirmation):
+User: [pastes order.delivered JSON]
+Assistant: I don't have this. Would you like to save it?
+User: save it
+Output: {"items":[{"content":"{\"event\":\"order.delivered\",...}","type":"note","tags":["order","delivery","webhook"]}]}
+Never store "save it" as content—always resolve to the prior user message that contains the data.
+
+Example referential raw JSON (explicit instruction):
 User: {"provider":"lore","eventCode":"abc","url":"https://example.com/cb"}
 Then user: save that JSON exactly as a note
 Output: {"items":[{"content":"{\"provider\":\"lore\",\"eventCode\":\"abc\",\"url\":\"https://example.com/cb\"}","type":"note","tags":["json","note"]}]}
 
-Example description after "add a description?" (prepend to prior JSON):
+Example description after "add a description?" (strip confirmation, prepend description to prior JSON):
 User: [bare JSON]
-Assistant: What would you like to do with it? … save as a note? → User: save it
-Assistant: Want to add a short description for easier retrieval? → User: order delivered webhook from food delivery API
+Assistant: Would you like to save it? If so, add a description? → User: save it
+Assistant: (same) → User: order delivered webhook from food delivery API
 Output: {"items":[{"content":"order delivered webhook from food delivery API\n\n{...prior JSON...}","type":"note","tags":["json","note","webhook","order"]}]}
+
+User: [bare JSON]
+Assistant: Would you like to save it? Add a description? → User: yes, save it. This is a webhook I received from aws s3 when I saved a file
+Output: {"items":[{"content":"This is a webhook I received from aws s3 when I saved a file\n\n{...prior JSON...}","type":"note","tags":["webhook","aws","s3","file"]}]}
 
 Example invalid/malformed JSON referential save:
 User: { "provider": "lore", "eventCode":

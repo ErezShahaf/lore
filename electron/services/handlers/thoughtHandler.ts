@@ -1,9 +1,12 @@
 import { v4 as uuidv4 } from 'uuid'
 import { storeThought, storeThoughtWithMetadata, checkForDuplicate } from '../documentPipeline'
+import { updateDocument } from '../lanceService'
+import { embedText } from '../embeddingService'
 import { formatLocalDate } from '../localDate'
 import { decomposeForStorage } from '../saveDecompositionService'
 import { planSaveShape } from '../saveShapeService'
 import { streamAssistantUserReplyWithFallback } from '../assistantReplyComposer'
+import { resolveDuplicateIntent } from '../duplicateResolutionService'
 import { logger } from '../../logger'
 import type { ClassificationResult, AgentEvent, DecomposedItem, DocumentType, ConversationEntry } from '../../../shared/types'
 
@@ -44,6 +47,7 @@ export async function* handleThought(
       tags,
       null,
       userInstructionsBlock,
+      conversationHistory,
     )
   } else {
     yield* storeMultipleItems(items, userInput, date, userInstructionsBlock)
@@ -60,16 +64,38 @@ async function* storeSingleItem(
   tags: readonly string[],
   customSavedJsonMessage: string | null,
   userInstructionsBlock: string,
+  conversationHistory: readonly ConversationEntry[] = [],
 ): AsyncGenerator<AgentEvent> {
   const duplicate = await checkForDuplicate(content)
-  let duplicatePreviewForFacts: string | null = null
+
   if (duplicate) {
-    const preview = duplicate.content.slice(0, 120)
-    duplicatePreviewForFacts =
-      `${preview}${duplicate.content.length > 120 ? '...' : ''}`
-    yield {
-      type: 'duplicate',
-      existingContent: preview,
+    const action = await resolveDuplicateIntent(originalInput, conversationHistory, userInstructionsBlock)
+    if (action === 'ask') {
+      const preview = duplicate.content.slice(0, 120)
+      yield { type: 'duplicate', existingContent: preview }
+      yield {
+        type: 'chunk',
+        content:
+          'You already have a similar note. Reply with "add new" to save it separately, or "update" to replace the existing one.',
+      }
+      yield { type: 'done' }
+      return
+    }
+    if (action === 'update') {
+      const vector = await embedText(content)
+      await updateDocument(duplicate.id, { content, vector })
+      yield { type: 'stored', documentId: duplicate.id }
+      const preview = content.slice(0, 60) + (content.length > 60 ? '...' : '')
+      for await (const chunk of streamAssistantUserReplyWithFallback({
+        userInstructionsBlock,
+        facts: {
+          kind: 'command_executed',
+          operations: [{ action: 'update', contentPreview: preview }],
+        },
+      })) {
+        yield { type: 'chunk', content: chunk }
+      }
+      return
     }
   }
 
@@ -95,8 +121,8 @@ async function* storeSingleItem(
       kind: 'thought_saved_single',
       documentType: docType,
       topicSummary: topic,
-      hadDuplicate: duplicate !== null,
-      duplicatePreview: duplicatePreviewForFacts,
+      hadDuplicate: false,
+      duplicatePreview: null,
     },
   })) {
     yield { type: 'chunk', content: chunk }
