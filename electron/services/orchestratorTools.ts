@@ -82,24 +82,17 @@ function parseClassificationFromArgs(
   if (!raw || typeof raw.intent !== 'string') return undefined
 
   const intent = raw.intent as InputClassification
-  if (!['thought', 'question', 'command', 'instruction', 'conversational'].includes(intent)) {
+  if (!['read', 'save', 'edit', 'delete', 'speak'].includes(intent)) {
     return undefined
   }
 
   return {
     intent,
-    subtype: typeof raw.subtype === 'string' ? raw.subtype : 'general',
     extractedDate: typeof raw.extractedDate === 'string' ? raw.extractedDate : null,
     extractedTags: Array.isArray(raw.extractedTags)
       ? (raw.extractedTags as unknown[]).filter((t): t is string => typeof t === 'string')
       : [],
-    confidence: typeof raw.confidence === 'number' ? raw.confidence : 1,
-    reasoning: typeof raw.reasoning === 'string' ? raw.reasoning : '',
     situationSummary: typeof raw.situationSummary === 'string' ? raw.situationSummary : '',
-    thoughtClarification:
-      raw.thoughtClarification && typeof raw.thoughtClarification === 'object'
-        ? (raw.thoughtClarification as ClassificationResult['thoughtClarification'])
-        : null,
   }
 }
 

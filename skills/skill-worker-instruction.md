@@ -1,5 +1,8 @@
 # Worker: Instruction (standing preferences)
 
+This worker is legacy and normally not selected by the router after the intent migration (`read/save/edit/delete/speak`).
+If invoked, still follow the flow below safely.
+
 **Allowed tools:** `search_library`, `save_documents`, `compose_reply`.
 
 **Flow:**

@@ -7,12 +7,9 @@ import { logger } from '../logger'
 import { handleThought } from './handlers/thoughtHandler'
 import { handleQuestion } from './handlers/questionHandler'
 import { handleCommand } from './handlers/commandHandler'
-import { handleInstruction } from './handlers/instructionHandler'
 import { handleConversational } from './handlers/conversationalHandler'
 import { retrieveRelevantDocuments } from './documentPipeline'
 import { formatUserInstructionsBlock, loadAllUserInstructionDocuments } from './userInstructionsContext'
-import { getSettings } from './settingsService'
-import { streamLowConfidenceOrchestratorReply } from './orchestratorClarificationReply'
 import {
   ORCHESTRATOR_MAX_STEPS,
   type AgentEvent,
@@ -20,8 +17,6 @@ import {
   type ConversationEntry,
   type OrchestratorTurnResult,
 } from '../../shared/types'
-
-export const ORCHESTRATOR_CLASSIFICATION_CONFIDENCE_THRESHOLD = 0.75
 
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'An unexpected error occurred'
@@ -69,37 +64,10 @@ export async function* runOrchestratedTurn(
       logger.debug(
         {
           intent: classification.intent,
-          subtype: classification.subtype,
-          confidence: classification.confidence,
           stepIndex,
         },
         '[Orchestrator] Classified',
       )
-
-      if (classification.confidence < ORCHESTRATOR_CLASSIFICATION_CONFIDENCE_THRESHOLD) {
-        logger.warn(
-          { confidence: classification.confidence },
-          '[Orchestrator] Confidence too low, drafting clarification via model',
-        )
-        recordDispatcher(turn, 'LowConfidenceGate')
-        yield { type: 'status', message: 'Confidence was low—drafting a helpful reply…' }
-        const settings = getSettings()
-        try {
-          for await (const chunk of streamLowConfidenceOrchestratorReply({
-            userInput,
-            userInstructionsBlock: turn.userInstructionsBlock,
-            model: settings.selectedModel,
-          })) {
-            turn.assistantResponse += chunk
-            yield { type: 'chunk', content: chunk }
-          }
-        } catch (err) {
-          logger.error({ err }, '[Orchestrator] Low-confidence reply failed')
-          yield { type: 'error', message: toErrorMessage(err) }
-        }
-        yield { type: 'done' }
-        return
-      }
 
       yield {
         type: 'status',
@@ -125,7 +93,7 @@ async function* dispatchIntentHandlers(
 ): AsyncGenerator<AgentEvent> {
   try {
     switch (classification.intent) {
-      case 'thought': {
+      case 'save': {
         yield { type: 'status', message: 'Thought path: saving or updating your note…' }
         turn.lastDocumentIds = []
         recordDispatcher(turn, 'ThoughtHandler')
@@ -136,7 +104,7 @@ async function* dispatchIntentHandlers(
         }
         break
       }
-      case 'question': {
+      case 'read': {
         yield { type: 'status', message: 'Question path: retrieving and answering from your library…' }
         turn.lastDocumentIds = []
         const isTodoQuery = classification.extractedTags.some((tag) => tag === 'todo')
@@ -156,7 +124,8 @@ async function* dispatchIntentHandlers(
         }
         break
       }
-      case 'command': {
+      case 'edit':
+      case 'delete': {
         yield { type: 'status', message: 'Command path: applying changes to stored documents…' }
         recordDispatcher(turn, 'CommandHandler')
         for await (const event of handleCommand(userInput, classification, priorHistory, undefined, turn.userInstructionsBlock)) {
@@ -166,21 +135,11 @@ async function* dispatchIntentHandlers(
         }
         break
       }
-      case 'instruction': {
-        yield { type: 'status', message: 'Instruction path: storing a standing preference…' }
-        recordDispatcher(turn, 'InstructionHandler')
-        for await (const event of handleInstruction(userInput, classification, turn.userInstructionsBlock)) {
-          if (event.type === 'chunk') turn.assistantResponse += event.content
-          if (event.type === 'stored') turn.lastDocumentIds = [event.documentId]
-          yield event
-        }
-        break
-      }
-      case 'conversational': {
+      case 'speak': {
         yield { type: 'status', message: 'Conversational path: checking for relevant saved instructions…' }
         const relevantInstructions = await retrieveRelevantDocuments(userInput, {
           type: 'instruction',
-          similarityThreshold: classification.subtype === 'greeting' ? 0.55 : 0.8,
+          similarityThreshold: 0.8,
         })
 
         if (relevantInstructions.length > 0) {

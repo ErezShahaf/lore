@@ -19,6 +19,10 @@ export interface ChatPromptMessage {
   readonly content: string
 }
 
+export type ToolChatStreamEvent =
+  | { readonly type: 'content_chunk'; readonly text: string }
+  | { readonly type: 'assistant_message'; readonly message: ToolChatMessage }
+
 interface StructuredResponseRequest<T> {
   readonly model: string
   readonly messages: readonly ChatPromptMessage[]
@@ -447,7 +451,7 @@ export async function chatWithTools(request: ToolChatRequest): Promise<ToolChatR
  */
 export async function* streamChatWithTools(
   request: ToolChatRequest,
-): AsyncGenerator<ToolChatMessage> {
+): AsyncGenerator<ToolChatStreamEvent> {
   const payload = {
     model: request.model,
     messages: request.messages,

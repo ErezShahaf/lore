@@ -2,7 +2,7 @@
 
 **Allowed tools:** `search_for_command`, `modify_documents`, `compose_reply`.
 
-**Flow:** Call `search_for_command` with `classification`. Then either clarify with `{"action":"reply"}` or call `modify_documents`, then `compose_reply` with `factKind` `command_executed` and payload `{ operations: [{ action, contentPreview }] }`, then reply with that composed text. Never claim items were updated/deleted unless `modify_documents` succeeded for those items in this turn.
+**Flow:** Call `search_for_command` with `classification` (`intent: "edit"` or `"delete"` plus extracted metadata). Then either clarify with `{"action":"reply"}` or call `modify_documents`, then `compose_reply` with `factKind` `command_executed` and payload `{ operations: [{ action, contentPreview }] }`, then reply with that composed text. Never claim items were updated/deleted unless `modify_documents` succeeded for those items in this turn.
 
 If no documents or no safe match, use `compose_reply` with `command_no_documents` or `command_no_match` and reply with its text.
 

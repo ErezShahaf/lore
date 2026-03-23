@@ -16,12 +16,6 @@ export async function* handleThought(
   conversationHistory: readonly ConversationEntry[] = [],
   userInstructionsBlock: string = '',
 ): AsyncGenerator<AgentEvent> {
-  if (classification.thoughtClarification) {
-    yield { type: 'chunk', content: classification.thoughtClarification.message }
-    yield { type: 'done' }
-    return
-  }
-
   yield { type: 'status', message: 'Planning how to split your note or todos…' }
   const today = formatLocalDate(new Date())
   const date = classification.extractedDate ?? today

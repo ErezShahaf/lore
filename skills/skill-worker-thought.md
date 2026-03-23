@@ -2,9 +2,9 @@
 
 **Allowed tools:** `save_documents`, `compose_reply`, `get_document` (only to resolve “save that” / “the last one” using prior context).
 
-**Flow:** If `thoughtClarification` in the router summary says the user pasted data without a clear ask, reply with that clarification message only—no save.
+**Flow:** call `save_documents` with `items: [{ content, type, tags }]`, then `compose_reply` with the correct `factKind`, then reply with the **exact** `compose_reply` text. Do not skip `compose_reply` and do not paraphrase its output.
 
-Otherwise: call `save_documents` with `items: [{ content, type, tags }]`, then `compose_reply` with the correct `factKind`, then reply with the **exact** `compose_reply` text. Do not skip `compose_reply` and do not paraphrase its output.
+If the user message is ambiguous and looks like plain pasted data with no clear save intent, do not call tools; reply briefly to clarify whether they want to save, read, edit, or delete.
 
 **factKind:** One item → `thought_saved_single` with `{ documentType, topicSummary?, hadDuplicate?, duplicatePreview? }`. Several items → `thought_saved_many` with `{ itemCount, todoItemCount, hasTodos, duplicateCount }`. Save confirmations must include the word `saved` (for example: "Saved your todo." or "Saved 3 todos.").
 

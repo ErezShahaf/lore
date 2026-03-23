@@ -14,7 +14,6 @@ import type {
 const METADATA_SCHEMA = {
   type: 'object',
   properties: {
-    subtype: { type: 'string' },
     extractedDate: {
       anyOf: [{ type: 'string' }, { type: 'null' }],
     },
@@ -22,32 +21,16 @@ const METADATA_SCHEMA = {
       type: 'array',
       items: { type: 'string' },
     },
-    thoughtClarification: {
-      anyOf: [
-        {
-          type: 'object',
-          properties: {
-            type: { type: 'string', enum: ['clarify', 'suggest_description'] },
-            message: { type: 'string' },
-          },
-          required: ['type', 'message'],
-          additionalProperties: false,
-        },
-        { type: 'null' },
-      ],
-    },
   },
-  required: ['subtype', 'extractedDate', 'extractedTags', 'thoughtClarification'],
+  required: ['extractedDate', 'extractedTags'],
   additionalProperties: false,
 }
 
 const MAX_RETRIES = 2
 
 const FALLBACK_METADATA: MetadataExtractionResult = {
-  subtype: 'general',
   extractedDate: null,
   extractedTags: [],
-  thoughtClarification: null,
 }
 
 export async function extractMetadata(
@@ -95,34 +78,17 @@ export async function extractMetadata(
   }
 }
 
-function validateThoughtClarification(
-  parsed: Record<string, unknown>,
-  intent: InputClassification,
-): MetadataExtractionResult['thoughtClarification'] {
-  if (intent !== 'thought') return null
-  const tc = parsed.thoughtClarification
-  if (tc === null || tc === undefined) return null
-  if (typeof tc !== 'object') return null
-  const obj = tc as Record<string, unknown>
-  const type = obj.type === 'clarify' ? 'clarify' : obj.type === 'suggest_description' ? 'suggest_description' : null
-  const message = typeof obj.message === 'string' ? obj.message : null
-  if (!type || !message) return null
-  return { type, message }
-}
-
 function validateMetadata(
   parsed: Record<string, unknown>,
-  intent: InputClassification,
+  _intent: InputClassification,
 ): MetadataExtractionResult {
   return {
-    subtype: typeof parsed.subtype === 'string' ? parsed.subtype : 'general',
     extractedDate: typeof parsed.extractedDate === 'string' && parsed.extractedDate !== ''
       ? parsed.extractedDate
       : null,
     extractedTags: Array.isArray(parsed.extractedTags)
       ? parsed.extractedTags.filter((tag): tag is string => typeof tag === 'string')
       : [],
-    thoughtClarification: validateThoughtClarification(parsed, intent),
   }
 }
 

@@ -2,7 +2,7 @@
 
 **Allowed tools:** `search_for_question`, `get_document` (optional if you need full text of one id).
 
-**Flow:** Call `search_for_question` with `classification` matching the router summary (refine if needed). From the returned documents, write the user-facing answer yourself in a final `{"action":"reply",...}`. Do not call `search_library` for the same task.
+**Flow:** Call `search_for_question` with `classification` matching the router summary (`intent: "read"` plus extracted metadata; refine if needed). From the returned documents, write the user-facing answer yourself in a final `{"action":"reply",...}`. Do not call `search_library` for the same task.
 
 **Answers:** Use only retrieved document content. If nothing relevant, say so. JSON/XML/YAML from storage: return verbatim inside a markdown code block. First-person in notes → second-person in answer. For todo list requests, return the full list; do not ask clarification when every hit is a todo.
 

@@ -8,21 +8,16 @@ import type {
   ClassificationResult,
   ConversationEntry,
   InputClassification,
-  ThoughtClarification,
 } from '../../shared/types'
 
 const UNIFIED_CLASSIFICATION_SCHEMA = {
   type: 'object',
   properties: {
     situationSummary: { type: 'string' },
-    assistantRecentlyAskedForClarification: { type: 'boolean' },
     intent: {
       type: 'string',
-      enum: ['thought', 'question', 'command', 'instruction', 'conversational'],
+      enum: ['read', 'save', 'edit', 'delete', 'speak'],
     },
-    confidence: { type: 'number' },
-    reasoning: { type: 'string' },
-    subtype: { type: 'string' },
     extractedDate: {
       anyOf: [{ type: 'string' }, { type: 'null' }],
     },
@@ -30,41 +25,22 @@ const UNIFIED_CLASSIFICATION_SCHEMA = {
       type: 'array',
       items: { type: 'string' },
     },
-    thoughtClarification: {
-      anyOf: [
-        {
-          type: 'object',
-          properties: {
-            type: { type: 'string', enum: ['clarify', 'suggest_description'] },
-            message: { type: 'string' },
-          },
-          required: ['type', 'message'],
-          additionalProperties: false,
-        },
-        { type: 'null' },
-      ],
-    },
   },
   required: [
     'situationSummary',
-    'assistantRecentlyAskedForClarification',
     'intent',
-    'confidence',
-    'reasoning',
-    'subtype',
     'extractedDate',
     'extractedTags',
-    'thoughtClarification',
   ],
   additionalProperties: false,
 }
 
 const VALID_INTENTS: readonly InputClassification[] = [
-  'thought',
-  'question',
-  'command',
-  'instruction',
-  'conversational',
+  'read',
+  'save',
+  'edit',
+  'delete',
+  'speak',
 ]
 
 function getMondayOfWeek(date: Date): Date {
@@ -96,29 +72,13 @@ function buildSystemPrompt(now: Date): string {
 function validateIntent(value: unknown): InputClassification {
   return VALID_INTENTS.includes(value as InputClassification)
     ? (value as InputClassification)
-    : 'conversational'
-}
-
-function validateThoughtClarification(
-  parsed: Record<string, unknown>,
-  intent: InputClassification,
-): ThoughtClarification | null {
-  if (intent !== 'thought') return null
-  const tc = parsed.thoughtClarification
-  if (tc === null || tc === undefined) return null
-  if (typeof tc !== 'object') return null
-  const obj = tc as Record<string, unknown>
-  const type = obj.type === 'clarify' ? 'clarify' : obj.type === 'suggest_description' ? 'suggest_description' : null
-  const message = typeof obj.message === 'string' ? obj.message : null
-  if (!type || !message) return null
-  return { type, message }
+    : 'speak'
 }
 
 function validateClassification(parsed: Record<string, unknown>): ClassificationResult {
   const intent = validateIntent(parsed.intent)
   return {
     intent,
-    subtype: typeof parsed.subtype === 'string' ? parsed.subtype : 'general',
     extractedDate:
       typeof parsed.extractedDate === 'string' && parsed.extractedDate !== ''
         ? parsed.extractedDate
@@ -126,10 +86,7 @@ function validateClassification(parsed: Record<string, unknown>): Classification
     extractedTags: Array.isArray(parsed.extractedTags)
       ? parsed.extractedTags.filter((tag): tag is string => typeof tag === 'string')
       : [],
-    confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.5,
-    reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
     situationSummary: typeof parsed.situationSummary === 'string' ? parsed.situationSummary : '',
-    thoughtClarification: validateThoughtClarification(parsed, intent),
   }
 }
 
@@ -169,14 +126,10 @@ export async function classifyInputUnified(
   } catch (error) {
     logger.warn({ error }, '[UnifiedClassifier] Classification failed, using fallback')
     return {
-      intent: 'conversational',
-      subtype: 'general',
+      intent: 'speak',
       extractedDate: null,
       extractedTags: [],
-      confidence: 0.5,
-      reasoning: 'Fallback due to classification error',
       situationSummary: '',
-      thoughtClarification: null,
     }
   }
 }

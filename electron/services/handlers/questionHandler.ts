@@ -87,7 +87,7 @@ export async function* handleQuestion(
   const shouldDeterministicallyListTodos =
     instructionRequestsTodoListing
     && !instructionDocumentsRequestRichTodoFormatting(userInstructionDocuments)
-    && (looksLikeGreeting || isDirectTodoQuery || classification.subtype === 'greeting')
+    && (looksLikeGreeting || isDirectTodoQuery)
 
   if (shouldDeterministicallyListTodos) {
     const todoRetrievalOpts = stripTemporalFilters(retrievalOpts)

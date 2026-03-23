@@ -9,7 +9,7 @@ const INTENT_ROUTE_SCHEMA = {
   properties: {
     intent: {
       type: 'string',
-      enum: ['thought', 'question', 'command', 'instruction', 'conversational'],
+      enum: ['read', 'save', 'edit', 'delete', 'speak'],
     },
     confidence: { type: 'number' },
     reasoning: { type: 'string' },
@@ -59,15 +59,15 @@ export async function routeIntent(
 
 function validateIntent(value: unknown): InputClassification {
   const valid: InputClassification[] = [
-    'thought',
-    'question',
-    'command',
-    'instruction',
-    'conversational',
+    'read',
+    'save',
+    'edit',
+    'delete',
+    'speak',
   ]
   return valid.includes(value as InputClassification)
     ? (value as InputClassification)
-    : 'conversational'
+    : 'speak'
 }
 
 function validateIntentRoute(parsed: Record<string, unknown>): IntentRouteResult {

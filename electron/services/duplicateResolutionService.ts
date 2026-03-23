@@ -47,7 +47,7 @@ export async function resolveDuplicateIntent(
     messages,
     schema: DUPLICATE_RESOLUTION_SCHEMA,
     maxAttempts: 2,
-    validate: (parsed) => {
+    validate: (parsed): { action: DuplicateResolutionAction } => {
       const action = parsed.action
       if (action === 'ask' || action === 'add_new' || action === 'update') {
         return { action }

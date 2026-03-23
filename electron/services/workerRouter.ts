@@ -3,39 +3,33 @@ import { retrieveRelevantDocuments } from './documentPipeline'
 import { classifyInputUnified } from './unifiedClassifierService'
 import { loadSkill } from './skillLoader'
 
-export const ROUTER_CLASSIFICATION_CONFIDENCE_THRESHOLD = 0.75
-
 export type WorkerKind =
   | 'question'
   | 'thought'
   | 'command'
-  | 'instruction'
   | 'conversational'
-  | 'clarification'
 
 const WORKER_TOOL_ALLOWLISTS: Readonly<Record<WorkerKind, readonly string[]>> = {
   question: ['search_for_question', 'get_document'],
   thought: ['save_documents', 'compose_reply', 'get_document'],
   command: ['search_for_command', 'modify_documents', 'compose_reply'],
-  instruction: ['search_library', 'save_documents', 'compose_reply'],
   conversational: [],
-  clarification: [],
 }
 
 export function getToolsForWorker(workerKind: WorkerKind): readonly string[] {
   return WORKER_TOOL_ALLOWLISTS[workerKind]
 }
 
-function intentToWorker(intent: Exclude<InputClassification, 'conversational'>): WorkerKind {
+function intentToWorker(intent: Exclude<InputClassification, 'speak'>): WorkerKind {
   switch (intent) {
-    case 'thought':
+    case 'save':
       return 'thought'
-    case 'question':
+    case 'read':
       return 'question'
-    case 'command':
+    case 'edit':
       return 'command'
-    case 'instruction':
-      return 'instruction'
+    case 'delete':
+      return 'command'
   }
 }
 
@@ -46,14 +40,10 @@ export async function resolveWorkerForTurn(
 ): Promise<{ workerKind: WorkerKind; classification: ClassificationResult }> {
   const classification = await classifyInputUnified(userInput, priorHistory, userInstructionsBlock)
 
-  if (classification.confidence < ROUTER_CLASSIFICATION_CONFIDENCE_THRESHOLD) {
-    return { workerKind: 'clarification', classification }
-  }
-
-  if (classification.intent === 'conversational') {
+  if (classification.intent === 'speak') {
     const relevantInstructions = await retrieveRelevantDocuments(userInput, {
       type: 'instruction',
-      similarityThreshold: classification.subtype === 'greeting' ? 0.55 : 0.8,
+      similarityThreshold: 0.8,
     })
     if (relevantInstructions.length > 0) {
       return { workerKind: 'question', classification }
@@ -70,12 +60,9 @@ export async function resolveWorkerForTurn(
 function compactClassificationForPrompt(classification: ClassificationResult): string {
   return JSON.stringify({
     intent: classification.intent,
-    subtype: classification.subtype,
-    confidence: classification.confidence,
     extractedDate: classification.extractedDate,
     extractedTags: classification.extractedTags,
     situationSummary: classification.situationSummary,
-    thoughtClarification: classification.thoughtClarification,
   })
 }
 
@@ -113,11 +100,7 @@ export function workerKindStatusLabel(workerKind: WorkerKind): string {
       return 'Save specialist…'
     case 'command':
       return 'Update specialist…'
-    case 'instruction':
-      return 'Preference specialist…'
     case 'conversational':
       return 'Conversation…'
-    case 'clarification':
-      return 'Asking for clarity…'
   }
 }

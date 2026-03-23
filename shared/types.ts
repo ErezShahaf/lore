@@ -191,11 +191,11 @@ export interface OllamaSetupProgress {
 }
 
 export type InputClassification =
-  | 'thought'
-  | 'question'
-  | 'command'
-  | 'instruction'
-  | 'conversational'
+  | 'read'
+  | 'save'
+  | 'edit'
+  | 'delete'
+  | 'speak'
 
 // ── Save decomposition ───────────────────────────────────────
 
@@ -210,12 +210,6 @@ export interface SaveDecompositionResult {
 }
 
 // ── Agent classification & routing ───────────────────────────
-
-export type ThoughtSubtype = 'general'
-export type QuestionSubtype = 'general'
-export type CommandSubtype = 'delete' | 'update' | 'reorder'
-export type InstructionSubtype = 'general'
-export type ConversationalSubtype = 'greeting' | 'usage' | 'reaction'
 
 export interface SituationSummary {
   readonly situationSummary: string
@@ -234,11 +228,8 @@ export interface ThoughtClarification {
 }
 
 export interface MetadataExtractionResult {
-  readonly subtype: string
   readonly extractedDate: string | null
   readonly extractedTags: string[]
-  /** When intent is thought: clarify bare data, suggest description, or null to proceed. */
-  readonly thoughtClarification: ThoughtClarification | null
 }
 
 export interface SaveShapePlan {
@@ -253,14 +244,9 @@ export interface QuestionStrategyResult {
 
 export interface ClassificationResult {
   intent: InputClassification
-  subtype: string
   extractedDate: string | null
   extractedTags: string[]
-  confidence: number
-  reasoning: string
   situationSummary: string
-  /** When intent is thought: clarify bare data, suggest description, or null to proceed. */
-  thoughtClarification: ThoughtClarification | null
 }
 
 /** Mutable accumulator for one user turn; updated by [orchestratorService](electron/services/orchestratorService.ts). */
