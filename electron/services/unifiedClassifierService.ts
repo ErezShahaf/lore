@@ -115,7 +115,7 @@ export async function classifyInputUnified(
   messages.push({ role: 'user', content: userInput })
 
   try {
-    return await generateStructuredResponse({
+    const classification = await generateStructuredResponse({
       model: settings.selectedModel,
       messages,
       schema: UNIFIED_CLASSIFICATION_SCHEMA,
@@ -123,6 +123,14 @@ export async function classifyInputUnified(
       validate: validateClassification,
       think: false,
     })
+    logger.debug(
+      {
+        event: 'classification_decision',
+        decision: classification,
+      },
+      '[UnifiedClassifier] Decision',
+    )
+    return classification
   } catch (error) {
     logger.warn({ error }, '[UnifiedClassifier] Classification failed, using fallback')
     return {

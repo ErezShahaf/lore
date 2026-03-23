@@ -95,6 +95,14 @@ export async function* runToolOrchestratedTurn(
     const resolved = await resolveWorkerForTurn(userInput, priorHistory, userInstructionsBlock)
     workerKind = resolved.workerKind
     routerClassification = resolved.classification
+    logger.debug(
+      {
+        event: 'router_decision',
+        workerKind,
+        classification: routerClassification,
+      },
+      '[ToolOrchestrator] Router decided worker',
+    )
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Routing failed'
     logger.error({ error: errorMessage }, '[ToolOrchestrator] Worker resolution failed')
@@ -163,6 +171,15 @@ export async function* runToolOrchestratedTurn(
     }
 
     if (parsed.action === 'reply') {
+      logger.debug(
+        {
+          event: 'worker_decision',
+          workerKind,
+          step,
+          decision: parsed,
+        },
+        '[ToolOrchestrator] Worker produced reply decision',
+      )
       assistantResponse = parsed.content.trim()
       if (assistantResponse) {
         yield { type: 'chunk', content: assistantResponse }
@@ -190,6 +207,18 @@ export async function* runToolOrchestratedTurn(
       })
       continue
     }
+
+    logger.debug(
+      {
+        event: 'worker_decision',
+        workerKind,
+        step,
+        action: parsed.action,
+        agentName: parsed.agent,
+        decision: parsed,
+      },
+      '[ToolOrchestrator] Worker produced tool-call decision',
+    )
 
     yield { type: 'status', message: toolStatusMessage(parsed.agent) }
 

@@ -66,6 +66,14 @@ export function registerIpcHandlers(): void {
     ) => {
       const { message } = (args ?? {}) as { message?: unknown }
       if (!isString(message) || message.trim().length === 0) return null
+      const normalizedUserMessage = message.trim()
+      logger.info(
+        {
+          event: 'user_message',
+          userMessage: normalizedUserMessage,
+        },
+        `\x1b[91m[USER SAID]\x1b[0m ${normalizedUserMessage}`,
+      )
       const sender = event.sender
 
       const status = await checkConnection()
@@ -77,7 +85,7 @@ export function registerIpcHandlers(): void {
       }
 
       try {
-        const generator = processUserInput(message)
+        const generator = processUserInput(normalizedUserMessage)
 
         for await (const agentEvent of generator) {
           switch (agentEvent.type) {
