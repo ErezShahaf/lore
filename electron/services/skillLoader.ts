@@ -61,6 +61,23 @@ export function loadSkill(name: string): string {
   }
 }
 
+export function loadSkillSection(
+  name: string,
+  startMarker: string,
+  endMarker: string,
+): string {
+  const full = loadSkill(name)
+  const startIndex = full.indexOf(startMarker)
+  const endIndex = full.indexOf(endMarker)
+  if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) {
+    logger.warn({ name, startMarker, endMarker }, '[SkillLoader] Section markers not found')
+    return full
+  }
+  return full
+    .slice(startIndex + startMarker.length, endIndex)
+    .trim()
+}
+
 export function loadAllSkills(): readonly SkillFile[] {
   if (allSkillsCache) return allSkillsCache
 

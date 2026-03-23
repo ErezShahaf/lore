@@ -1,31 +1,21 @@
 import { logger } from '../logger'
-import {
-  createEmptyOrchestratorTurn,
-  ORCHESTRATOR_CLASSIFICATION_CONFIDENCE_THRESHOLD,
-  runOrchestratedTurn,
-} from './orchestratorService'
-import type { AgentEvent, ConversationEntry, InputClassification } from '../../shared/types'
+import { runToolOrchestratedTurn } from './toolOrchestrator'
+import type { AgentEvent, ConversationEntry } from '../../shared/types'
 
 interface SessionContext {
   history: ConversationEntry[]
   lastDocumentIds: string[]
-  lastTopic: string | null
-  lastIntent: InputClassification | null
 }
 
 let session: SessionContext = {
   history: [],
   lastDocumentIds: [],
-  lastTopic: null,
-  lastIntent: null,
 }
 
 export function clearConversation(): void {
   session = {
     history: [],
     lastDocumentIds: [],
-    lastTopic: null,
-    lastIntent: null,
   }
 }
 
@@ -37,10 +27,20 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
   const priorHistory = session.history.slice()
   session.history.push({ role: 'user', content: userInput })
 
-  const turn = createEmptyOrchestratorTurn()
+  let assistantResponse = ''
+  const documentIds: string[] = []
 
   try {
-    for await (const event of runOrchestratedTurn(userInput, priorHistory, turn)) {
+    for await (const event of runToolOrchestratedTurn(userInput, priorHistory)) {
+      if (event.type === 'chunk') {
+        assistantResponse += event.content
+      }
+      if (event.type === 'retrieved') {
+        documentIds.push(...event.documentIds)
+      }
+      if (event.type === 'stored') {
+        documentIds.push(event.documentId)
+      }
       yield event
     }
   } catch (err) {
@@ -53,19 +53,9 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
     return
   }
 
-  if (turn.assistantResponse) {
-    session.history.push({ role: 'assistant', content: turn.assistantResponse })
+  if (assistantResponse) {
+    session.history.push({ role: 'assistant', content: assistantResponse })
   }
 
-  session.lastDocumentIds = turn.lastDocumentIds
-
-  if (
-    turn.classification
-    && turn.classification.confidence >= ORCHESTRATOR_CLASSIFICATION_CONFIDENCE_THRESHOLD
-  ) {
-    if (turn.classification.extractedTags.length > 0) {
-      session.lastTopic = turn.classification.extractedTags[0]
-    }
-    session.lastIntent = turn.classification.intent
-  }
+  session.lastDocumentIds = documentIds
 }

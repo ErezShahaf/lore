@@ -2,50 +2,34 @@
 
 ## Orchestrator (code)
 
-The **orchestrator** is implemented in [`electron/services/orchestratorService.ts`](../electron/services/orchestratorService.ts). It owns the per-turn loop (see `ORCHESTRATOR_MAX_STEPS` in [`shared/types.ts`](../shared/types.ts)), records which handler ran on `OrchestratorTurnResult.completedDispatcherIds`, and delegates to existing handlers without changing their internals.
+The **orchestrator** is an LLM agent that receives every user message first and decides what to do by calling tools one step at a time. Each tool call returns control to the orchestrator, which then chooses the next tool or returns to the user.
 
-[`electron/services/agentService.ts`](../electron/services/agentService.ts) is a thin wrapper: it updates session state from `OrchestratorTurnResult` after `runOrchestratedTurn` completes.
+- **Main path**: [`electron/services/agentService.ts`](../electron/services/agentService.ts) calls [`runToolOrchestratedTurn`](../electron/services/toolOrchestrator.ts).
+- **Tool definitions and handlers**: [`electron/services/orchestratorTools.ts`](../electron/services/orchestratorTools.ts) — classify_intent, search_for_question, decide_question_strategy, answer_from_documents, plan_save_shape, decompose_save_items, resolve_command_targets, compose_reply, draft_conversational_reply, plus the base document tools (search_library, get_document, save_documents, modify_documents).
+- **Skill prompt**: [`skills/orchestrator-agent.md`](../skills/orchestrator-agent.md) describes the step-by-step workflows.
 
-Future work: additional loop iterations after retrieval (e.g. empty results → clarify or re-route) without duplicating routing logic across handlers.
+## Deprecated: Classification-based orchestrator
 
-## Classification bundle (LLM, chained in classifier)
+[`electron/services/orchestratorService.ts`](../electron/services/orchestratorService.ts) is deprecated. It used classification-based routing and single dispatch to handlers. Kept for potential rollback.
 
-| Skill | Service |
-|-------|---------|
-| `situation.md` | `situationService.ts` |
-| `intent-route.md` | `intentRouteService.ts` |
-| `metadata-extraction.md` | `metadataExtractionService.ts` (includes thoughtClarification for bare data / suggest-description) |
+## Services used by orchestrator tools
 
-## Thought path
+| Tool | Service |
+|------|---------|
+| classify_intent | classifierService (situation + intent-route + metadata-extraction) |
+| decide_question_strategy | questionStrategistService |
+| answer_from_documents | questionAnswerComposition, documentPipeline |
+| plan_save_shape | saveShapeService |
+| decompose_save_items | saveDecompositionService |
+| resolve_command_targets | commandDecompositionService |
+| compose_reply | assistantReplyComposer |
+| draft_conversational_reply | conversational skill |
+| search_for_question | documentPipeline (retrieveWithAdaptiveThreshold, multiQueryRetrieve) |
+| search_for_command | documentPipeline (retrieveRelevantDocuments, retrieveTodoCandidatesForCommand) |
 
-| Skill | Service / handler |
-|-------|-------------------|
-| `save-shape.md` | `saveShapeService.ts` |
-| `save-items.md` | `saveDecompositionService.ts` |
+## Handler modules (internal use)
 
-## Question path
-
-| Skill | Service / handler |
-|-------|-------------------|
-| Retrieval | `documentPipeline` (code) |
-| `question-strategist.md` | `questionStrategistService.ts` |
-| `question-answer.md` | `questionHandler.ts` (stream) |
-
-## Command path
-
-| Skill | Service / handler |
-|-------|-------------------|
-| Retrieval | `commandHandler` + `documentPipeline` |
-| `command-decomposition.md` | `commandDecompositionService.ts` |
-
-## Instruction and conversational
-
-| Skill | Handler |
-|-------|---------|
-| (none) | `instructionHandler.ts` — store only |
-| `conversational.md` | `conversationalHandler.ts` |
-
-When relevant instruction documents exist, conversational intent may route through `handleQuestion` (see orchestrator `QuestionHandlerViaInstructions`).
+Handlers (thoughtHandler, questionHandler, commandHandler, etc.) are no longer in the main flow. Their logic is invoked by orchestrator tools via the services above.
 
 ## Legacy skills (not loaded by the main path)
 

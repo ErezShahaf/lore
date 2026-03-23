@@ -13,6 +13,31 @@ import type {
 
 const DECOMPOSED_DOCUMENT_TYPES = ['thought', 'todo', 'meeting', 'note'] as const
 
+const UNIFIED_SAVE_SCHEMA = {
+  type: 'object',
+  properties: {
+    splitStrategy: {
+      type: 'string',
+      enum: ['single', 'list', 'verbatim_single'],
+    },
+    notesForDecomposer: { type: 'string' },
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          content: { type: 'string' },
+          type: { type: 'string', enum: [...DECOMPOSED_DOCUMENT_TYPES] },
+          tags: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['content', 'type', 'tags'],
+      },
+    },
+  },
+  required: ['splitStrategy', 'notesForDecomposer', 'items'],
+  additionalProperties: false,
+}
+
 const DECOMPOSITION_SCHEMA = {
   type: 'object',
   properties: {
@@ -85,6 +110,55 @@ export async function decomposeForStorage(
       '[SaveDecomposition] All attempts failed, falling back to single item',
     )
     return { items: [buildFallbackItem(userInput.trim())] }
+  }
+}
+
+export async function planAndDecomposeForStorage(
+  userInput: string,
+  conversationHistory: readonly ConversationEntry[] = [],
+  userInstructionsBlock: string = '',
+): Promise<SaveDecompositionResult> {
+  const settings = getSettings()
+  const systemPrompt = appendUserInstructionsToSystemPrompt(
+    loadSkill('save-plan-and-decompose'),
+    userInstructionsBlock,
+  )
+
+  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+    { role: 'system', content: systemPrompt },
+  ]
+
+  for (const entry of conversationHistory) {
+    messages.push({ role: entry.role, content: entry.content })
+  }
+
+  messages.push({ role: 'user', content: userInput })
+
+  try {
+    const result = await generateStructuredResponse({
+      model: settings.selectedModel,
+      messages,
+      schema: UNIFIED_SAVE_SCHEMA,
+      maxAttempts: 2,
+      validate: (parsed) => ({
+        splitStrategy:
+          parsed.splitStrategy === 'list' || parsed.splitStrategy === 'verbatim_single'
+            ? parsed.splitStrategy
+            : 'single',
+        notesForDecomposer: typeof parsed.notesForDecomposer === 'string' ? parsed.notesForDecomposer : '',
+        items: validateItems(parsed.items, userInput, userInput),
+      }),
+      think: false,
+    })
+    const validatedItems = validateItems(result.items, userInput, userInput)
+    logger.debug(
+      { inputLength: userInput.length, itemCount: validatedItems.length },
+      '[SaveDecomposition] Plan and decompose completed',
+    )
+    return { items: validatedItems }
+  } catch (error) {
+    logger.warn({ error }, '[SaveDecomposition] Plan and decompose failed, using decompose fallback')
+    return decomposeForStorage(userInput, conversationHistory, null, userInstructionsBlock)
   }
 }
 

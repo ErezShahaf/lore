@@ -1,3 +1,7 @@
+/**
+ * @deprecated The main flow now uses toolOrchestrator (orchestratorTools + toolOrchestrator).
+ * This classification-based orchestrator is kept for potential rollback or reference.
+ */
 import { classifyInputWithStatusEvents } from './classifierService'
 import { logger } from '../logger'
 import { handleThought } from './handlers/thoughtHandler'

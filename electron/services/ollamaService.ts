@@ -6,6 +6,10 @@ import type {
   PullProgress,
   OllamaStatus,
   ChatRequestOptions,
+  ToolChatRequest,
+  ToolChatResponse,
+  ToolChatMessage,
+  ToolCall,
 } from '../../shared/types'
 
 export const CHAT_NUM_CTX = 8192
@@ -278,6 +282,296 @@ export async function* chat(request: ChatRequest): AsyncGenerator<string> {
   }
 }
 
+function normalizeOllamaAssistantTextField(raw: unknown): string {
+  if (raw === null || raw === undefined) {
+    return ''
+  }
+  if (typeof raw === 'string') {
+    return raw
+  }
+  if (Array.isArray(raw)) {
+    return raw
+      .map((part: unknown) => {
+        if (typeof part === 'string') {
+          return part
+        }
+        if (part && typeof part === 'object' && 'text' in part) {
+          const text = (part as { readonly text: unknown }).text
+          return typeof text === 'string' ? text : ''
+        }
+        return ''
+      })
+      .join('')
+  }
+  return ''
+}
+
+function appendStreamAssistantTextDeltas(
+  messageRecord: Record<string, unknown>,
+  accumulated: { readonly content: { value: string }; readonly thinking: { value: string } },
+): void {
+  const contentDelta = messageRecord.content
+  if (typeof contentDelta === 'string') {
+    accumulated.content.value += contentDelta
+  }
+  const thinkingDelta = messageRecord.thinking
+  if (typeof thinkingDelta === 'string') {
+    accumulated.thinking.value += thinkingDelta
+  }
+}
+
+function parseToolArguments(raw: unknown): Record<string, unknown> {
+  if (raw === null || raw === undefined) {
+    return {}
+  }
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim()
+    if (trimmed.length === 0) {
+      return {}
+    }
+    try {
+      const parsed = JSON.parse(trimmed) as unknown
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>
+      }
+    } catch {
+      return {}
+    }
+    return {}
+  }
+  if (typeof raw === 'object' && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>
+  }
+  return {}
+}
+
+
+function parseToolChatMessage(message: Record<string, unknown>): ToolChatMessage {
+  const role = ((message.role as string) || 'assistant') as ToolChatMessage['role']
+  const content = normalizeOllamaAssistantTextField(message.content)
+  const rawToolCalls = message.tool_calls as ReadonlyArray<Record<string, unknown>> | undefined
+
+  let toolCalls: readonly ToolCall[] | undefined = rawToolCalls?.map((call) => {
+    const func = (call.function as Record<string, unknown>) ?? {}
+    return {
+      function: {
+        name: func.name as string,
+        arguments: parseToolArguments(func.arguments),
+      },
+    }
+  })
+
+  return {
+    role,
+    content,
+    ...(toolCalls && toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+  }
+}
+
+/**
+ * Splits assistant text into small pieces so the UI can append them sequentially (typing effect).
+ */
+export function splitForTypingEffect(text: string): readonly string[] {
+  if (text.length === 0) {
+    return []
+  }
+  return text.split(/(\s+)/).filter((part) => part.length > 0)
+}
+
+export async function chatWithTools(request: ToolChatRequest): Promise<ToolChatResponse> {
+  const payload = {
+    model: request.model,
+    messages: request.messages,
+    tools: request.tools,
+    stream: false,
+    keep_alive: -1,
+    options: { num_ctx: CHAT_NUM_CTX, ...request.options },
+  }
+
+  const res = await fetch(`${getHost()}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(120_000),
+  })
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText)
+    throw new Error(`Ollama chat failed: ${text}`)
+  }
+
+  const data = await res.json() as Record<string, unknown>
+  const message = data.message as Record<string, unknown> | undefined
+
+  if (!message || typeof message !== 'object') {
+    throw new Error('Ollama response missing message field')
+  }
+
+  const responseMessage = parseToolChatMessage(message)
+  const hasToolCalls = responseMessage.tool_calls && responseMessage.tool_calls.length > 0
+  const hasContent = responseMessage.content.trim().length > 0
+
+  logger.debug(
+    {
+      hasContent,
+      contentLength: responseMessage.content.length,
+      contentPreview: responseMessage.content.slice(0, 100),
+      hasToolCalls,
+      toolCallCount: responseMessage.tool_calls?.length ?? 0,
+      rawContentType: typeof message.content,
+      rawContentIsArray: Array.isArray(message.content),
+      rawThinkingPresent: message.thinking !== undefined && message.thinking !== null,
+      rawThinkingLength: typeof message.thinking === 'string' ? message.thinking.length : Array.isArray(message.thinking) ? JSON.stringify(message.thinking).length : 0,
+    },
+    '[Ollama] chatWithTools response',
+  )
+
+  if (!hasContent && !hasToolCalls) {
+    logger.warn(
+      {
+        rawMessageKeys: Object.keys(message),
+        rawContent: JSON.stringify(message.content)?.slice(0, 500),
+        rawThinking: typeof message.thinking === 'string' ? message.thinking.slice(0, 300) : JSON.stringify(message.thinking)?.slice(0, 500),
+      },
+      '[Ollama] Model returned empty content with no tool calls',
+    )
+  }
+
+  return { message: responseMessage }
+}
+
+/**
+ * Streams a tool-enabled chat round. Waits for the final `done` line so we never show partial
+ * assistant text when the model actually chose tool_calls. For plain text replies, replays the
+ * final content in word-sized chunks for the typing effect.
+ */
+export async function* streamChatWithTools(
+  request: ToolChatRequest,
+): AsyncGenerator<ToolChatMessage> {
+  const payload = {
+    model: request.model,
+    messages: request.messages,
+    tools: request.tools,
+    stream: true,
+    think: false,
+    keep_alive: -1,
+    options: { num_ctx: CHAT_NUM_CTX, ...request.options },
+  }
+
+  const res = await fetch(`${getHost()}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(120_000),
+  })
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText)
+    throw new Error(`Ollama chat failed: ${text}`)
+  }
+
+  if (!res.body) {
+    throw new Error('No response body for streaming')
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let lineBuffer = ''
+  const accumulated = {
+    content: { value: '' },
+    thinking: { value: '' },
+  }
+  let lastDoneMessage: Record<string, unknown> | null = null
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) {
+      break
+    }
+
+    lineBuffer += decoder.decode(value, { stream: true })
+    const lines = lineBuffer.split('\n')
+    lineBuffer = lines.pop() ?? ''
+
+    for (const line of lines) {
+      if (!line.trim()) {
+        continue
+      }
+      try {
+        const json = JSON.parse(line) as Record<string, unknown>
+        const rawMessage = json.message
+        if (rawMessage && typeof rawMessage === 'object' && !Array.isArray(rawMessage)) {
+          appendStreamAssistantTextDeltas(rawMessage as Record<string, unknown>, accumulated)
+        }
+        if (json.done === true && json.message && typeof json.message === 'object') {
+          lastDoneMessage = json.message as Record<string, unknown>
+        }
+      } catch {
+        // skip malformed lines
+      }
+    }
+  }
+
+  if (lineBuffer.trim()) {
+    try {
+      const json = JSON.parse(lineBuffer) as Record<string, unknown>
+      const rawMessage = json.message
+      if (rawMessage && typeof rawMessage === 'object' && !Array.isArray(rawMessage)) {
+        appendStreamAssistantTextDeltas(rawMessage as Record<string, unknown>, accumulated)
+      }
+      if (json.done === true && json.message && typeof json.message === 'object') {
+        lastDoneMessage = json.message as Record<string, unknown>
+      }
+    } catch {
+      // ignore trailing garbage
+    }
+  }
+
+  if (!lastDoneMessage) {
+    throw new Error('Ollama streaming response ended without a done message')
+  }
+
+  const contentFromDone = normalizeOllamaAssistantTextField(lastDoneMessage.content)
+  const thinkingFromDone = normalizeOllamaAssistantTextField(lastDoneMessage.thinking)
+
+  const mergedContent =
+    accumulated.content.value.length > 0 ? accumulated.content.value : contentFromDone
+  const mergedThinking =
+    accumulated.thinking.value.length > 0 ? accumulated.thinking.value : thinkingFromDone
+
+  const mergedMessage: Record<string, unknown> = {
+    ...lastDoneMessage,
+    content: mergedContent,
+  }
+
+  const finalMessage = parseToolChatMessage(mergedMessage)
+  const hasToolCalls = finalMessage.tool_calls && finalMessage.tool_calls.length > 0
+
+  if (hasToolCalls) {
+    yield { type: 'assistant_message', message: finalMessage }
+    return
+  }
+
+  const displayContent = finalMessage.content
+
+  const finalMessageForUi: ToolChatMessage = {
+    ...finalMessage,
+    content: displayContent,
+  }
+
+  const typingPieces = splitForTypingEffect(finalMessageForUi.content)
+  for (let pieceIndex = 0; pieceIndex < typingPieces.length; pieceIndex += 1) {
+    if (pieceIndex > 0) {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 0)
+      })
+    }
+    yield { type: 'content_chunk', text: typingPieces[pieceIndex]! }
+  }
+
+  yield { type: 'assistant_message', message: finalMessageForUi }
+}
+
 export async function generateStructuredResponse<T>(
   request: StructuredResponseRequest<T>,
 ): Promise<T> {
@@ -336,13 +630,28 @@ export async function generateStructuredResponse<T>(
   )
 }
 
-async function collectChatResponse(request: ChatRequest): Promise<string> {
+export async function collectChatResponse(request: ChatRequest): Promise<string> {
   let response = ''
   for await (const chunk of chat(request)) {
     response += chunk
   }
 
   return response
+}
+
+export function parseJsonFromModelResponse(raw: string): Record<string, unknown> | null {
+  const sanitized = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/g, '')
+  const balanced = extractFirstBalancedJsonObject(sanitized)
+  const toParse = balanced ?? sanitized
+  try {
+    const parsed: unknown = JSON.parse(toParse)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>
+    }
+  } catch {
+    return null
+  }
+  return null
 }
 
 function parseStructuredResponse(rawResponse: string): Record<string, unknown> {

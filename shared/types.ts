@@ -116,6 +116,58 @@ export interface ChatRequest {
   keep_alive?: number | string
 }
 
+// ── Tool calling (Ollama native) ──────────────────────────────
+
+export interface ToolFunction {
+  readonly name: string
+  readonly description: string
+  readonly parameters: Record<string, unknown>
+}
+
+export interface OllamaTool {
+  readonly type: 'function'
+  readonly function: ToolFunction
+}
+
+export interface ToolCall {
+  readonly function: {
+    readonly name: string
+    readonly arguments: Record<string, unknown>
+  }
+}
+
+export type ToolMessageRole = 'system' | 'user' | 'assistant' | 'tool'
+
+export interface ToolChatMessage {
+  readonly role: ToolMessageRole
+  readonly content: string
+  readonly tool_calls?: readonly ToolCall[]
+}
+
+export interface ToolChatRequest {
+  readonly model: string
+  readonly messages: readonly ToolChatMessage[]
+  readonly tools: readonly OllamaTool[]
+  readonly options?: ChatRequestOptions
+}
+
+export interface ToolChatResponse {
+  readonly message: ToolChatMessage
+}
+
+export interface OrchestratorCallAction {
+  readonly action: 'call'
+  readonly agent: string
+  readonly params?: Record<string, unknown>
+}
+
+export interface OrchestratorReplyAction {
+  readonly action: 'reply'
+  readonly content: string
+}
+
+export type OrchestratorAction = OrchestratorCallAction | OrchestratorReplyAction
+
 export interface PullProgress {
   status: string
   digest?: string
