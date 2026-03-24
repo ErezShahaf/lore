@@ -14,16 +14,17 @@ import {
   executeTool as executeBaseTool,
   type ToolExecutionResult,
 } from './toolRegistry'
-import type {
-  AgentEvent,
-  ClassificationResult,
-  ConversationEntry,
-  DocumentType,
-  InputClassification,
-  LoreDocument,
-  OllamaTool,
-  RetrievalOptions,
-  ScoredDocument,
+import {
+  primaryClassificationAction,
+  type AgentEvent,
+  type ClassificationResult,
+  type ConversationEntry,
+  type DocumentType,
+  type InputClassification,
+  type LoreDocument,
+  type OllamaTool,
+  type RetrievalOptions,
+  type ScoredDocument,
 } from '../../shared/types'
 
 // ── Tool execution context ────────────────────────────────────
@@ -86,13 +87,24 @@ function parseClassificationFromArgs(
     return undefined
   }
 
+  const extractedDate = typeof raw.extractedDate === 'string' ? raw.extractedDate : null
+  const extractedTags = Array.isArray(raw.extractedTags)
+    ? (raw.extractedTags as unknown[]).filter((tag): tag is string => typeof tag === 'string')
+    : []
+  const situationSummary = typeof raw.situationSummary === 'string' ? raw.situationSummary : ''
+  const data = typeof raw.data === 'string' ? raw.data : ''
+
   return {
-    intent,
-    extractedDate: typeof raw.extractedDate === 'string' ? raw.extractedDate : null,
-    extractedTags: Array.isArray(raw.extractedTags)
-      ? (raw.extractedTags as unknown[]).filter((t): t is string => typeof t === 'string')
-      : [],
-    situationSummary: typeof raw.situationSummary === 'string' ? raw.situationSummary : '',
+    actions: [
+      {
+        intent,
+        extractedDate,
+        extractedTags,
+        situationSummary,
+        data,
+        saveDocumentType: intent === 'save' ? 'thought' : null,
+      },
+    ],
   }
 }
 
@@ -169,23 +181,24 @@ async function handleSearchForQuestion(
       context.userInstructionsBlock,
     )
   }
+  const primary = primaryClassificationAction(classification)
   const query = optionalString(args, 'query') ?? context.userInput
   const typeFilter = optionalString(args, 'type') as DocumentType | undefined
   const maxResults = typeof args.maxResults === 'number' ? args.maxResults : 8
 
   const retrievalOpts: RetrievalOptions = { maxResults }
-  if (classification?.extractedTags.length) {
-    retrievalOpts.tags = classification.extractedTags
+  if (primary.extractedTags.length > 0) {
+    retrievalOpts.tags = primary.extractedTags
   }
-  if (classification?.extractedDate) {
-    retrievalOpts.dateFrom = classification.extractedDate
-    retrievalOpts.dateTo = classification.extractedDate
+  if (primary.extractedDate) {
+    retrievalOpts.dateFrom = primary.extractedDate
+    retrievalOpts.dateTo = primary.extractedDate
   }
   if (typeFilter) {
     retrievalOpts.type = typeFilter
   }
 
-  const isTodoQuery = typeFilter === 'todo' || classification?.extractedTags.some((t) => t === 'todo')
+  const isTodoQuery = typeFilter === 'todo' || primary.extractedTags.some((tag) => tag === 'todo')
   let result: { documents: ScoredDocument[]; totalCandidates: number; cutoffScore: number }
 
   if (isTodoQuery) {
@@ -205,10 +218,10 @@ async function handleSearchForQuestion(
     }
   } else {
     result = await retrieveWithAdaptiveThreshold(query, retrievalOpts)
-    if (result.documents.length === 0 && classification) {
+    if (result.documents.length === 0) {
       const fallbackQueries = [
         query,
-        ...(classification.extractedTags ?? []).filter((t) => t.length >= 4),
+        ...primary.extractedTags.filter((tag) => tag.length >= 4),
       ]
       const unique = [...new Set(fallbackQueries.map((q) => q.trim()).filter(Boolean))]
       const fallback = await multiQueryRetrieve(unique, retrievalOpts)
@@ -265,10 +278,11 @@ async function handleSearchForCommand(
       context.userInstructionsBlock,
     )
   }
+  const primary = primaryClassificationAction(classification)
   const typeFilter = optionalString(args, 'type') as DocumentType | undefined
 
   const retrievalOpts: RetrievalOptions = { maxResults: 50 }
-  const isTodoCompletion = classification?.extractedTags.some((t) => t.toLowerCase() === 'todo')
+  const isTodoCompletion = primary.extractedTags.some((tag) => tag.toLowerCase() === 'todo')
   if (typeFilter || isTodoCompletion) {
     retrievalOpts.type = typeFilter ?? 'todo'
   }

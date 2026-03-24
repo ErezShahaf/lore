@@ -1,38 +1,28 @@
 # Orchestrator and agents
 
-## Orchestrator (code)
+## Main path (classification + handlers)
 
-The **orchestrator** is an LLM agent that receives every user message first and decides what to do by calling tools one step at a time. Each tool call returns control to the orchestrator, which then chooses the next tool or returns to the user.
+[`electron/services/agentService.ts`](../electron/services/agentService.ts) calls [`runMultiActionTurn`](../electron/services/multiActionOrchestrator.ts): unified classification produces an `actions` array; each action is executed in order by [`executeClassificationAction`](../electron/services/classificationActionExecutor.ts) (intent-specific handlers). Side-effect events (stored, retrieved, status, …) stream to the UI; outcomes (including touched document ids) are collected and passed to [`assistantReplyComposer`](../electron/services/assistantReplyComposer.ts) for a single turn-level user reply when needed.
 
-- **Main path**: [`electron/services/agentService.ts`](../electron/services/agentService.ts) calls [`runToolOrchestratedTurn`](../electron/services/toolOrchestrator.ts).
-- **Tool definitions and handlers**: [`electron/services/orchestratorTools.ts`](../electron/services/orchestratorTools.ts) — classify_intent, search_for_question, decide_question_strategy, answer_from_documents, plan_save_shape, decompose_save_items, resolve_command_targets, compose_reply, draft_conversational_reply, plus the base document tools (search_library, get_document, save_documents, modify_documents).
-- **Skill prompt**: [`skills/orchestrator-agent.md`](../skills/orchestrator-agent.md) describes the step-by-step workflows.
+## Alternate: tool-loop orchestrator (not wired from agentService)
+
+[`electron/services/toolOrchestrator.ts`](../electron/services/toolOrchestrator.ts) implements an LLM-driven tool loop with [`orchestratorTools.ts`](../electron/services/orchestratorTools.ts). It is not the entry path used by `agentService` today.
 
 ## Deprecated: Classification-based orchestrator
 
-[`electron/services/orchestratorService.ts`](../electron/services/orchestratorService.ts) is deprecated. It used classification-based routing and single dispatch to handlers. Kept for potential rollback.
+[`electron/services/orchestratorService.ts`](../electron/services/orchestratorService.ts) is deprecated. Kept for potential rollback.
 
-## Services used by orchestrator tools
+## Services used by the main multi-action path
 
-| Tool | Service |
-|------|---------|
-| classify_intent | classifierService (situation + intent-route + metadata-extraction) |
-| decide_question_strategy | questionStrategistService |
-| answer_from_documents | questionAnswerComposition, documentPipeline |
-| plan_save_shape | saveShapeService |
-| decompose_save_items | saveDecompositionService |
-| resolve_command_targets | commandDecompositionService |
-| compose_reply | assistantReplyComposer |
-| draft_conversational_reply | conversational skill |
-| search_for_question | documentPipeline (retrieveWithAdaptiveThreshold, multiQueryRetrieve) |
-| search_for_command | documentPipeline (retrieveRelevantDocuments, retrieveTodoCandidatesForCommand) |
+| Step | Service / module |
+|------|-------------------|
+| Classify | `unifiedClassifierService` (`skill-classification`) |
+| Per-action execution | `classificationActionExecutor` → thought / question / command / conversational handlers |
+| Duplicate decision (save) | `duplicateResolutionService` |
+| Turn reply (multi-action) | `assistantReplyComposer` (`assistant-user-reply`) |
+| Question strategy / answer | `questionStrategistService`, `questionAnswerComposition`, `documentPipeline` |
+| Command targets | `commandDecompositionService` |
 
-## Handler modules (internal use)
+## Legacy skills note
 
-Handlers (thoughtHandler, questionHandler, commandHandler, etc.) are no longer in the main flow. Their logic is invoked by orchestrator tools via the services above.
-
-## Legacy skills (not loaded by the main path)
-
-- `classification.md` — superseded by situation + intent-route + metadata-extraction
-- `question.md` — superseded by question-strategist + question-answer
-- `save-decomposition.md` — superseded by save-shape + save-items
+Older filenames mentioned in git history (`classification.md`, `question.md`, `save-decomposition.md`, `save-shape`, `save-items`) may still appear in docs or dist; the live classifier skill is `skill-classification.md`.

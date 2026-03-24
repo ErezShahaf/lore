@@ -13,9 +13,11 @@ import { formatUserInstructionsBlock, loadAllUserInstructionDocuments } from './
 import {
   ORCHESTRATOR_MAX_STEPS,
   type AgentEvent,
+  type ClassificationAction,
   type ClassificationResult,
   type ConversationEntry,
   type OrchestratorTurnResult,
+  primaryClassificationAction,
 } from '../../shared/types'
 
 function toErrorMessage(error: unknown): string {
@@ -61,9 +63,11 @@ export async function* runOrchestratedTurn(
 
       turn.classification = classification
 
+      const primaryAction = primaryClassificationAction(classification)
+
       logger.debug(
         {
-          intent: classification.intent,
+          intent: primaryAction.intent,
           stepIndex,
         },
         '[Orchestrator] Classified',
@@ -71,10 +75,10 @@ export async function* runOrchestratedTurn(
 
       yield {
         type: 'status',
-        message: `Orchestrator: routing to ${classification.intent}…`,
+        message: `Orchestrator: routing to ${primaryAction.intent}…`,
       }
 
-      yield* dispatchIntentHandlers(userInput, priorHistory, classification, turn)
+      yield* dispatchIntentHandlers(userInput, priorHistory, primaryAction, turn)
       return
     }
 
@@ -88,7 +92,7 @@ export async function* runOrchestratedTurn(
 async function* dispatchIntentHandlers(
   userInput: string,
   priorHistory: readonly ConversationEntry[],
-  classification: ClassificationResult,
+  classification: ClassificationAction,
   turn: OrchestratorTurnResult,
 ): AsyncGenerator<AgentEvent> {
   try {
@@ -100,7 +104,9 @@ async function* dispatchIntentHandlers(
         for await (const event of handleThought(userInput, classification, priorHistory, turn.userInstructionsBlock)) {
           if (event.type === 'chunk') turn.assistantResponse += event.content
           if (event.type === 'stored') turn.lastDocumentIds.push(event.documentId)
-          yield event
+          if (event.type !== 'turn_step_summary') {
+            yield event
+          }
         }
         break
       }
@@ -120,7 +126,9 @@ async function* dispatchIntentHandlers(
         )) {
           if (event.type === 'chunk') turn.assistantResponse += event.content
           if (event.type === 'retrieved') turn.lastDocumentIds = [...event.documentIds]
-          yield event
+          if (event.type !== 'turn_step_summary') {
+            yield event
+          }
         }
         break
       }
@@ -131,7 +139,9 @@ async function* dispatchIntentHandlers(
         for await (const event of handleCommand(userInput, classification, priorHistory, undefined, turn.userInstructionsBlock)) {
           if (event.type === 'chunk') turn.assistantResponse += event.content
           if (event.type === 'retrieved') turn.lastDocumentIds = [...event.documentIds]
-          yield event
+          if (event.type !== 'turn_step_summary') {
+            yield event
+          }
         }
         break
       }
@@ -159,14 +169,18 @@ async function* dispatchIntentHandlers(
           )) {
             if (event.type === 'chunk') turn.assistantResponse += event.content
             if (event.type === 'retrieved') turn.lastDocumentIds = [...event.documentIds]
-            yield event
+            if (event.type !== 'turn_step_summary') {
+              yield event
+            }
           }
         } else {
           yield { type: 'status', message: 'No instruction override: drafting a short reply…' }
           recordDispatcher(turn, 'ConversationalHandler')
           for await (const event of handleConversational(userInput, classification, priorHistory, turn.userInstructionsBlock)) {
             if (event.type === 'chunk') turn.assistantResponse += event.content
-            yield event
+            if (event.type !== 'turn_step_summary') {
+              yield event
+            }
           }
         }
         break

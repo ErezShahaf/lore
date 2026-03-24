@@ -7,24 +7,10 @@ import { appendUserInstructionsToSystemPrompt } from './userInstructionsContext'
 import type {
   ClassificationResult,
   ClassificationAction,
-  ClassificationSaveItem,
   ConversationEntry,
   DecomposedDocumentType,
   InputClassification,
 } from '../../shared/types'
-
-const SAVE_ITEM_SCHEMA = {
-  type: 'object',
-  properties: {
-    content: { type: 'string' },
-    type: {
-      type: 'string',
-      enum: ['thought', 'todo', 'note', 'meeting'],
-    },
-  },
-  required: ['content', 'type'],
-  additionalProperties: false,
-}
 
 const ACTION_ITEM_SCHEMA = {
   type: 'object',
@@ -42,9 +28,14 @@ const ACTION_ITEM_SCHEMA = {
       items: { type: 'string' },
     },
     data: { type: 'string' },
-    items: {
-      type: 'array',
-      items: SAVE_ITEM_SCHEMA,
+    saveDocumentType: {
+      anyOf: [
+        {
+          type: 'string',
+          enum: ['thought', 'todo', 'note', 'meeting'],
+        },
+        { type: 'null' },
+      ],
     },
   },
   required: [
@@ -53,6 +44,7 @@ const ACTION_ITEM_SCHEMA = {
     'extractedDate',
     'extractedTags',
     'data',
+    'saveDocumentType',
   ],
   additionalProperties: false,
 }
@@ -116,15 +108,18 @@ const VALID_DECOMPOSED_TYPES: readonly DecomposedDocumentType[] = [
   'meeting',
 ]
 
-function validateSaveItem(raw: unknown): ClassificationSaveItem | null {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
-  const obj = raw as Record<string, unknown>
-  const content = typeof obj.content === 'string' ? obj.content.trim() : ''
-  if (content.length === 0) return null
-  const type = typeof obj.type === 'string' && VALID_DECOMPOSED_TYPES.includes(obj.type as DecomposedDocumentType)
-    ? (obj.type as DecomposedDocumentType)
-    : 'thought'
-  return { content, type }
+function parseSaveDocumentType(
+  intent: InputClassification,
+  raw: unknown,
+): DecomposedDocumentType | null {
+  if (intent !== 'save') return null
+  if (
+    typeof raw === 'string'
+    && VALID_DECOMPOSED_TYPES.includes(raw as DecomposedDocumentType)
+  ) {
+    return raw as DecomposedDocumentType
+  }
+  return 'thought'
 }
 
 function validateAction(raw: unknown): ClassificationAction {
@@ -133,13 +128,6 @@ function validateAction(raw: unknown): ClassificationAction {
   }
   const obj = raw as Record<string, unknown>
   const intent = validateIntent(obj.intent)
-  const validatedItems: ClassificationSaveItem[] = []
-  if (Array.isArray(obj.items)) {
-    for (const rawItem of obj.items) {
-      const item = validateSaveItem(rawItem)
-      if (item) validatedItems.push(item)
-    }
-  }
   return {
     intent,
     extractedDate:
@@ -151,7 +139,7 @@ function validateAction(raw: unknown): ClassificationAction {
       : [],
     situationSummary: typeof obj.situationSummary === 'string' ? obj.situationSummary : '',
     data: typeof obj.data === 'string' ? obj.data : '',
-    items: validatedItems.length > 0 ? validatedItems : undefined,
+    saveDocumentType: parseSaveDocumentType(intent, obj.saveDocumentType),
   }
 }
 
@@ -162,6 +150,7 @@ function createDefaultAction(intent: InputClassification): ClassificationAction 
     extractedTags: [],
     situationSummary: '',
     data: '',
+    saveDocumentType: intent === 'save' ? 'thought' : null,
   }
 }
 

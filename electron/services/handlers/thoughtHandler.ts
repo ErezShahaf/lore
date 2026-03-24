@@ -1,27 +1,29 @@
-import { v4 as uuidv4 } from 'uuid'
-import { storeThought, storeThoughtWithMetadata, checkForDuplicate } from '../documentPipeline'
+import { storeThought, checkForDuplicate } from '../documentPipeline'
 import { updateDocument } from '../lanceService'
 import { embedText } from '../embeddingService'
 import { formatLocalDate } from '../localDate'
-import { decomposeForStorage } from '../saveDecompositionService'
-import { planSaveShape } from '../saveShapeService'
 import { streamAssistantUserReplyWithFallback } from '../assistantReplyComposer'
 import { resolveDuplicateIntent } from '../duplicateResolutionService'
 import { logger } from '../../logger'
-import type { ClassificationForHandler, AgentEvent, DecomposedItem, DecomposedDocumentType, DocumentType, ConversationEntry } from '../../../shared/types'
+import type {
+  ClassificationForHandler,
+  AgentEvent,
+  DecomposedDocumentType,
+  DocumentType,
+  ConversationEntry,
+} from '../../../shared/types'
 
-function classificationItemsToDecomposedItems(
-  items: readonly { content: string; type: DecomposedDocumentType }[],
+function tagsForSaveDocument(
+  documentType: DecomposedDocumentType,
   extractedTags: readonly string[],
-): DecomposedItem[] {
-  return items.map((item) => {
-    const typeTag = item.type !== 'thought' ? item.type : null
-    const tags = typeTag && !extractedTags.includes(typeTag)
+): string[] {
+  const lowerTags = extractedTags.map((tag) => tag.toLowerCase())
+  const typeTag = documentType !== 'thought' ? documentType : null
+  const tags =
+    typeTag && !lowerTags.includes(typeTag)
       ? [typeTag, ...extractedTags]
-      : extractedTags
-    const uniqueTags = [...new Set(tags.map((t) => t.toLowerCase()))].filter(Boolean)
-    return { content: item.content, type: item.type, tags: uniqueTags }
-  })
+      : [...extractedTags]
+  return [...new Set(tags.map((tag) => tag.toLowerCase()))].filter(Boolean)
 }
 
 export async function* handleThought(
@@ -30,43 +32,33 @@ export async function* handleThought(
   conversationHistory: readonly ConversationEntry[] = [],
   userInstructionsBlock: string = '',
 ): AsyncGenerator<AgentEvent> {
-  const today = formatLocalDate(new Date())
-  const date = classification.extractedDate ?? today
-  let items: readonly DecomposedItem[]
-
-  if (classification.items && classification.items.length > 0) {
-    items = classificationItemsToDecomposedItems(classification.items, classification.extractedTags)
-  } else {
-    yield { type: 'status', message: 'Planning how to split your note or todos…' }
-    const shapePlan = await planSaveShape(userInput, conversationHistory, userInstructionsBlock)
-    yield { type: 'status', message: 'Extracting items to store…' }
-    const decomposed = await decomposeForStorage(userInput, conversationHistory, shapePlan, userInstructionsBlock)
-    items = decomposed.items
-  }
-
-  if (items.length === 0) {
-    logger.warn({ userInput }, '[ThoughtHandler] Decomposition returned no items')
+  const trimmed = userInput.trim()
+  if (trimmed.length === 0) {
+    logger.warn({ userInput }, '[ThoughtHandler] Empty save input')
+    yield {
+      type: 'turn_step_summary',
+      summary: 'Save: input was empty; nothing was stored.',
+    }
     yield { type: 'chunk', content: 'Nothing to save.' }
     yield { type: 'done' }
     return
   }
 
-  if (items.length <= 1) {
-    const item = items[0] ?? { content: userInput, type: 'thought' as const, tags: [] }
-    const tags = item.tags.length > 0 ? item.tags : classification.extractedTags
-    yield* storeSingleItem(
-      item.content,
-      userInput,
-      item.type,
-      date,
-      tags,
-      null,
-      userInstructionsBlock,
-      conversationHistory,
-    )
-  } else {
-    yield* storeMultipleItems(items, userInput, date, userInstructionsBlock)
-  }
+  const today = formatLocalDate(new Date())
+  const date = classification.extractedDate ?? today
+  const documentType = classification.saveDocumentType ?? 'thought'
+  const tags = tagsForSaveDocument(documentType, classification.extractedTags)
+
+  yield* storeSingleItem(
+    trimmed,
+    trimmed,
+    documentType,
+    date,
+    tags,
+    null,
+    userInstructionsBlock,
+    conversationHistory,
+  )
 
   yield { type: 'done' }
 }
@@ -84,23 +76,31 @@ async function* storeSingleItem(
   const duplicate = await checkForDuplicate(content)
 
   if (duplicate) {
-    const action = await resolveDuplicateIntent(originalInput, conversationHistory, userInstructionsBlock)
-    if (action === 'ask') {
+    const resolution = await resolveDuplicateIntent(originalInput, conversationHistory, userInstructionsBlock)
+    if (resolution === 'ask') {
       const preview = duplicate.content.slice(0, 120)
       yield { type: 'duplicate', existingContent: preview }
+      yield {
+        type: 'turn_step_summary',
+        summary:
+          'Save: duplicate check found very similar existing note; user was asked to reply with add new or update. No new document was written.',
+      }
       yield {
         type: 'chunk',
         content:
           'You already have a similar note. Reply with "add new" to save it separately, or "update" to replace the existing one.',
       }
-      yield { type: 'done' }
       return
     }
-    if (action === 'update') {
+    if (resolution === 'update') {
       const vector = await embedText(content)
       await updateDocument(duplicate.id, { content, vector })
       yield { type: 'stored', documentId: duplicate.id }
       const preview = content.slice(0, 60) + (content.length > 60 ? '...' : '')
+      yield {
+        type: 'turn_step_summary',
+        summary: `Save: updated existing similar document in place (id ${duplicate.id}).`,
+      }
       for await (const chunk of streamAssistantUserReplyWithFallback({
         userInstructionsBlock,
         facts: {
@@ -125,8 +125,17 @@ async function* storeSingleItem(
   yield { type: 'stored', documentId: doc.id }
 
   if (customSavedJsonMessage) {
+    yield {
+      type: 'turn_step_summary',
+      summary: `Save: stored new ${docType} (id ${doc.id}).`,
+    }
     yield { type: 'chunk', content: customSavedJsonMessage }
     return
+  }
+
+  yield {
+    type: 'turn_step_summary',
+    summary: `Save: stored new ${docType} (id ${doc.id}).`,
   }
 
   const topic = summarizeTopic(content)
@@ -138,53 +147,6 @@ async function* storeSingleItem(
       topicSummary: topic,
       hadDuplicate: false,
       duplicatePreview: null,
-    },
-  })) {
-    yield { type: 'chunk', content: chunk }
-  }
-}
-
-async function* storeMultipleItems(
-  items: readonly DecomposedItem[],
-  originalInput: string,
-  date: string,
-  userInstructionsBlock: string,
-): AsyncGenerator<AgentEvent> {
-  const groupId = uuidv4()
-  let duplicateCount = 0
-  let hasTodos = false
-  let todoItemCount = 0
-  const storedThisBatchIds = new Set<string>()
-
-  for (const item of items) {
-    const duplicate = await checkForDuplicate(item.content)
-    if (duplicate && !storedThisBatchIds.has(duplicate.id)) {
-      duplicateCount += 1
-    }
-
-    const itemDocType = item.type
-    if (itemDocType === 'todo') {
-      hasTodos = true
-      todoItemCount += 1
-    }
-
-    const doc = await storeThoughtWithMetadata(
-      { content: item.content, originalInput, type: itemDocType, date, tags: [...item.tags] },
-      { groupId },
-    )
-    storedThisBatchIds.add(doc.id)
-
-    yield { type: 'stored', documentId: doc.id }
-  }
-
-  for await (const chunk of streamAssistantUserReplyWithFallback({
-    userInstructionsBlock,
-    facts: {
-      kind: 'thought_saved_many',
-      itemCount: items.length,
-      todoItemCount,
-      hasTodos,
-      duplicateCount,
     },
   })) {
     yield { type: 'chunk', content: chunk }

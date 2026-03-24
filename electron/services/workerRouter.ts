@@ -1,4 +1,9 @@
-import type { ClassificationResult, ConversationEntry, InputClassification } from '../../shared/types'
+import {
+  primaryClassificationAction,
+  type ClassificationResult,
+  type ConversationEntry,
+  type InputClassification,
+} from '../../shared/types'
 import { retrieveRelevantDocuments } from './documentPipeline'
 import { classifyInputUnified } from './unifiedClassifierService'
 import { loadSkill } from './skillLoader'
@@ -39,8 +44,9 @@ export async function resolveWorkerForTurn(
   userInstructionsBlock: string,
 ): Promise<{ workerKind: WorkerKind; classification: ClassificationResult }> {
   const classification = await classifyInputUnified(userInput, priorHistory, userInstructionsBlock)
+  const primary = primaryClassificationAction(classification)
 
-  if (classification.intent === 'speak') {
+  if (primary.intent === 'speak') {
     const relevantInstructions = await retrieveRelevantDocuments(userInput, {
       type: 'instruction',
       similarityThreshold: 0.8,
@@ -52,17 +58,20 @@ export async function resolveWorkerForTurn(
   }
 
   return {
-    workerKind: intentToWorker(classification.intent),
+    workerKind: intentToWorker(primary.intent),
     classification,
   }
 }
 
 function compactClassificationForPrompt(classification: ClassificationResult): string {
+  const primary = primaryClassificationAction(classification)
   return JSON.stringify({
-    intent: classification.intent,
-    extractedDate: classification.extractedDate,
-    extractedTags: classification.extractedTags,
-    situationSummary: classification.situationSummary,
+    intent: primary.intent,
+    extractedDate: primary.extractedDate,
+    extractedTags: primary.extractedTags,
+    situationSummary: primary.situationSummary,
+    saveDocumentType: primary.saveDocumentType,
+    data: primary.data,
   })
 }
 

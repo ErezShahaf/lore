@@ -106,7 +106,17 @@ export async function* handleConversational(
         content: normalizeConversationalResponse(userInput, streamedResponse.response),
       }
     }
+    yield {
+      type: 'turn_step_summary',
+      summary: streamedResponse.didEmitVisibleContent
+        ? 'Speak: conversational reply was streamed to the user in this step.'
+        : 'Speak: conversational reply was composed and sent as one message in this step.',
+    }
   } catch (err) {
+    yield {
+      type: 'turn_step_summary',
+      summary: 'Speak: conversational model raised an error before a reply could be finished.',
+    }
     yield {
       type: 'error',
       message: err instanceof Error ? err.message : 'Failed to generate response',

@@ -1,55 +1,16 @@
 import { logger } from '../logger'
 import { classifyInputUnified } from './unifiedClassifierService'
+import {
+  buildClassificationActionInput,
+  classificationIntentStatusLabel,
+  executeClassificationAction,
+} from './classificationActionExecutor'
 import { formatUserInstructionsBlock, loadAllUserInstructionDocuments } from './userInstructionsContext'
-import { handleThought } from './handlers/thoughtHandler'
-import { handleQuestion } from './handlers/questionHandler'
-import { handleCommand } from './handlers/commandHandler'
-import { handleConversational } from './handlers/conversationalHandler'
 import { streamAssistantUserReplyWithFallback } from './assistantReplyComposer'
-import type {
-  AgentEvent,
-  ActionOutcome,
-  ClassificationAction,
-  ConversationEntry,
-  InputClassification,
-} from '../../shared/types'
+import type { AgentEvent, ActionOutcome, ConversationEntry } from '../../shared/types'
 
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'An unexpected error occurred'
-}
-
-function actionToStatusLabel(intent: InputClassification): string {
-  switch (intent) {
-    case 'save':
-      return 'Saving…'
-    case 'read':
-      return 'Retrieving and answering…'
-    case 'edit':
-    case 'delete':
-      return 'Applying changes…'
-    case 'speak':
-      return 'Replying…'
-  }
-}
-
-function inferStatusFromMessage(message: string, intent: InputClassification): 'succeeded' | 'failed' {
-  const lower = message.toLowerCase()
-  if (
-    lower.includes('could not') ||
-    lower.includes('no matching') ||
-    lower.includes('nothing to save') ||
-    lower.includes('no documents')
-  ) {
-    return 'failed'
-  }
-  return 'succeeded'
-}
-
-function buildActionInput(action: ClassificationAction, fallbackUserInput: string): string {
-  if (action.data.trim().length > 0) {
-    return action.data
-  }
-  return fallbackUserInput
 }
 
 export async function* runMultiActionTurn(
@@ -77,73 +38,38 @@ export async function* runMultiActionTurn(
   logger.debug({ actionCount: actions.length, intents: actions.map((a) => a.intent) }, '[MultiActionOrchestrator] Classified')
 
   const outcomes: ActionOutcome[] = []
-  const collectedDocumentIds: string[] = []
   const historyForHandlers = [...priorHistory]
   let streamedSpeakChunksForLastAction = false
 
   for (let index = 0; index < actions.length; index += 1) {
     const action = actions[index]
-    const actionInput = buildActionInput(action, userInput)
+    const actionInput = buildClassificationActionInput(action, userInput)
 
-    yield { type: 'status', message: actionToStatusLabel(action.intent) }
+    yield { type: 'status', message: classificationIntentStatusLabel(action.intent) }
 
-    let chunkContent = ''
-    let hadError = false
-    let errorMessage = ''
-    let hadStored = false
-    let hadDeleted = false
     streamedSpeakChunksForLastAction = false
 
-    try {
-      const handler = selectHandler(action)
-      for await (const event of handler(actionInput, action, historyForHandlers, userInstructionDocuments, userInstructionsBlock)) {
-        if (event.type === 'chunk') {
-          chunkContent += event.content
-          if (action.intent === 'speak') {
-            yield event
-            streamedSpeakChunksForLastAction = true
-          }
-        }
-        // Handlers yield `done` when their generator ends; the UI treats `done` as end-of-stream.
-        // Buffering handler chunks and replaying them after the loop depends on streaming staying
-        // open—only the orchestrator may emit the turn-level `done` to the renderer.
-        if (event.type !== 'chunk' && event.type !== 'done') {
-          yield event
-        }
-        if (event.type === 'stored') {
-          hadStored = true
-          collectedDocumentIds.push(event.documentId)
-        }
-        if (event.type === 'deleted') {
-          hadDeleted = true
-        }
-        if (event.type === 'retrieved') {
-          collectedDocumentIds.push(...event.documentIds)
-        }
-        if (event.type === 'error') {
-          hadError = true
-          errorMessage = event.message
-        }
+    const executor = executeClassificationAction({
+      action,
+      actionInput,
+      actionIndex: index,
+      conversationHistory: historyForHandlers,
+      userInstructionDocuments,
+      userInstructionsBlock,
+    })
+
+    let step = await executor.next()
+    while (!step.done) {
+      const event = step.value
+      if (event.type === 'chunk' && action.intent === 'speak') {
+        streamedSpeakChunksForLastAction = true
       }
-    } catch (err) {
-      hadError = true
-      errorMessage = toErrorMessage(err)
-      logger.error({ err, actionIndex: index }, '[MultiActionOrchestrator] Handler failed')
+      yield event
+      step = await executor.next()
     }
 
-    const status = hadError
-      ? 'failed'
-      : (action.intent === 'save' && hadStored) || (action.intent === 'delete' && hadDeleted)
-        ? 'succeeded'
-        : inferStatusFromMessage(chunkContent, action.intent)
-
-    const message = hadError ? errorMessage : (chunkContent.trim() || 'Done.')
-    outcomes.push({
-      intent: action.intent,
-      situationSummary: action.situationSummary,
-      status,
-      message,
-    })
+    const outcome = step.value
+    outcomes.push(outcome)
   }
 
   if (outcomes.length === 0) {
@@ -171,36 +97,4 @@ export async function* runMultiActionTurn(
   }
 
   yield { type: 'done' }
-}
-
-type HandlerInvocation = (
-  actionInput: string,
-  action: ClassificationAction,
-  history: ConversationEntry[],
-  userInstructionDocuments: readonly import('../../shared/types').LoreDocument[],
-  userInstructionsBlock: string,
-) => AsyncGenerator<AgentEvent>
-
-function selectHandler(action: ClassificationAction): HandlerInvocation {
-  switch (action.intent) {
-    case 'save':
-      return async function* (input, classification, history, _, instructions) {
-        yield* handleThought(input, classification, history, instructions)
-      }
-    case 'read':
-      return async function* (input, classification, history, instructionDocs, instructions) {
-        const isTodoQuery = classification.extractedTags.some((tag) => tag === 'todo')
-        const todoOverrides = isTodoQuery ? ({ type: 'todo' } as const) : undefined
-        yield* handleQuestion(input, classification, history, todoOverrides, instructionDocs, instructions)
-      }
-    case 'edit':
-    case 'delete':
-      return async function* (input, classification, history, _, instructions) {
-        yield* handleCommand(input, classification, history, undefined, instructions)
-      }
-    case 'speak':
-      return async function* (input, classification, history, _, instructions) {
-        yield* handleConversational(input, classification, history, instructions)
-      }
-  }
 }

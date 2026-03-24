@@ -197,18 +197,6 @@ export type InputClassification =
   | 'delete'
   | 'speak'
 
-// ── Save decomposition ───────────────────────────────────────
-
-export interface DecomposedItem {
-  readonly content: string
-  readonly type: DecomposedDocumentType
-  readonly tags: readonly string[]
-}
-
-export interface SaveDecompositionResult {
-  readonly items: readonly DecomposedItem[]
-}
-
 // ── Agent classification & routing ───────────────────────────
 
 export interface SituationSummary {
@@ -232,20 +220,9 @@ export interface MetadataExtractionResult {
   readonly extractedTags: string[]
 }
 
-export interface SaveShapePlan {
-  readonly splitStrategy: 'single' | 'list' | 'verbatim_single'
-  readonly notesForDecomposer: string
-}
-
 export interface QuestionStrategyResult {
   readonly mode: 'answer' | 'ask_clarification'
   readonly clarificationMessage: string | null
-}
-
-/** Optional items for save actions; when present, used directly instead of decomposition. */
-export interface ClassificationSaveItem {
-  readonly content: string
-  readonly type: DecomposedDocumentType
 }
 
 /** Single action from classification; each field is specific to this action. */
@@ -256,8 +233,10 @@ export interface ClassificationAction {
   situationSummary: string
   /** Content the intent works on (e.g. text to save, item to delete). */
   data: string
-  /** For save: pre-decomposed items; when present, used directly. */
-  readonly items?: readonly ClassificationSaveItem[]
+  /**
+   * For `save`: document kind to store. For every other intent: null.
+   */
+  readonly saveDocumentType: DecomposedDocumentType | null
 }
 
 /** Classification returns an array of actions; backwards compat for single-action shape. */
@@ -265,21 +244,45 @@ export interface ClassificationResult {
   actions: readonly ClassificationAction[]
 }
 
+/** First action from unified classification, or a safe speak fallback when the array is empty. */
+export function primaryClassificationAction(result: ClassificationResult): ClassificationAction {
+  const first = result.actions[0]
+  if (first !== undefined) {
+    return first
+  }
+  return {
+    intent: 'speak',
+    extractedDate: null,
+    extractedTags: [],
+    situationSummary: '',
+    data: '',
+    saveDocumentType: null,
+  }
+}
+
 /** Shape passed to handlers; satisfied by ClassificationAction. */
 export type HandlerClassification = Pick<
   ClassificationAction,
-  'intent' | 'extractedDate' | 'extractedTags' | 'situationSummary' | 'items'
+  'intent' | 'extractedDate' | 'extractedTags' | 'situationSummary' | 'saveDocumentType'
 >
 
 /** Single action as handler input; backwards compatible with old ClassificationResult. */
 export type ClassificationForHandler = HandlerClassification
 
-/** Outcome of processing one action for summarizer. */
+/** Outcome of processing one action for the turn-level reply composer. */
 export interface ActionOutcome {
   readonly intent: InputClassification
   readonly situationSummary: string
   readonly status: 'succeeded' | 'failed'
   readonly message: string
+  /**
+   * Short ground-truth description of what the sub-handler did (duplicate prompt, stored id, zero hits, …).
+   * The final composer should treat this plus structured ids as authoritative over `message` when they conflict.
+   */
+  readonly handlerResultSummary: string
+  readonly storedDocumentIds: readonly string[]
+  readonly retrievedDocumentIds: readonly string[]
+  readonly deletedDocumentCount: number
 }
 
 /** Mutable accumulator for one user turn; updated by [orchestratorService](electron/services/orchestratorService.ts). */
@@ -337,6 +340,11 @@ export type AgentEvent =
   | { type: 'deleted'; documentId: string }
   | { type: 'duplicate'; existingContent: string }
   | { type: 'error'; message: string }
+  /**
+   * Factual one-line execution trace for this handler step (not shown in chat).
+   * Used when the turn ends with a multi-action summary so the composer knows what each sub-step did.
+   */
+  | { type: 'turn_step_summary'; summary: string }
   | { type: 'done' }
 
 // ── System info & hardware detection ─────────────────────────

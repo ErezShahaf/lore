@@ -107,6 +107,10 @@ export async function* handleQuestion(
       const greetingPrefix = looksLikeGreeting ? `${userInput.trim()}!\n\n` : ''
       const response = `${greetingPrefix}Here are your todos from newest to oldest:\n\n${formattedTodos.join('\n')}`
 
+      yield {
+        type: 'turn_step_summary',
+        summary: `Read: listed ${sortedTodos.length} todo(s) deterministically from storage (instruction-driven shortcut).`,
+      }
       yield { type: 'chunk', content: response }
       yield { type: 'done' }
       return
@@ -134,6 +138,10 @@ export async function* handleQuestion(
   }
 
   if (documents.length === 0) {
+    yield {
+      type: 'turn_step_summary',
+      summary: 'Read: retrieval returned zero matching documents; answer used the no-library context path.',
+    }
     yield { type: 'status', message: 'No matching notes in your library—drafting a reply…' }
     const ragSystemPrompt = appendUserInstructionsToSystemPrompt(
       loadSkill('question-answer'),
@@ -160,6 +168,10 @@ export async function* handleQuestion(
       }
     } catch (err) {
       yield {
+        type: 'turn_step_summary',
+        summary: 'Read: answer model failed while no documents were available.',
+      }
+      yield {
         type: 'error',
         message: err instanceof Error ? err.message : 'Failed to generate answer',
       }
@@ -178,6 +190,10 @@ export async function* handleQuestion(
 
   const directStructuredResponse = buildDirectStructuredResponse(userInput, documents)
   if (directStructuredResponse) {
+    yield {
+      type: 'turn_step_summary',
+      summary: 'Read: returned structured content from a single retrieved document without the full answer model.',
+    }
     yield { type: 'chunk', content: directStructuredResponse }
     yield { type: 'done' }
     return
@@ -197,6 +213,11 @@ export async function* handleQuestion(
   })
 
   if (strategy.mode === 'ask_clarification' && strategy.clarificationMessage) {
+    yield {
+      type: 'turn_step_summary',
+      summary:
+        'Read: question strategist chose clarification instead of a direct answer; user was asked to narrow the question.',
+    }
     yield { type: 'chunk', content: strategy.clarificationMessage }
     yield { type: 'done' }
     return
@@ -240,7 +261,15 @@ export async function* handleQuestion(
     for await (const chunk of streamQuestionLlmChunks(settings.selectedModel, messages)) {
       yield { type: 'chunk', content: chunk }
     }
+    yield {
+      type: 'turn_step_summary',
+      summary: `Read: streamed grounded answer using ${documents.length} retrieved note(s) in context.`,
+    }
   } catch (err) {
+    yield {
+      type: 'turn_step_summary',
+      summary: 'Read: answer model failed after documents were retrieved.',
+    }
     yield {
       type: 'error',
       message: err instanceof Error ? err.message : 'Failed to generate answer',

@@ -28,4 +28,8 @@ Match your wording to the kind of fact you received:
 - `instruction_stored` — confirm their instruction was stored
 - `command_no_documents` / `command_no_match` — explain gently that nothing matched what they asked for
 - `command_executed` — say in simple words what was updated or removed
-- `multi_action_summary` — summarize what succeeded and what failed; if something failed, say which and why without dumping raw errors on them
+- `multi_action_summary` — the user may have triggered several steps in one turn. `outcomes` is an array; **for each** entry you get:
+  - `handlerResultSummary` — short ground truth of what that sub-step actually did (stored ids, duplicate prompt, zero search hits, clarification only, …). **Trust this** when it disagrees with wording in `message`.
+  - `message` — text that sub-step drafted for the user (you may not have shown it yet in multi-step mode); you can reuse or rephrase it.
+  - `intent`, `status`, `situationSummary`, and id arrays (`storedDocumentIds`, `retrievedDocumentIds`, `deletedDocumentCount`) for extra structure.
+  Combine everything into one coherent reply: what happened for each part, and what failed (if anything), without dumping raw errors.

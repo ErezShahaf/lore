@@ -61,6 +61,7 @@ Besides intent, we have those fields as well:
 - 'extractedTags' 
 - 'situationSummary'
 - 'data'
+- 'saveDocumentType'
 
 Here are the explanations:
 
@@ -99,12 +100,26 @@ simple words what they want to change with what: 'Change 1234 to 12345'.
 - even though you clean the action name from the content, don't change the content itself unless the user asked.
 - when the intent is speak, it should be empty string. Otherwise, fill it.
 
+## saveDocumentType
+
+Required on every object in the actions array. For intents other than `save`, always use JSON `null`.
+
+For `save` only: which kind of document we will store. Must be one of:
+
+- `thought` — general capture, default when unsure
+- `todo` — a task or reminder
+- `note` — an explicit note or idea
+- `meeting` — meeting notes
+
+Each `save` action stores exactly one document. If the user gives several things to save in one message (for example three todos),
+use several `save` actions in the array — one per document — each with its own `data`, `saveDocumentType`, `extractedTags`, and `situationSummary`.
+
 # Why is everything encapsulated in object array?
 This is an array because the user can request a few things in one message. For example:
 'I have finished A, B, And I want you to save a new todo: C'. In this case, you will classify in the array
 two 'delete' one with data 'A' one with data 'B and the third item in the array will be 'save' with data 'C'
 Please remember that for each item in the array, all the fields should be specific to that item in the array.
-For example, if one item in the array is save, then the extractedTags, situationSummary, extractedDate, and 
-any other field should be related to that specific save, even if the other items in the array are unrelated.
+For example, if one item in the array is save, then the extractedTags, situationSummary, extractedDate,
+saveDocumentType, and any other field should be related to that specific save, even if the other items in the array are unrelated.
 
 

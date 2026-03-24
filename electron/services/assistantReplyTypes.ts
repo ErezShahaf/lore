@@ -37,11 +37,15 @@ export type AssistantReplyFacts =
     }[]
   }
   | {
-    readonly kind: 'multi_action_summary'
-    readonly outcomes: readonly {
-      readonly intent: string
-      readonly situationSummary: string
-      readonly status: 'succeeded' | 'failed'
-      readonly message: string
-    }[]
-  }
+      readonly kind: 'multi_action_summary'
+      readonly outcomes: readonly {
+        readonly intent: string
+        readonly situationSummary: string
+        readonly status: 'succeeded' | 'failed'
+        readonly message: string
+        readonly handlerResultSummary: string
+        readonly storedDocumentIds: readonly string[]
+        readonly retrievedDocumentIds: readonly string[]
+        readonly deletedDocumentCount: number
+      }[]
+    }

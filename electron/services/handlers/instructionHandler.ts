@@ -2,7 +2,7 @@ import { storeThought } from '../documentPipeline'
 import { retrieveRelevantDocuments } from '../documentPipeline'
 import { formatLocalDate } from '../localDate'
 import { streamAssistantUserReplyWithFallback } from '../assistantReplyComposer'
-import type { ClassificationResult, AgentEvent } from '../../../shared/types'
+import { primaryClassificationAction, type ClassificationResult, type AgentEvent } from '../../../shared/types'
 
 export async function* handleInstruction(
   userInput: string,
@@ -19,13 +19,14 @@ export async function* handleInstruction(
   yield { type: 'status', message: 'Saving your instruction…' }
 
   const today = formatLocalDate(new Date())
+  const action = primaryClassificationAction(classification)
 
   const doc = await storeThought({
     content: userInput,
     originalInput: userInput,
     type: 'instruction',
-    date: classification.extractedDate ?? today,
-    tags: classification.extractedTags,
+    date: action.extractedDate ?? today,
+    tags: action.extractedTags,
   })
 
   yield { type: 'stored', documentId: doc.id }

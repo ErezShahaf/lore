@@ -43,6 +43,10 @@ export async function* handleCommand(
       : await retrieveRelevantDocuments(userInput, retrievalOpts)
 
   if (documents.length === 0) {
+    yield {
+      type: 'turn_step_summary',
+      summary: 'Command: no documents matched the search; nothing was modified.',
+    }
     for await (const chunk of streamAssistantUserReplyWithFallback({
       userInstructionsBlock,
       facts: { kind: 'command_no_documents' },
@@ -66,6 +70,10 @@ export async function* handleCommand(
     resolution = await resolveCommandTargets(userInput, documents, conversationHistory, userInstructionsBlock)
   } catch {
     yield {
+      type: 'turn_step_summary',
+      summary: 'Command: decomposition failed; no documents were changed.',
+    }
+    yield {
       type: 'error',
       message: 'Failed to understand which documents to modify. Please try being more specific.',
     }
@@ -75,6 +83,10 @@ export async function* handleCommand(
 
   if (resolution.status === 'clarify') {
     yield {
+      type: 'turn_step_summary',
+      summary: 'Command: targets were ambiguous; user was sent a clarification question. No edits or deletes ran.',
+    }
+    yield {
       type: 'chunk',
       content: resolution.clarificationMessage,
     }
@@ -83,6 +95,10 @@ export async function* handleCommand(
   }
 
   if (resolution.operations.length === 0) {
+    yield {
+      type: 'turn_step_summary',
+      summary: 'Command: resolver returned no safe operations; nothing was modified.',
+    }
     for await (const chunk of streamAssistantUserReplyWithFallback({
       userInstructionsBlock,
       facts: { kind: 'command_no_match' },
@@ -117,6 +133,23 @@ export async function* handleCommand(
   }
 
   const executedFacts = buildCommandExecutedFacts(results)
+  const deleteCount = results.reduce(
+    (accumulator, result) => accumulator + (result.action === 'delete' ? result.documents.length : 0),
+    0,
+  )
+  const updateCount = results.reduce(
+    (accumulator, result) => accumulator + (result.action === 'update' ? result.documents.length : 0),
+    0,
+  )
+  const summaryParts: string[] = ['Command: executed planned operations.']
+  if (deleteCount > 0) {
+    summaryParts.push(`Removed ${deleteCount} document(s).`)
+  }
+  if (updateCount > 0) {
+    summaryParts.push(`Updated ${updateCount} document(s).`)
+  }
+  yield { type: 'turn_step_summary', summary: summaryParts.join(' ') }
+
   for await (const chunk of streamAssistantUserReplyWithFallback({
     userInstructionsBlock,
     facts: executedFacts,

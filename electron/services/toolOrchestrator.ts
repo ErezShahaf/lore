@@ -240,7 +240,7 @@ export async function* runToolOrchestratedTurn(
       if (event.type === 'stored') {
         collectedDocumentIds.push(event.documentId)
       }
-      if (event.type !== 'chunk') {
+      if (event.type !== 'chunk' && event.type !== 'turn_step_summary') {
         yield event
       }
     }
