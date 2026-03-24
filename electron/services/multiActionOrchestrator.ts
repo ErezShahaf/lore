@@ -1,7 +1,6 @@
 import { logger } from '../logger'
 import { classifyInputUnified } from './unifiedClassifierService'
 import { formatUserInstructionsBlock, loadAllUserInstructionDocuments } from './userInstructionsContext'
-import { retrieveRelevantDocuments } from './documentPipeline'
 import { handleThought } from './handlers/thoughtHandler'
 import { handleQuestion } from './handlers/questionHandler'
 import { handleCommand } from './handlers/commandHandler'
@@ -80,6 +79,7 @@ export async function* runMultiActionTurn(
   const outcomes: ActionOutcome[] = []
   const collectedDocumentIds: string[] = []
   const historyForHandlers = [...priorHistory]
+  let streamedSpeakChunksForLastAction = false
 
   for (let index = 0; index < actions.length; index += 1) {
     const action = actions[index]
@@ -92,12 +92,17 @@ export async function* runMultiActionTurn(
     let errorMessage = ''
     let hadStored = false
     let hadDeleted = false
+    streamedSpeakChunksForLastAction = false
 
     try {
       const handler = selectHandler(action)
       for await (const event of handler(actionInput, action, historyForHandlers, userInstructionDocuments, userInstructionsBlock)) {
         if (event.type === 'chunk') {
           chunkContent += event.content
+          if (action.intent === 'speak') {
+            yield event
+            streamedSpeakChunksForLastAction = true
+          }
         }
         // Handlers yield `done` when their generator ends; the UI treats `done` as end-of-stream.
         // Buffering handler chunks and replaying them after the loop depends on streaming staying
@@ -149,7 +154,9 @@ export async function* runMultiActionTurn(
   const isSingleSpeak =
     outcomes.length === 1 && outcomes[0].intent === 'speak' && outcomes[0].message.length > 0
   if (isSingleSpeak) {
-    yield { type: 'chunk', content: outcomes[0].message }
+    if (!streamedSpeakChunksForLastAction) {
+      yield { type: 'chunk', content: outcomes[0].message }
+    }
     yield { type: 'done' }
     return
   }
@@ -192,22 +199,8 @@ function selectHandler(action: ClassificationAction): HandlerInvocation {
         yield* handleCommand(input, classification, history, undefined, instructions)
       }
     case 'speak':
-      return async function* (input, classification, history, instructionDocs, instructions) {
-        const isShortGreeting = input.trim().length < 12
-        const relevantInstructions = isShortGreeting
-          ? []
-          : await retrieveRelevantDocuments(input, {
-              type: 'instruction',
-              similarityThreshold: 0.8,
-            })
-
-        if (relevantInstructions.length > 0) {
-          const isTodoQuery = classification.extractedTags.some((tag) => tag === 'todo')
-          const todoOverrides = isTodoQuery ? ({ type: 'todo' } as const) : undefined
-          yield* handleQuestion(input, classification, history, todoOverrides, instructionDocs, instructions)
-        } else {
-          yield* handleConversational(input, classification, history, instructions)
-        }
+      return async function* (input, classification, history, _, instructions) {
+        yield* handleConversational(input, classification, history, instructions)
       }
   }
 }

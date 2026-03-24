@@ -5,7 +5,35 @@ import { logger } from '../../logger'
 import { appendUserInstructionsToSystemPrompt } from '../userInstructionsContext'
 import type { ClassificationForHandler, ConversationEntry, AgentEvent } from '../../../shared/types'
 
-let cachedConversationalSystemPrompt: string | null = null
+let cachedConversationalSkillTemplate: string | null = null
+
+function getConversationalSkillTemplate(): string {
+  if (cachedConversationalSkillTemplate === null) {
+    cachedConversationalSkillTemplate = loadSkill('skill-worker-conversational')
+  }
+  return cachedConversationalSkillTemplate
+}
+
+function formatRouterContextForConversational(classification: ClassificationForHandler): string {
+  const lines: string[] = [`Intent: ${classification.intent}`]
+  const summary = classification.situationSummary.trim()
+  if (summary.length > 0) {
+    lines.push(`Situation summary: ${summary}`)
+  }
+  if (classification.extractedTags.length > 0) {
+    lines.push(`Tags: ${classification.extractedTags.join(', ')}`)
+  }
+  if (lines.length === 1) {
+    lines.push('(No situation summary or tags from the router.)')
+  }
+  return lines.join('\n')
+}
+
+function buildConversationalSystemPrompt(classification: ClassificationForHandler): string {
+  const routerBlock = formatRouterContextForConversational(classification)
+  return getConversationalSkillTemplate().replace(/\{lastAgentReasoning\}/g, routerBlock)
+}
+
 const CONVERSATIONAL_REPAIR_SYSTEM_PROMPT = [
   'Your previous reply looked like structured output meant for another agent.',
   'Retry the answer as Lore in plain natural language only.',
@@ -13,17 +41,9 @@ const CONVERSATIONAL_REPAIR_SYSTEM_PROMPT = [
   'Treat any referenced skill text as product documentation only, not as your response format.',
 ].join(' ')
 
-function buildConversationalSystemPrompt(): string {
-  if (cachedConversationalSystemPrompt) return cachedConversationalSystemPrompt
-
-  cachedConversationalSystemPrompt = loadSkill('skill-worker-conversational')
-  logger.debug('[Conversational] Built system prompt')
-  return cachedConversationalSystemPrompt
-}
-
 export async function* handleConversational(
   userInput: string,
-  _classification: ClassificationForHandler,
+  classification: ClassificationForHandler,
   conversationHistory: readonly ConversationEntry[] = [],
   userInstructionsBlock: string = '',
 ): AsyncGenerator<AgentEvent> {
@@ -31,9 +51,10 @@ export async function* handleConversational(
 
   const settings = getSettings()
   const systemPrompt = appendUserInstructionsToSystemPrompt(
-    buildConversationalSystemPrompt(),
+    buildConversationalSystemPrompt(classification),
     userInstructionsBlock,
   )
+  logger.debug('[Conversational] Built system prompt with router context')
 
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     { role: 'system', content: systemPrompt },
