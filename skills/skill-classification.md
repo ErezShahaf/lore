@@ -6,8 +6,9 @@ about the product.
 Your job is to try to understand the most likely intent of the user and classify a json based on it.
 
 # Your Response
+You will reply with a json object that has a field named commands, the command is an object array. From now on whenI describe the shape, it will be the shape of each item in the commands array. 
 
-You will reply with a json with the field 'intent'. Please classify the field 'intent', which can be one of those:
+One of the fields is 'intent', which can be one of those:
 
 - 'read'
 - 'save'
@@ -56,6 +57,7 @@ Besides intent, we have those fields as well:
 - 'extractedDate'
 - 'extractedTags' 
 - 'situationSummary'
+- 'data'
 
 Here are the explanations:
 
@@ -71,11 +73,31 @@ Yesterday was {yesterdayDate}.
 This week started at {thisWeekStart}
 Last week started at {lastWeekStart}
 
+## situationSummary
+
+Short sentence about what the user wants to do.
+
+## data
+A string array
+
 ## extractedTags
 
 String array in low case. You should NOT pass it for 'speak' and SHOULD pass it for every other intent.
 Tag the content based on categories, the more tags the better, up to 5 tags.
 
-## situationSummary
+## data
 
-Short sentence about what the user wants, or what the situation is.
+This is the content that the intent will work on. For example, if a user says: 'save: XYZ',
+you will classify intent 'save' with data 'XYZ', which is the content that the user wanted
+to save without the instruction that they gave you. If the user says I have finished 'F', and you
+understand from the context that they want to remove this todo, you pass 'delete' and the data is 'F'. 
+For read it is the data the user wants to find / read, and for edit you would explain in
+simple words what they want to change with what: 'Change 1234 to 12345'.
+
+# Why is this an array?
+This is an array because the user can request a few things in one message. For example:
+'I have finished A, B, And I want you to save a new todo: C'. In this case, you will classify in the array
+two 'delete' one with data 'A' one with data 'B and the third item in the array will be 'save' with data 'C'
+Please remember that for each item in the array, all the fields should be specific to that item in the array.
+For example, if one item in the array is save, then the extractedTags, situationSummary, extractedDate, and 
+any other field should be related to that specific save, even if the other items in the array are unrelated.
