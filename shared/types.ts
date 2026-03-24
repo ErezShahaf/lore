@@ -242,11 +242,44 @@ export interface QuestionStrategyResult {
   readonly clarificationMessage: string | null
 }
 
-export interface ClassificationResult {
+/** Optional items for save actions; when present, used directly instead of decomposition. */
+export interface ClassificationSaveItem {
+  readonly content: string
+  readonly type: DecomposedDocumentType
+}
+
+/** Single action from classification; each field is specific to this action. */
+export interface ClassificationAction {
   intent: InputClassification
   extractedDate: string | null
   extractedTags: string[]
   situationSummary: string
+  /** Content the intent works on (e.g. text to save, item to delete). */
+  data: string
+  /** For save: pre-decomposed items; when present, used directly. */
+  readonly items?: readonly ClassificationSaveItem[]
+}
+
+/** Classification returns an array of actions; backwards compat for single-action shape. */
+export interface ClassificationResult {
+  actions: readonly ClassificationAction[]
+}
+
+/** Shape passed to handlers; satisfied by ClassificationAction. */
+export type HandlerClassification = Pick<
+  ClassificationAction,
+  'intent' | 'extractedDate' | 'extractedTags' | 'situationSummary' | 'items'
+>
+
+/** Single action as handler input; backwards compatible with old ClassificationResult. */
+export type ClassificationForHandler = HandlerClassification
+
+/** Outcome of processing one action for summarizer. */
+export interface ActionOutcome {
+  readonly intent: InputClassification
+  readonly situationSummary: string
+  readonly status: 'succeeded' | 'failed'
+  readonly message: string
 }
 
 /** Mutable accumulator for one user turn; updated by [orchestratorService](electron/services/orchestratorService.ts). */

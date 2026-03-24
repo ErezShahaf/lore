@@ -89,6 +89,19 @@ export function buildFallbackAssistantReply(facts: AssistantReplyFacts): string 
       })
       return `Done: ${parts.join(', ')}.`
     }
+    case 'multi_action_summary': {
+      const succeeded = facts.outcomes.filter((o) => o.status === 'succeeded')
+      const failed = facts.outcomes.filter((o) => o.status === 'failed')
+      const parts: string[] = []
+      if (succeeded.length > 0) {
+        parts.push(succeeded.map((o) => o.message).join(' '))
+      }
+      if (failed.length > 0) {
+        const failPhrase = succeeded.length > 0 ? ' However, ' : ''
+        parts.push(failPhrase + failed.map((o) => o.message).join(' '))
+      }
+      return parts.length > 0 ? parts.join('') : 'Done.'
+    }
     default: {
       return 'Done.'
     }

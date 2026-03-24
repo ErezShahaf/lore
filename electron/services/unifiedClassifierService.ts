@@ -6,11 +6,27 @@ import { logger } from '../logger'
 import { appendUserInstructionsToSystemPrompt } from './userInstructionsContext'
 import type {
   ClassificationResult,
+  ClassificationAction,
+  ClassificationSaveItem,
   ConversationEntry,
+  DecomposedDocumentType,
   InputClassification,
 } from '../../shared/types'
 
-const UNIFIED_CLASSIFICATION_SCHEMA = {
+const SAVE_ITEM_SCHEMA = {
+  type: 'object',
+  properties: {
+    content: { type: 'string' },
+    type: {
+      type: 'string',
+      enum: ['thought', 'todo', 'note', 'meeting'],
+    },
+  },
+  required: ['content', 'type'],
+  additionalProperties: false,
+}
+
+const ACTION_ITEM_SCHEMA = {
   type: 'object',
   properties: {
     situationSummary: { type: 'string' },
@@ -25,13 +41,31 @@ const UNIFIED_CLASSIFICATION_SCHEMA = {
       type: 'array',
       items: { type: 'string' },
     },
+    data: { type: 'string' },
+    items: {
+      type: 'array',
+      items: SAVE_ITEM_SCHEMA,
+    },
   },
   required: [
     'situationSummary',
     'intent',
     'extractedDate',
     'extractedTags',
+    'data',
   ],
+  additionalProperties: false,
+}
+
+const UNIFIED_CLASSIFICATION_SCHEMA = {
+  type: 'object',
+  properties: {
+    actions: {
+      type: 'array',
+      items: ACTION_ITEM_SCHEMA,
+    },
+  },
+  required: ['actions'],
   additionalProperties: false,
 }
 
@@ -75,19 +109,69 @@ function validateIntent(value: unknown): InputClassification {
     : 'speak'
 }
 
-function validateClassification(parsed: Record<string, unknown>): ClassificationResult {
-  const intent = validateIntent(parsed.intent)
+const VALID_DECOMPOSED_TYPES: readonly DecomposedDocumentType[] = [
+  'thought',
+  'todo',
+  'note',
+  'meeting',
+]
+
+function validateSaveItem(raw: unknown): ClassificationSaveItem | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const obj = raw as Record<string, unknown>
+  const content = typeof obj.content === 'string' ? obj.content.trim() : ''
+  if (content.length === 0) return null
+  const type = typeof obj.type === 'string' && VALID_DECOMPOSED_TYPES.includes(obj.type as DecomposedDocumentType)
+    ? (obj.type as DecomposedDocumentType)
+    : 'thought'
+  return { content, type }
+}
+
+function validateAction(raw: unknown): ClassificationAction {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return createDefaultAction('speak')
+  }
+  const obj = raw as Record<string, unknown>
+  const intent = validateIntent(obj.intent)
+  const validatedItems: ClassificationSaveItem[] = []
+  if (Array.isArray(obj.items)) {
+    for (const rawItem of obj.items) {
+      const item = validateSaveItem(rawItem)
+      if (item) validatedItems.push(item)
+    }
+  }
   return {
     intent,
     extractedDate:
-      typeof parsed.extractedDate === 'string' && parsed.extractedDate !== ''
-        ? parsed.extractedDate
+      typeof obj.extractedDate === 'string' && obj.extractedDate !== ''
+        ? obj.extractedDate
         : null,
-    extractedTags: Array.isArray(parsed.extractedTags)
-      ? parsed.extractedTags.filter((tag): tag is string => typeof tag === 'string')
+    extractedTags: Array.isArray(obj.extractedTags)
+      ? (obj.extractedTags as unknown[]).filter((tag): tag is string => typeof tag === 'string')
       : [],
-    situationSummary: typeof parsed.situationSummary === 'string' ? parsed.situationSummary : '',
+    situationSummary: typeof obj.situationSummary === 'string' ? obj.situationSummary : '',
+    data: typeof obj.data === 'string' ? obj.data : '',
+    items: validatedItems.length > 0 ? validatedItems : undefined,
   }
+}
+
+function createDefaultAction(intent: InputClassification): ClassificationAction {
+  return {
+    intent,
+    extractedDate: null,
+    extractedTags: [],
+    situationSummary: '',
+    data: '',
+  }
+}
+
+function validateClassification(parsed: Record<string, unknown>): ClassificationResult {
+  const rawActions = parsed.actions
+  if (!Array.isArray(rawActions) || rawActions.length === 0) {
+    return { actions: [createDefaultAction('speak')] }
+  }
+  const actions = rawActions.map((raw) => validateAction(raw))
+  return { actions }
 }
 
 const MAX_RETRIES = 2
@@ -133,11 +217,6 @@ export async function classifyInputUnified(
     return classification
   } catch (error) {
     logger.warn({ error }, '[UnifiedClassifier] Classification failed, using fallback')
-    return {
-      intent: 'speak',
-      extractedDate: null,
-      extractedTags: [],
-      situationSummary: '',
-    }
+    return { actions: [createDefaultAction('speak')] }
   }
 }

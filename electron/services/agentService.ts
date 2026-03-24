@@ -1,5 +1,5 @@
 import { logger } from '../logger'
-import { runToolOrchestratedTurn } from './toolOrchestrator'
+import { runMultiActionTurn } from './multiActionOrchestrator'
 import type { AgentEvent, ConversationEntry } from '../../shared/types'
 
 interface SessionContext {
@@ -31,7 +31,7 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
   const documentIds: string[] = []
 
   try {
-    for await (const event of runToolOrchestratedTurn(userInput, priorHistory)) {
+    for await (const event of runMultiActionTurn(userInput, priorHistory)) {
       if (event.type === 'chunk') {
         assistantResponse += event.content
       }

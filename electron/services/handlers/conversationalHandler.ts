@@ -3,7 +3,7 @@ import { getSettings } from '../settingsService'
 import { loadSkill } from '../skillLoader'
 import { logger } from '../../logger'
 import { appendUserInstructionsToSystemPrompt } from '../userInstructionsContext'
-import type { ClassificationResult, ConversationEntry, AgentEvent } from '../../../shared/types'
+import type { ClassificationForHandler, ConversationEntry, AgentEvent } from '../../../shared/types'
 
 let cachedConversationalSystemPrompt: string | null = null
 const CONVERSATIONAL_REPAIR_SYSTEM_PROMPT = [
@@ -16,14 +16,14 @@ const CONVERSATIONAL_REPAIR_SYSTEM_PROMPT = [
 function buildConversationalSystemPrompt(): string {
   if (cachedConversationalSystemPrompt) return cachedConversationalSystemPrompt
 
-  cachedConversationalSystemPrompt = loadSkill('conversational')
+  cachedConversationalSystemPrompt = loadSkill('skill-worker-conversational')
   logger.debug('[Conversational] Built system prompt')
   return cachedConversationalSystemPrompt
 }
 
 export async function* handleConversational(
   userInput: string,
-  _classification: ClassificationResult,
+  _classification: ClassificationForHandler,
   conversationHistory: readonly ConversationEntry[] = [],
   userInstructionsBlock: string = '',
 ): AsyncGenerator<AgentEvent> {
@@ -51,12 +51,17 @@ export async function* handleConversational(
     if (looksLikeStructuredAgentOutput(streamedResponse.response)) {
       logger.warn({ userInput, response: streamedResponse.response }, '[Conversational] Structured output detected')
       if (!streamedResponse.didEmitVisibleContent) {
-        streamedResponse = {
-          response: await collectChatResponse(
-            [{ role: 'system', content: CONVERSATIONAL_REPAIR_SYSTEM_PROMPT }, ...messages],
-            settings.selectedModel,
-          ),
-          didEmitVisibleContent: false,
+        const extracted = tryExtractReplyContent(streamedResponse.response)
+        if (extracted !== null) {
+          streamedResponse = { response: extracted, didEmitVisibleContent: false }
+        } else {
+          streamedResponse = {
+            response: await collectChatResponse(
+              [{ role: 'system', content: CONVERSATIONAL_REPAIR_SYSTEM_PROMPT }, ...messages],
+              settings.selectedModel,
+            ),
+            didEmitVisibleContent: false,
+          }
         }
       }
     }
@@ -64,8 +69,9 @@ export async function* handleConversational(
     if (looksLikeStructuredAgentOutput(streamedResponse.response)) {
       logger.warn({ userInput, response: streamedResponse.response }, '[Conversational] Structured output persisted after retry')
       if (!streamedResponse.didEmitVisibleContent) {
+        const extractedContent = tryExtractReplyContent(streamedResponse.response)
         streamedResponse = {
-          response: '',
+          response: extractedContent ?? '',
           didEmitVisibleContent: false,
         }
       }
@@ -147,6 +153,20 @@ async function* streamConversationalResponse(
   }
 
   return { response, didEmitVisibleContent }
+}
+
+function tryExtractReplyContent(response: string): string | null {
+  const trimmed = response.trim()
+  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return null
+  try {
+    const parsed = JSON.parse(trimmed) as { action?: string; content?: string }
+    if (parsed?.action === 'reply' && typeof parsed.content === 'string') {
+      return parsed.content.trim()
+    }
+  } catch {
+    // ignore
+  }
+  return null
 }
 
 function normalizeConversationalResponse(userInput: string, response: string): string {

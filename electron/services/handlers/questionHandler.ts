@@ -18,7 +18,7 @@ import {
   streamQuestionLlmChunks,
 } from '../questionAnswerComposition'
 import type {
-  ClassificationResult,
+  ClassificationForHandler,
   AgentEvent,
   LoreDocument,
   RetrievalOptions,
@@ -32,7 +32,7 @@ const MAX_TODO_DOCUMENTS_FOR_CONVERSATIONAL_INSTRUCTIONS = 6
 
 export async function* handleQuestion(
   userInput: string,
-  classification: ClassificationResult,
+  classification: ClassificationForHandler,
   conversationContext?: Array<{ role: 'user' | 'assistant'; content: string }>,
   retrievalOverrides?: RetrievalOptions,
   userInstructionDocuments: readonly LoreDocument[] = [],
@@ -280,7 +280,7 @@ function stripTemporalFilters(options: RetrievalOptions): RetrievalOptions {
 
 function buildQuestionFallbackQueries(
   userInput: string,
-  classification: ClassificationResult,
+  classification: ClassificationForHandler,
 ): string[] {
   const fallbackQueries = [
     userInput,
@@ -316,7 +316,7 @@ interface DateRange {
 
 function resolveDateRange(
   userInput: string,
-  classification: ClassificationResult,
+  classification: ClassificationForHandler,
 ): DateRange | null {
   if (!classification.extractedDate) return null
 
@@ -327,7 +327,7 @@ function resolveDateRange(
 
 function buildRetrievalOptions(
   userInput: string,
-  classification: ClassificationResult,
+  classification: ClassificationForHandler,
   retrievalOverrides?: RetrievalOptions,
 ): RetrievalOptions {
   const retrievalOptions: RetrievalOptions = { ...retrievalOverrides }

@@ -36,3 +36,12 @@ export type AssistantReplyFacts =
       readonly contentPreview: string
     }[]
   }
+  | {
+    readonly kind: 'multi_action_summary'
+    readonly outcomes: readonly {
+      readonly intent: string
+      readonly situationSummary: string
+      readonly status: 'succeeded' | 'failed'
+      readonly message: string
+    }[]
+  }

@@ -8,20 +8,41 @@ import { planSaveShape } from '../saveShapeService'
 import { streamAssistantUserReplyWithFallback } from '../assistantReplyComposer'
 import { resolveDuplicateIntent } from '../duplicateResolutionService'
 import { logger } from '../../logger'
-import type { ClassificationResult, AgentEvent, DecomposedItem, DocumentType, ConversationEntry } from '../../../shared/types'
+import type { ClassificationForHandler, AgentEvent, DecomposedItem, DecomposedDocumentType, DocumentType, ConversationEntry } from '../../../shared/types'
+
+function classificationItemsToDecomposedItems(
+  items: readonly { content: string; type: DecomposedDocumentType }[],
+  extractedTags: readonly string[],
+): DecomposedItem[] {
+  return items.map((item) => {
+    const typeTag = item.type !== 'thought' ? item.type : null
+    const tags = typeTag && !extractedTags.includes(typeTag)
+      ? [typeTag, ...extractedTags]
+      : extractedTags
+    const uniqueTags = [...new Set(tags.map((t) => t.toLowerCase()))].filter(Boolean)
+    return { content: item.content, type: item.type, tags: uniqueTags }
+  })
+}
 
 export async function* handleThought(
   userInput: string,
-  classification: ClassificationResult,
+  classification: ClassificationForHandler,
   conversationHistory: readonly ConversationEntry[] = [],
   userInstructionsBlock: string = '',
 ): AsyncGenerator<AgentEvent> {
-  yield { type: 'status', message: 'Planning how to split your note or todos…' }
   const today = formatLocalDate(new Date())
   const date = classification.extractedDate ?? today
-  const shapePlan = await planSaveShape(userInput, conversationHistory, userInstructionsBlock)
-  yield { type: 'status', message: 'Extracting items to store…' }
-  const { items } = await decomposeForStorage(userInput, conversationHistory, shapePlan, userInstructionsBlock)
+  let items: readonly DecomposedItem[]
+
+  if (classification.items && classification.items.length > 0) {
+    items = classificationItemsToDecomposedItems(classification.items, classification.extractedTags)
+  } else {
+    yield { type: 'status', message: 'Planning how to split your note or todos…' }
+    const shapePlan = await planSaveShape(userInput, conversationHistory, userInstructionsBlock)
+    yield { type: 'status', message: 'Extracting items to store…' }
+    const decomposed = await decomposeForStorage(userInput, conversationHistory, shapePlan, userInstructionsBlock)
+    items = decomposed.items
+  }
 
   if (items.length === 0) {
     logger.warn({ userInput }, '[ThoughtHandler] Decomposition returned no items')

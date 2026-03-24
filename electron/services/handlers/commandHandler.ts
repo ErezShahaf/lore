@@ -5,7 +5,7 @@ import { resolveCommandTargets } from '../commandDecompositionService'
 import { streamAssistantUserReplyWithFallback } from '../assistantReplyComposer'
 import type { AssistantReplyFacts } from '../assistantReplyTypes'
 import type {
-  ClassificationResult,
+  ClassificationForHandler,
   ConversationEntry,
   AgentEvent,
   LoreDocument,
@@ -21,7 +21,7 @@ interface ExecutionResult {
 
 export async function* handleCommand(
   userInput: string,
-  classification: ClassificationResult,
+  classification: ClassificationForHandler,
   conversationHistory: readonly ConversationEntry[] = [],
   retrievalOverrides?: RetrievalOptions,
   userInstructionsBlock: string = '',
