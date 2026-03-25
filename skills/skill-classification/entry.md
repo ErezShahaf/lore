@@ -54,7 +54,11 @@ When the user reports that specific tasks are **done**, **finished**, **complete
 
 Classify **`delete`** with **one action per distinct task** they clearly completed, using `data` that names that task. When they batch-complete several items in one sentence, emit **multiple `delete` actions**, not **`speak`**, unless the reference is too vague to map safely.
 
+When one message names **several completions** using phrases that **line up with several different stored todos** (product names, people’s names, distinctive lines from the list, or clear paraphrases of those lines), emit **one `delete` per matched todo**. That still applies when the tone is casual or the grammar runs several clauses together.
+
 If many todos share the same vague theme (several different “ride …” items, several “run …” items, etc.) and the user does **not** pinpoint which one(s) they finished, use **`speak`** to ask which todo they mean—do **not** pick one with **`delete`**.
+
+Do **not** infer **`delete`** from a **single** vague milestone with **no** tie to text (for example only “we shipped” or “all good”) when you cannot map it to identifiable todos. Prefer **`speak`** there.
 
 When the message is only vague celebration with **no** identifiable tasks (“all good”, “thanks”) and **no** link to items they track, **`speak`** is appropriate.
 
@@ -72,6 +76,8 @@ For example: if there are multiple candidate records and the user points to one 
 If the user asks to remove something that could match multiple records, clarify unless they clearly want to remove all matches.
 
 For **`edit`**: a short or generic reference that could apply to **multiple** stored todos with overlapping wording (two different todos that both mention “water”, “ride”, “run”, and so on) must be **`speak`**, not **`edit`** with an arbitrary single target.
+
+Wording like **edit the** *word*, **change the** *word*, or **replace** *word* **with** … when that *word* is only a **shared fragment** inside **several** todos (not a unique title) is **`speak`**: ask which todo they mean before editing.
 
 # Dealing with untitled data
 

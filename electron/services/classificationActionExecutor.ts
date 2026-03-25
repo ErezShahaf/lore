@@ -250,6 +250,7 @@ export async function* executeClassificationAction(
 
   return {
     intent: action.intent,
+    saveDocumentType: action.intent === 'save' ? action.saveDocumentType : null,
     situationSummary: action.situationSummary,
     status,
     message,

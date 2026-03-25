@@ -5,7 +5,7 @@ alwaysApply: false
 
 # Agent improving — evals, traces, and honest fixes
 
-Use this when you are asked to diagnose eval failures, tune the agent, or change prompts and skills based on scenario results. Use it as the **policy** for a repeatable loop: run tests → inspect newest artifacts → trace-backed fixes → re-run tests.
+Use this when you are asked to diagnose eval failures, tune the agent, or change prompts and skills based on scenario results. Use it as the **policy** for: inspect artifacts → trace-backed fixes. **Do not** re-run promptfoo or other eval suites from the agent unless the user **explicitly** asks you to; verification is the human’s or CI’s step.
 
 ## Purpose
 
@@ -30,8 +30,8 @@ Use this when you are asked to diagnose eval failures, tune the agent, or change
 
 ## Closing the iteration (mandatory)
 
-1. After edits, **re-run evals** for the same suite you used (for example via `scripts/run-promptfoo.mjs`), or the subset the user defined—prefer a **full suite** when the change touches shared prompts or routing.
-2. Report **pass or fail delta** (counts or scenario ids) and call out **new** failures. Fixing one scenario while regressing others is a sign of overfitting; widen or revert the change.
+1. After edits, **do not** start eval runs (for example `scripts/run-promptfoo.mjs`) on your own. Tell the user what changed and suggest **they** (or CI) run the relevant suite when they want a fresh pass/fail signal.
+2. If the user pastes new results later, compare **pass or fail delta** (counts or scenario ids) and call out **new** failures. Fixing one scenario while regressing others is a sign of overfitting; widen or revert the change.
 
 ## Prompt budget (300 tokens per contributing fragment)
 
@@ -53,7 +53,7 @@ Skills with `decisions/` trees merge multiple `entry.md` files (see `electron/se
   - **Wire-up must stay honest**:
     - New **mounted** skills or path changes may require updates to `shared/skillTreeSpec.ts` (`SKILL_MOUNT_SEGMENTS`, decision outcome constants if applicable).
     - Selectors passed to `loadSkill` must match **decision keys** and **directory names** under `decisions/`. Merge order for decision keys follows `DECISION_KEY_MERGE_PRIORITY` in `skillLoader.ts` (add new high-impact keys there if you introduce another ordered pipeline dimension).
-    - Layout may be enforced by tests (for example skill tree alignment); run the relevant tests after structural edits.
+    - Layout may be enforced by tests (for example skill tree alignment); do not run them from the agent unless the user asks—note that the human or CI should run alignment checks after structural edits.
 - **Agent architecture**: additional stages, different handoffs, structured outputs between steps—when the error is fundamentally staged wrong, not just worded wrong.
 - **Scalable ideas** that do not rely on brittle string matching or per-scenario hacks.
 
@@ -91,4 +91,4 @@ Use a short operator message after each eval run that **does not duplicate** thi
 - Follow **Agent improving** (`agent-improving.mdc`).
 - Full results file: `evals/results/<promptfoo-…>.json`.
 - Suite and any focus scenarios or known flakes.
-- After changes, run: `<same eval command>` and summarize regressions.
+- After agent changes, **you** run `<eval command>` when you want verification; the agent does not run it unless you ask.

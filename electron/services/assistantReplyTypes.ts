@@ -40,6 +40,7 @@ export type AssistantReplyFacts =
       readonly kind: 'multi_action_summary'
       readonly outcomes: readonly {
         readonly intent: string
+        readonly saveDocumentType: DocumentType | null
         readonly situationSummary: string
         readonly status: 'succeeded' | 'failed'
         readonly message: string

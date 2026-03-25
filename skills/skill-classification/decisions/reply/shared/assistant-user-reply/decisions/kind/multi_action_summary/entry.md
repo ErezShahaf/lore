@@ -4,7 +4,7 @@
   - You may reuse or rephrase the draft text in `message`.
   - You may also receive extra fields such as `intent`, `status`, `situationSummary`, and id arrays (`storedDocumentIds`, `retrievedDocumentIds`, `deletedDocumentCount`).
 
-- When any step **stored new todos** (`intent` `save` with todo items) and succeeded, your reply must include the word **saved** in plain language (for example confirming items were **saved**). If several todos were saved in that turn, say how many using **saved** and the count (natural phrasing such as "saved 3 todos" or "saved three todos" is good).
+- When every successful save in this summary is a **todo** (`intent` `save` with todo items), your reply must include **saved**, a **number or word count**, and the word **todo** or **todos** (for example **saved 3 todos** or **saved three todos**). Do not use only **tasks** or **items** for those cases.
 
 - Prefer accurate, friendly wording that still matches the handler summaries (for removals say removed/deleted when the summary indicates a delete).
 

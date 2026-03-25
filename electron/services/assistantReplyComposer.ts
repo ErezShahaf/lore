@@ -4,6 +4,36 @@ import { getSettings } from './settingsService'
 import { appendUserInstructionsToSystemPrompt } from './userInstructionsContext'
 import { streamQuestionLlmChunks } from './questionAnswerComposition'
 import type { AssistantReplyFacts } from './assistantReplyTypes'
+import type { ActionOutcome } from '../../shared/types'
+
+type OutcomeSliceForTodoSaveCheck = Pick<
+  ActionOutcome,
+  'intent' | 'saveDocumentType' | 'status' | 'storedDocumentIds'
+>
+
+function tryBuildDeterministicAllSuccessfulTodoSavesReply(
+  outcomes: readonly OutcomeSliceForTodoSaveCheck[],
+): string | null {
+  if (outcomes.length === 0) {
+    return null
+  }
+
+  const everyOutcomeIsSuccessfulTodoSave = outcomes.every(
+    (outcome) =>
+      outcome.intent === 'save'
+      && outcome.saveDocumentType === 'todo'
+      && outcome.status === 'succeeded'
+      && outcome.storedDocumentIds.length > 0,
+  )
+
+  if (!everyOutcomeIsSuccessfulTodoSave) {
+    return null
+  }
+
+  const count = outcomes.length
+  const todoWord = count === 1 ? 'todo' : 'todos'
+  return `Saved ${count} ${todoWord}.`
+}
 
 export async function* streamAssistantUserReply(input: {
   readonly facts: AssistantReplyFacts
@@ -39,6 +69,15 @@ export async function* streamAssistantUserReplyWithFallback(input: {
   readonly userInstructionsBlock: string
 }): AsyncGenerator<string> {
   const settings = getSettings()
+
+  if (input.facts.kind === 'multi_action_summary') {
+    const deterministic = tryBuildDeterministicAllSuccessfulTodoSavesReply(input.facts.outcomes)
+    if (deterministic !== null) {
+      yield deterministic
+      return
+    }
+  }
+
   try {
     yield* streamAssistantUserReply({
       facts: input.facts,

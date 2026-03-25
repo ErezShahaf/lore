@@ -273,6 +273,8 @@ export type ClassificationForHandler = HandlerClassification
 /** Outcome of processing one action for the turn-level reply composer. */
 export interface ActionOutcome {
   readonly intent: InputClassification
+  /** Populated from the classified action; `null` when `intent` is not `save`. */
+  readonly saveDocumentType: DocumentType | null
   readonly situationSummary: string
   readonly status: 'succeeded' | 'failed'
   readonly message: string

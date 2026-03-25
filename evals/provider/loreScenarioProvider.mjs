@@ -16,6 +16,8 @@ const judgeSystemPrompt = [
   'The "actual state" payload includes the assistant response you must grade (for example a "response" field).',
   'That assistant is a conversational product: it answers in natural language.',
   'Do not require the assistant to output JSON, code fences, or any particular format unless the rubric explicitly says so.',
+  'Never fail because the assistant used conversational text, emojis, or markdown; those are expected from Lore.',
+  'If the rubric asks whether the assistant asked for clarification or disambiguation, pass when they invite the user to specify, choose among options, or narrow down—even with friendly tone.',
   'Numbered lists, bullets, and markdown in the assistant response are allowed and are not a reason to fail by themselves.',
   'Evaluate only whether the assistant behavior satisfies the rubric.',
   'Your own reply to this task must be only valid JSON with exactly two keys: "pass" (boolean) and "reason" (string).',
@@ -215,6 +217,38 @@ function getTodoContents(documents) {
 
 function includesNormalized(haystack, needle) {
   return normalizeText(haystack).includes(normalizeText(needle))
+}
+
+const judgeInvalidJsonReasonPrefix = 'Judge returned invalid JSON:'
+
+function heuristicAssistantAsksForClarification(response) {
+  const text = normalizeText(response)
+  if (text.length < 12) {
+    return false
+  }
+
+  const clarificationCues = [
+    'which ',
+    ' which ',
+    'not sure which',
+    "i'm not sure which",
+    'could you let me know',
+    'which one',
+    'which todo',
+    'which ride',
+    'which task',
+    'clarify',
+    'more specific',
+    'disambiguat',
+    'narrow down',
+    'would you like to change',
+    'would you like me to',
+    'do you mean',
+    'are you referring to',
+    'let me know which',
+  ]
+
+  return clarificationCues.some((cue) => text.includes(cue))
 }
 
 function hasExactNormalizedMatch(values, expectedValue) {
@@ -564,6 +598,7 @@ async function judgeRubric({ judgeModel, ollamaHost, rubric, actualState }) {
     'You are the judge. Your entire reply must be one JSON object: {"pass":boolean,"reason":"string"}.',
     'The Lore assistant\'s message in actual state (e.g. "response") may be plain language, numbered lists, or markdown — that is correct for Lore and is not a format error.',
     'Do not fail Lore for "not outputting JSON"; only you output JSON.',
+    'If your reason would mention JSON, pass/reason keys, or code fences in connection with the assistant\'s message, you are mixing up roles: stop and grade only the rubric against that natural-language response.',
     '',
     `Rubric:\n${rubric}`,
     'Actual state:',
@@ -647,6 +682,15 @@ async function evaluateClarificationExpectation({
   })
 
   if (judgment.pass === shouldRequireClarification) {
+    return []
+  }
+
+  if (
+    shouldRequireClarification
+    && typeof judgment.reason === 'string'
+    && judgment.reason.startsWith(judgeInvalidJsonReasonPrefix)
+    && heuristicAssistantAsksForClarification(actualState.response)
+  ) {
     return []
   }
 
