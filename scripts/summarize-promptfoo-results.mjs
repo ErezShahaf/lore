@@ -121,6 +121,210 @@ function getInteractionTurns(step) {
   return []
 }
 
+const ATTRIBUTION_HEURISTIC_NOTE =
+  'Heuristic only; confirm against pipelineTrace and rubric.'
+
+const PROMPT_LEVER_BY_COMPONENT = {
+  unified_classifier: 'skills/skill-classification.md',
+  action_handlers:
+    'electron/services/classificationActionExecutor.ts and electron/services/handlers/',
+  assistant_reply_composer: 'skills/assistant-user-reply.md',
+  conversational_or_composer:
+    'electron/services/handlers/conversationalHandler.ts or assistant-user-reply skill',
+  unknown: '(inspect pipelineTrace and failedChecks in result JSON)',
+}
+
+function getClassifierActionsFromTrace(pipelineTrace) {
+  if (!Array.isArray(pipelineTrace)) {
+    return []
+  }
+  const classifierStage = pipelineTrace.find((stage) => stage && stage.stageId === 'unified_classifier')
+  const actions = classifierStage?.output?.actions
+  return Array.isArray(actions) ? actions : []
+}
+
+function getPipelineTraceForFailedRow(row) {
+  const transcript = getTranscript(row)
+  const failedChecks = getFailedChecks(row)
+  if (transcript.length === 0) {
+    return []
+  }
+  const firstFailedCheck = failedChecks[0]
+  const stepIndex = typeof firstFailedCheck?.stepIndex === 'number'
+    ? firstFailedCheck.stepIndex
+    : 0
+  const step = transcript[stepIndex] || transcript[transcript.length - 1]
+  const interactionTurns = getInteractionTurns(step)
+  const lastTurn = interactionTurns[interactionTurns.length - 1]
+  return Array.isArray(lastTurn?.pipelineTrace) ? lastTurn.pipelineTrace : []
+}
+
+/**
+ * Best-effort attribution from the first failed check and pipeline trace.
+ * @returns {object | null}
+ */
+function inferLikelyBlame(failedChecks, pipelineTrace) {
+  if (!Array.isArray(failedChecks) || failedChecks.length === 0) {
+    return null
+  }
+
+  const trace = Array.isArray(pipelineTrace) ? pipelineTrace : []
+  const firstCheck = failedChecks[0]
+  const checkType = firstCheck.checkType || 'unknown'
+  const actions = getClassifierActionsFromTrace(trace)
+  const saveActions = actions.filter((action) => action && action.intent === 'save')
+  const primaryIntent = actions[0]?.intent
+
+  if (checkType === 'todoCount') {
+    const save = saveActions[0]
+    if (save && save.saveDocumentType && save.saveDocumentType !== 'todo') {
+      return {
+        likelyBlameComponent: 'unified_classifier',
+        rationale:
+          `Classifier chose save with document type "${save.saveDocumentType}" but the scenario expected todos.`,
+        promptLever: PROMPT_LEVER_BY_COMPONENT.unified_classifier,
+        heuristicVersion: 1,
+        note: ATTRIBUTION_HEURISTIC_NOTE,
+      }
+    }
+    if (save && save.saveDocumentType === 'todo') {
+      return {
+        likelyBlameComponent: 'action_handlers',
+        rationale:
+          'Classifier requested a todo save, but the todo count in the database does not match the rubric.',
+        promptLever: PROMPT_LEVER_BY_COMPONENT.action_handlers,
+        heuristicVersion: 1,
+        note: ATTRIBUTION_HEURISTIC_NOTE,
+      }
+    }
+    return {
+      likelyBlameComponent: 'unified_classifier',
+      rationale:
+        'Todo count mismatch; the classifier did not route to an expected todo save path.',
+      promptLever: PROMPT_LEVER_BY_COMPONENT.unified_classifier,
+      heuristicVersion: 1,
+      note: ATTRIBUTION_HEURISTIC_NOTE,
+    }
+  }
+
+  if (checkType === 'storedCount') {
+    return {
+      likelyBlameComponent: 'action_handlers',
+      rationale:
+        'Stored event count mismatch; decomposition, batch save, or handler execution likely diverged from the rubric.',
+      promptLever: PROMPT_LEVER_BY_COMPONENT.action_handlers,
+      heuristicVersion: 1,
+      note: ATTRIBUTION_HEURISTIC_NOTE,
+    }
+  }
+
+  if (
+    checkType === 'responseIncludes'
+    || checkType === 'responseExcludes'
+    || checkType === 'responseMatchesRegex'
+  ) {
+    const hasComposer = trace.some((stage) => stage && stage.stageId === 'assistant_reply_composer')
+    if (hasComposer) {
+      return {
+        likelyBlameComponent: 'assistant_reply_composer',
+        rationale:
+          'Wording or format checks failed on the final user-visible reply; the multi-action composer likely needs adjustment.',
+        promptLever: PROMPT_LEVER_BY_COMPONENT.assistant_reply_composer,
+        heuristicVersion: 1,
+        note: ATTRIBUTION_HEURISTIC_NOTE,
+      }
+    }
+    return {
+      likelyBlameComponent: 'conversational_or_composer',
+      rationale:
+        'Response checks failed without an assistant_reply_composer stage (e.g. single speak or conversational path).',
+      promptLever: PROMPT_LEVER_BY_COMPONENT.conversational_or_composer,
+      heuristicVersion: 1,
+      note: ATTRIBUTION_HEURISTIC_NOTE,
+    }
+  }
+
+  if (checkType === 'requiresClarification' || checkType === 'responseJudge') {
+    const hasComposer = trace.some((stage) => stage && stage.stageId === 'assistant_reply_composer')
+    if (!hasComposer && primaryIntent === 'speak') {
+      return {
+        likelyBlameComponent: 'conversational_or_composer',
+        rationale:
+          'Judge expected clarification or a specific reply style; speak-only path may need conversational prompt or wording changes.',
+        promptLever: PROMPT_LEVER_BY_COMPONENT.conversational_or_composer,
+        heuristicVersion: 1,
+        note: ATTRIBUTION_HEURISTIC_NOTE,
+      }
+    }
+    if (hasComposer) {
+      return {
+        likelyBlameComponent: 'assistant_reply_composer',
+        rationale:
+          'Judge failed on the assistant reply after multi-action composition; tune the user-reply skill or facts wiring.',
+        promptLever: PROMPT_LEVER_BY_COMPONENT.assistant_reply_composer,
+        heuristicVersion: 1,
+        note: ATTRIBUTION_HEURISTIC_NOTE,
+      }
+    }
+    return {
+      likelyBlameComponent: 'unified_classifier',
+      rationale:
+        'Judge failed; routing or classification may have sent the turn down the wrong intent path.',
+      promptLever: PROMPT_LEVER_BY_COMPONENT.unified_classifier,
+      heuristicVersion: 1,
+      note: ATTRIBUTION_HEURISTIC_NOTE,
+    }
+  }
+
+  if (
+    checkType === 'retrievedCount'
+    || checkType === 'minRetrievedCount'
+    || checkType === 'maxRetrievedCount'
+    || checkType === 'maxRetrievedCandidates'
+    || checkType === 'retrievalJudge'
+  ) {
+    return {
+      likelyBlameComponent: 'action_handlers',
+      rationale:
+        'Retrieval expectations failed (question handler, embeddings, or filters).',
+      promptLever: PROMPT_LEVER_BY_COMPONENT.action_handlers,
+      heuristicVersion: 1,
+      note: ATTRIBUTION_HEURISTIC_NOTE,
+    }
+  }
+
+  if (checkType === 'dataJudge') {
+    const save = saveActions[0]
+    if (save && save.saveDocumentType && save.saveDocumentType !== 'todo') {
+      return {
+        likelyBlameComponent: 'unified_classifier',
+        rationale:
+          `Data judge failed and classifier stored non-todo type "${save.saveDocumentType}" where todos were expected.`,
+        promptLever: PROMPT_LEVER_BY_COMPONENT.unified_classifier,
+        heuristicVersion: 1,
+        note: ATTRIBUTION_HEURISTIC_NOTE,
+      }
+    }
+    return {
+      likelyBlameComponent: 'action_handlers',
+      rationale:
+        'Data judge failed after writes; handler behavior or stored shape likely contradicts the rubric.',
+      promptLever: PROMPT_LEVER_BY_COMPONENT.action_handlers,
+      heuristicVersion: 1,
+      note: ATTRIBUTION_HEURISTIC_NOTE,
+    }
+  }
+
+  return {
+    likelyBlameComponent: 'unknown',
+    rationale:
+      `No specific rule for check type "${checkType}"; inspect failedChecks and pipelineTrace in the result JSON.`,
+    promptLever: PROMPT_LEVER_BY_COMPONENT.unknown,
+    heuristicVersion: 1,
+    note: ATTRIBUTION_HEURISTIC_NOTE,
+  }
+}
+
 function getFailureStageLabel(row) {
   const failureReasons = getFailureReasons(row)
   const failedChecks = getFailedChecks(row)
@@ -171,6 +375,7 @@ function buildFailureExample(row) {
     : 0
   const failedStep = transcript[stepIndex] || null
   const interactionTurns = getInteractionTurns(failedStep)
+  const pipelineTrace = getPipelineTraceForFailedRow(row)
 
   return {
     failureReasons: getFailureReasons(row),
@@ -185,6 +390,8 @@ function buildFailureExample(row) {
       userInput: turn.userInput || '',
       response: turn.response || '',
     })),
+    attribution: inferLikelyBlame(failedChecks, pipelineTrace),
+    pipelineTraceSample: pipelineTrace.slice(0, 6),
   }
 }
 
@@ -209,6 +416,7 @@ function summarizeResults(rows) {
         failureReasons: new Map(),
         failureStages: new Map(),
         failedCheckTypes: new Map(),
+        blamedComponents: new Map(),
         failureExamples: [],
       })
     }
@@ -236,6 +444,12 @@ function summarizeResults(rows) {
     }
 
     incrementCount(scenarioSummary.failureStages, getFailureStageLabel(row))
+
+    const pipelineTraceForBlame = getPipelineTraceForFailedRow(row)
+    const attribution = inferLikelyBlame(failedChecks, pipelineTraceForBlame)
+    if (attribution && attribution.likelyBlameComponent) {
+      incrementCount(scenarioSummary.blamedComponents, attribution.likelyBlameComponent)
+    }
 
     if (scenarioSummary.failureExamples.length < 2) {
       scenarioSummary.failureExamples.push(buildFailureExample(row))
@@ -265,6 +479,26 @@ function formatTopCounts(countMap, limit) {
 
 function renderFailureExampleMarkdown(failureExample) {
   const lines = []
+
+  if (failureExample.attribution && failureExample.attribution.likelyBlameComponent) {
+    const attribution = failureExample.attribution
+    lines.push('    Likely blame (heuristic):')
+    lines.push(`      - Component: ${attribution.likelyBlameComponent}`)
+    lines.push(`      - ${attribution.rationale}`)
+    lines.push(`      - Prompt lever: ${attribution.promptLever}`)
+    lines.push(`      - ${attribution.note}`)
+  }
+
+  if (
+    Array.isArray(failureExample.pipelineTraceSample)
+    && failureExample.pipelineTraceSample.length > 0
+  ) {
+    const traceSnippet = truncateText(
+      stringifyValue(failureExample.pipelineTraceSample),
+      900,
+    )
+    lines.push(`    Pipeline trace sample: ${traceSnippet}`)
+  }
 
   if (failureExample.failedChecks.length > 0) {
     lines.push('    Sample failed checks:')
@@ -410,9 +644,22 @@ function printSummary(resultPath, summaryRows, providerSummaries) {
       }
     }
 
+    const topBlamed = formatTopCounts(summaryRow.blamedComponents, 3)
+    if (topBlamed.length > 0) {
+      console.log('  Likely blamed components (heuristic):')
+      for (const [componentId, count] of topBlamed) {
+        console.log(`    ${count}x ${componentId}`)
+      }
+    }
+
     if (summaryRow.failureExamples.length > 0) {
       console.log('  Sample failures:')
       for (const failureExample of summaryRow.failureExamples) {
+        if (failureExample.attribution) {
+          console.log(
+            `    blame (heuristic): ${failureExample.attribution.likelyBlameComponent} — ${truncateText(failureExample.attribution.rationale, 160)}`,
+          )
+        }
         for (const failedCheck of failureExample.failedChecks) {
           console.log(`    ${failedCheck.checkType}: ${failedCheck.reason}`)
           console.log(`      expected: ${truncateText(failedCheck.expected, 140)}`)
@@ -476,6 +723,7 @@ function writeSummaryArtifacts(resultPath, summaryRows, providerSummaries) {
       topFailureStages: formatTopCounts(summaryRow.failureStages, 5),
       topFailureReasons: formatTopCounts(summaryRow.failureReasons, 5),
       topFailedCheckTypes: formatTopCounts(summaryRow.failedCheckTypes, 5),
+      topBlamedComponents: formatTopCounts(summaryRow.blamedComponents, 5),
       failureExamples: summaryRow.failureExamples,
     })),
   }
@@ -543,6 +791,15 @@ function writeSummaryArtifacts(resultPath, summaryRows, providerSummaries) {
       markdownLines.push('Failed check types:')
       for (const [checkType, count] of topFailedCheckTypes) {
         markdownLines.push(`- ${count}x ${checkType}`)
+      }
+      markdownLines.push('')
+    }
+
+    const topBlamedComponents = formatTopCounts(summaryRow.blamedComponents, 3)
+    if (topBlamedComponents.length > 0) {
+      markdownLines.push('Likely blamed components (heuristic):')
+      for (const [componentId, count] of topBlamedComponents) {
+        markdownLines.push(`- ${count}x ${componentId}`)
       }
       markdownLines.push('')
     }

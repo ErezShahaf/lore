@@ -1,21 +1,30 @@
 import { logger } from '../logger'
 import { runMultiActionTurn } from './multiActionOrchestrator'
-import type { AgentEvent, ConversationEntry } from '../../shared/types'
+import {
+  PIPELINE_TRACE_SCHEMA_VERSION,
+  type AgentEvent,
+  type ConversationEntry,
+  type MutablePipelineTraceSink,
+  type PipelineTracePayload,
+} from '../../shared/types'
 
 interface SessionContext {
   history: ConversationEntry[]
   lastDocumentIds: string[]
+  lastPipelineTrace: PipelineTracePayload | null
 }
 
 let session: SessionContext = {
   history: [],
   lastDocumentIds: [],
+  lastPipelineTrace: null,
 }
 
 export function clearConversation(): void {
   session = {
     history: [],
     lastDocumentIds: [],
+    lastPipelineTrace: null,
   }
 }
 
@@ -23,15 +32,25 @@ export function getConversationHistory(): ConversationEntry[] {
   return session.history
 }
 
+export function getLastPipelineTrace(): PipelineTracePayload | null {
+  return session.lastPipelineTrace
+}
+
 export async function* processUserInput(userInput: string): AsyncGenerator<AgentEvent> {
   const priorHistory = session.history.slice()
   session.history.push({ role: 'user', content: userInput })
+
+  const traceSink: MutablePipelineTraceSink = {
+    traceSchemaVersion: PIPELINE_TRACE_SCHEMA_VERSION,
+    stages: [],
+  }
+  session.lastPipelineTrace = null
 
   let assistantResponse = ''
   const documentIds: string[] = []
 
   try {
-    for await (const event of runMultiActionTurn(userInput, priorHistory)) {
+    for await (const event of runMultiActionTurn(userInput, priorHistory, traceSink)) {
       if (event.type === 'chunk') {
         assistantResponse += event.content
       }
@@ -45,12 +64,21 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
     }
   } catch (err) {
     logger.error({ err }, '[Agent] Orchestrator failed')
+    session.lastPipelineTrace = {
+      traceSchemaVersion: PIPELINE_TRACE_SCHEMA_VERSION,
+      stages: traceSink.stages.slice(),
+    }
     yield {
       type: 'error',
       message: err instanceof Error ? err.message : 'An unexpected error occurred',
     }
     yield { type: 'done' }
     return
+  }
+
+  session.lastPipelineTrace = {
+    traceSchemaVersion: traceSink.traceSchemaVersion,
+    stages: traceSink.stages.slice(),
   }
 
   if (assistantResponse) {

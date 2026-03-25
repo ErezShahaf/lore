@@ -21,6 +21,7 @@
     "reset-db:eval": "node scripts/reset-db.mjs --profile eval",
     "eval:promptfoo": "node scripts/run-promptfoo.mjs",
     "eval:promptfoo:smoke": "node scripts/run-promptfoo.mjs --suite smoke",
+    "eval:promptfoo:iterate": "node evals/run-and-summarize.mjs",
     "eval:promptfoo:summary": "node scripts/summarize-promptfoo-results.mjs"
   },
   "author": "",

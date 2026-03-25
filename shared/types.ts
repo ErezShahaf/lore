@@ -285,6 +285,65 @@ export interface ActionOutcome {
   readonly deletedDocumentCount: number
 }
 
+/** Bump when pipeline stage record shapes change (summarizer heuristics may depend on version). */
+export const PIPELINE_TRACE_SCHEMA_VERSION = 1 as const
+
+export type PipelineStageId =
+  | 'unified_classifier'
+  | 'action_execution'
+  | 'assistant_reply_composer'
+
+/** Subset of {@link ActionOutcome} stored in eval traces (compact; message truncated elsewhere). */
+export interface PipelineActionExecutionTraceOutput {
+  readonly actionIndex: number
+  readonly intent: InputClassification
+  readonly status: 'succeeded' | 'failed'
+  readonly handlerResultSummary: string
+  readonly storedDocumentIds: readonly string[]
+  readonly retrievedDocumentIds: readonly string[]
+  readonly deletedDocumentCount: number
+  readonly messagePreview: string
+}
+
+export interface PipelineAssistantReplyComposerTraceOutput {
+  readonly factsKind: string
+  readonly facts: unknown
+  readonly composedReplyPreview: string
+  readonly modelLabel: string | null
+}
+
+export type PipelineStageRecord =
+  | {
+      readonly stageId: 'unified_classifier'
+      readonly ordinal: number
+      readonly timestamp?: string
+      readonly output: ClassificationResult
+    }
+  | {
+      readonly stageId: 'action_execution'
+      readonly ordinal: number
+      readonly timestamp?: string
+      readonly output: PipelineActionExecutionTraceOutput
+    }
+  | {
+      readonly stageId: 'assistant_reply_composer'
+      readonly ordinal: number
+      readonly timestamp?: string
+      readonly output: PipelineAssistantReplyComposerTraceOutput
+    }
+
+/** Serialized trace for one user message (eval / Promptfoo metadata). */
+export interface PipelineTracePayload {
+  readonly traceSchemaVersion: typeof PIPELINE_TRACE_SCHEMA_VERSION
+  readonly stages: readonly PipelineStageRecord[]
+}
+
+/** In-memory sink while {@link runMultiActionTurn} runs; copy into {@link PipelineTracePayload} when done. */
+export interface MutablePipelineTraceSink {
+  traceSchemaVersion: typeof PIPELINE_TRACE_SCHEMA_VERSION
+  stages: PipelineStageRecord[]
+}
+
 /** Mutable accumulator for one user turn; updated by [orchestratorService](electron/services/orchestratorService.ts). */
 export interface OrchestratorTurnResult {
   assistantResponse: string

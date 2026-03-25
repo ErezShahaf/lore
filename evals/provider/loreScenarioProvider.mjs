@@ -1158,6 +1158,11 @@ async function fetchStepState(evalServer, latestUserInput, messageResult, intera
   const retrievedEvent = getLatestRetrievedEvent(events)
   const retrievedDocuments = mapRetrievedDocuments(retrievedEvent, documentLookup)
 
+  const pipelineTrace = Array.isArray(messageResult.pipelineTrace) ? messageResult.pipelineTrace : []
+  const traceSchemaVersion = typeof messageResult.traceSchemaVersion === 'number'
+    ? messageResult.traceSchemaVersion
+    : 1
+
   return {
     userInput: latestUserInput,
     response: messageResult.response || '',
@@ -1176,6 +1181,8 @@ async function fetchStepState(evalServer, latestUserInput, messageResult, intera
       : retrievedDocuments.length,
     cutoffScore: typeof retrievedEvent?.cutoffScore === 'number' ? retrievedEvent.cutoffScore : null,
     interactionTurns,
+    pipelineTrace,
+    traceSchemaVersion,
   }
 }
 
@@ -1215,6 +1222,8 @@ async function runScenarioStep({
       retrievedCount: turnState.retrievedCount,
       totalCandidates: turnState.totalCandidates,
       cutoffScore: turnState.cutoffScore,
+      pipelineTrace: turnState.pipelineTrace,
+      traceSchemaVersion: turnState.traceSchemaVersion,
       simulatedUserDecision: null,
     })
 
@@ -1359,6 +1368,21 @@ export default class LoreScenarioProvider {
         judgeModel: this.config.judgeModel || this.config.model,
         ollamaHost,
       })
+
+      const transcriptSteps = scenarioResult.transcript || []
+      let lastPipelineTracePayload = null
+      if (transcriptSteps.length > 0) {
+        const lastStep = transcriptSteps[transcriptSteps.length - 1]
+        const turns = Array.isArray(lastStep?.interactionTurns) ? lastStep.interactionTurns : []
+        if (turns.length > 0) {
+          const lastTurn = turns[turns.length - 1]
+          lastPipelineTracePayload = {
+            traceSchemaVersion: typeof lastTurn.traceSchemaVersion === 'number' ? lastTurn.traceSchemaVersion : 1,
+            stages: Array.isArray(lastTurn.pipelineTrace) ? lastTurn.pipelineTrace : [],
+          }
+        }
+      }
+
       const summary = scenarioResult.passed
         ? `Passed: ${scenario.title}`
         : `Failed: ${scenario.title} (${scenarioResult.failures.length} issue${scenarioResult.failures.length === 1 ? '' : 's'})`
@@ -1377,6 +1401,7 @@ export default class LoreScenarioProvider {
           transcript: scenarioResult.transcript,
           finalTodos: scenarioResult.finalTodos,
           evalServerOutput: evalServer.outputCollector.toString(),
+          lastPipelineTrace: lastPipelineTracePayload,
         },
       }
     } catch (error) {

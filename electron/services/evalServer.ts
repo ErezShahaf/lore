@@ -4,11 +4,18 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { URL } from 'url'
 import { logger } from '../logger'
 import { embedTexts } from './embeddingService'
-import { clearConversation, getConversationHistory, processUserInput } from './agentService'
+import { clearConversation, getConversationHistory, getLastPipelineTrace, processUserInput } from './agentService'
 import { formatLocalDate } from './localDate'
 import { getAllDocuments, getDocumentsByType, getStats, insertDocuments, resetTable } from './lanceService'
 import { getSettings, updateSettings } from './settingsService'
-import type { AgentEvent, AppSettings, DocumentType, LoreDocument } from '../../shared/types'
+import {
+  PIPELINE_TRACE_SCHEMA_VERSION,
+  type AgentEvent,
+  type AppSettings,
+  type DocumentType,
+  type LoreDocument,
+  type PipelineStageRecord,
+} from '../../shared/types'
 
 const EVAL_SERVER_ENABLE_ENV = 'LORE_ENABLE_EVAL_SERVER'
 const EVAL_SERVER_PORT_ENV = 'LORE_EVAL_SERVER_PORT'
@@ -186,6 +193,8 @@ function parseSettingsUpdate(body: Record<string, unknown>): Partial<AppSettings
 async function collectAgentEvents(message: string): Promise<{
   readonly events: AgentEvent[]
   readonly response: string
+  readonly pipelineTrace: readonly PipelineStageRecord[]
+  readonly traceSchemaVersion: number
 }> {
   const events: AgentEvent[] = []
   let response = ''
@@ -198,7 +207,13 @@ async function collectAgentEvents(message: string): Promise<{
     }
   }
 
-  return { events, response }
+  const storedTrace = getLastPipelineTrace()
+  return {
+    events,
+    response,
+    pipelineTrace: storedTrace?.stages ?? [],
+    traceSchemaVersion: storedTrace?.traceSchemaVersion ?? PIPELINE_TRACE_SCHEMA_VERSION,
+  }
 }
 
 async function handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {

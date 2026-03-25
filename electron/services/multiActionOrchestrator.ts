@@ -7,7 +7,40 @@ import {
 } from './classificationActionExecutor'
 import { formatUserInstructionsBlock, loadAllUserInstructionDocuments } from './userInstructionsContext'
 import { streamAssistantUserReplyWithFallback } from './assistantReplyComposer'
-import type { AgentEvent, ActionOutcome, ConversationEntry } from '../../shared/types'
+import { getSettings } from './settingsService'
+import type {
+  AgentEvent,
+  ActionOutcome,
+  ConversationEntry,
+  MutablePipelineTraceSink,
+  PipelineActionExecutionTraceOutput,
+} from '../../shared/types'
+
+const PIPELINE_MESSAGE_PREVIEW_MAX_CHARS = 500
+const PIPELINE_COMPOSED_REPLY_PREVIEW_MAX_CHARS = 800
+
+function truncateForPipelineTrace(text: string, maxChars: number): string {
+  if (text.length <= maxChars) {
+    return text
+  }
+  return `${text.slice(0, Math.max(0, maxChars - 3))}...`
+}
+
+function outcomeToTraceOutput(
+  actionIndex: number,
+  outcome: ActionOutcome,
+): PipelineActionExecutionTraceOutput {
+  return {
+    actionIndex,
+    intent: outcome.intent,
+    status: outcome.status,
+    handlerResultSummary: outcome.handlerResultSummary,
+    storedDocumentIds: outcome.storedDocumentIds,
+    retrievedDocumentIds: outcome.retrievedDocumentIds,
+    deletedDocumentCount: outcome.deletedDocumentCount,
+    messagePreview: truncateForPipelineTrace(outcome.message, PIPELINE_MESSAGE_PREVIEW_MAX_CHARS),
+  }
+}
 
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'An unexpected error occurred'
@@ -16,6 +49,7 @@ function toErrorMessage(error: unknown): string {
 export async function* runMultiActionTurn(
   userInput: string,
   priorHistory: readonly ConversationEntry[],
+  traceSink: MutablePipelineTraceSink | null = null,
 ): AsyncGenerator<AgentEvent> {
   yield { type: 'status', message: 'Starting your turn…' }
 
@@ -36,6 +70,15 @@ export async function* runMultiActionTurn(
 
   const actions = classification.actions
   logger.debug({ actionCount: actions.length, intents: actions.map((a) => a.intent) }, '[MultiActionOrchestrator] Classified')
+
+  if (traceSink) {
+    traceSink.stages.push({
+      stageId: 'unified_classifier',
+      ordinal: traceSink.stages.length,
+      timestamp: new Date().toISOString(),
+      output: { actions: classification.actions.map((action) => ({ ...action })) },
+    })
+  }
 
   const outcomes: ActionOutcome[] = []
   const historyForHandlers = [...priorHistory]
@@ -70,6 +113,15 @@ export async function* runMultiActionTurn(
 
     const outcome = step.value
     outcomes.push(outcome)
+
+    if (traceSink) {
+      traceSink.stages.push({
+        stageId: 'action_execution',
+        ordinal: traceSink.stages.length,
+        timestamp: new Date().toISOString(),
+        output: outcomeToTraceOutput(index, outcome),
+      })
+    }
   }
 
   if (outcomes.length === 0) {
@@ -89,11 +141,33 @@ export async function* runMultiActionTurn(
 
   yield { type: 'status', message: 'Composing your reply…' }
 
+  const multiActionFacts = { kind: 'multi_action_summary' as const, outcomes }
+  let composedReplyAccumulated = ''
+
   for await (const chunk of streamAssistantUserReplyWithFallback({
     userInstructionsBlock,
-    facts: { kind: 'multi_action_summary', outcomes },
+    facts: multiActionFacts,
   })) {
+    composedReplyAccumulated += chunk
     yield { type: 'chunk', content: chunk }
+  }
+
+  if (traceSink) {
+    const settings = getSettings()
+    traceSink.stages.push({
+      stageId: 'assistant_reply_composer',
+      ordinal: traceSink.stages.length,
+      timestamp: new Date().toISOString(),
+      output: {
+        factsKind: multiActionFacts.kind,
+        facts: multiActionFacts,
+        composedReplyPreview: truncateForPipelineTrace(
+          composedReplyAccumulated,
+          PIPELINE_COMPOSED_REPLY_PREVIEW_MAX_CHARS,
+        ),
+        modelLabel: settings.selectedModel,
+      },
+    })
   }
 
   yield { type: 'done' }
