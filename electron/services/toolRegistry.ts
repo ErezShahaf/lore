@@ -54,11 +54,6 @@ export interface ToolExecutionResult {
 
 type ToolHandler = (args: Record<string, unknown>) => Promise<ToolExecutionResult>
 
-interface RegisteredTool {
-  readonly definition: OllamaTool
-  readonly handler: ToolHandler
-}
-
 // ── Argument validation helpers ───────────────────────────────
 
 const VALID_DOCUMENT_TYPES: ReadonlySet<string> = new Set([

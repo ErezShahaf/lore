@@ -70,7 +70,7 @@ export async function extractMetadata(
       messages,
       schema: METADATA_SCHEMA,
       maxAttempts: MAX_RETRIES,
-      validate: (parsed) => validateMetadata(parsed, intent),
+      validate: (parsed) => validateMetadata(parsed),
     })
   } catch (error) {
     logger.warn({ error }, '[Metadata] Extraction failed, using fallback')
@@ -80,7 +80,6 @@ export async function extractMetadata(
 
 function validateMetadata(
   parsed: Record<string, unknown>,
-  _intent: InputClassification,
 ): MetadataExtractionResult {
   return {
     extractedDate: typeof parsed.extractedDate === 'string' && parsed.extractedDate !== ''

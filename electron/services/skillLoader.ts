@@ -1,12 +1,20 @@
 import { app } from 'electron'
 import { readFileSync, readdirSync, statSync } from 'fs'
 import { join, basename, extname } from 'path'
+import { SKILL_MOUNT_SEGMENTS } from '../../shared/skillTreeSpec'
 import { logger } from '../logger'
 
 export interface SkillFile {
   name: string
   content: string
 }
+
+export type SkillPromptSelectors = Readonly<Partial<Record<string, string>>>
+
+/** Loader id for the unified classifier (`skills/skill-classification/entry.md` only — no subtree). */
+export const FIRST_TURN_SKILL_ID = 'skill-classification' as const
+
+const CLASSIFICATION_FOLDER_NAME = 'skill-classification' as const
 
 const skillCache = new Map<string, string>()
 let allSkillsCache: SkillFile[] | null = null
@@ -18,46 +26,211 @@ function getSkillsDirectory(): string {
   return join(process.resourcesPath, 'skills')
 }
 
-function readSkillFilesRecursive(directory: string): SkillFile[] {
-  const results: SkillFile[] = []
-
-  let entries: string[]
+function fileExists(filePath: string): boolean {
   try {
-    entries = readdirSync(directory)
+    return statSync(filePath).isFile()
   } catch {
-    return results
+    return false
   }
+}
 
-  for (const entry of entries) {
-    const fullPath = join(directory, entry)
-    const stat = statSync(fullPath)
+function directoryExists(directoryPath: string): boolean {
+  try {
+    return statSync(directoryPath).isDirectory()
+  } catch {
+    return false
+  }
+}
 
-    if (stat.isDirectory()) {
-      results.push(...readSkillFilesRecursive(fullPath))
-    } else if (extname(entry) === '.md') {
-      const name = basename(entry, '.md')
-      const content = readFileSync(fullPath, 'utf-8')
-      results.push({ name, content })
+function readTextFile(filePath: string): string {
+  return readFileSync(filePath, 'utf-8')
+}
+
+function getSkillCacheKey(name: string, selectors?: SkillPromptSelectors): string {
+  if (!selectors || Object.keys(selectors).length === 0) return name
+  const sortedEntries = Object.entries(selectors).sort(([aKey], [bKey]) => aKey.localeCompare(bKey))
+  const normalized = sortedEntries.map(([key, value]) => `${key}=${value}`).join(';')
+  return `${name}::${normalized}`
+}
+
+/**
+ * When a skill has multiple `forks/<decisionKey>/` directories, merge order follows this list first,
+ * then any other keys alphabetically. Matches `question-answer` pipeline: retrieval, todo shape, structured bodies.
+ */
+const FORK_DECISION_KEY_MERGE_PRIORITY: readonly string[] = [
+  'retrievalStatus',
+  'todoListing',
+  'structuredRetrieved',
+  'kind',
+]
+
+function sortForkDecisionKeys(decisionKeys: readonly string[]): string[] {
+  const priorityIndex = (key: string): number => {
+    const index = FORK_DECISION_KEY_MERGE_PRIORITY.indexOf(key)
+    return index === -1 ? FORK_DECISION_KEY_MERGE_PRIORITY.length : index
+  }
+  return [...decisionKeys].sort((a, b) => {
+    const delta = priorityIndex(a) - priorityIndex(b)
+    return delta !== 0 ? delta : a.localeCompare(b)
+  })
+}
+
+function assembleForkedSkillPrompt(skillDir: string, selectors: SkillPromptSelectors): string {
+  const visitedEntryFiles = new Set<string>()
+  const promptParts: string[] = []
+
+  function walk(nodeDir: string): void {
+    const entryPath = join(nodeDir, 'entry.md')
+    if (fileExists(entryPath) && !visitedEntryFiles.has(entryPath)) {
+      visitedEntryFiles.add(entryPath)
+      const part = readTextFile(entryPath).trim()
+      if (part.length > 0) {
+        promptParts.push(part)
+      }
+    }
+
+    const forksDir = join(nodeDir, 'forks')
+    if (!directoryExists(forksDir)) return
+
+    let decisionKeys: string[] = []
+    try {
+      decisionKeys = sortForkDecisionKeys(
+        readdirSync(forksDir).filter((entry) => directoryExists(join(forksDir, entry))),
+      )
+    } catch {
+      return
+    }
+
+    for (const decisionKey of decisionKeys) {
+      const chosenValue = selectors[decisionKey]
+      const chosenDir = chosenValue
+        ? join(forksDir, decisionKey, chosenValue)
+        : null
+
+      if (chosenDir && directoryExists(chosenDir)) {
+        walk(chosenDir)
+        continue
+      }
+
+      const defaultDir = join(forksDir, decisionKey, 'default')
+      if (directoryExists(defaultDir)) {
+        walk(defaultDir)
+      }
     }
   }
 
-  return results
+  walk(skillDir)
+
+  return promptParts.join('\n\n---\n\n')
 }
 
-export function loadSkill(name: string): string {
-  const cached = skillCache.get(name)
+function loadLegacySkill(skillsDir: string, name: string): string {
+  const filePath = join(skillsDir, `${name}.md`)
+  return readTextFile(filePath)
+}
+
+function getClassificationRootDirectory(skillsDir: string): string {
+  return join(skillsDir, CLASSIFICATION_FOLDER_NAME)
+}
+
+function resolveMountedSkillDirectory(skillsDir: string, name: string): string | null {
+  const segments = SKILL_MOUNT_SEGMENTS[name]
+  if (!segments) return null
+  return join(getClassificationRootDirectory(skillsDir), ...segments)
+}
+
+function collectAncestorEntryFragments(
+  classificationRoot: string,
+  segments: readonly string[],
+): string[] {
+  const fragments: string[] = []
+  for (let index = 0; index < segments.length - 1; index += 1) {
+    const ancestorDir = join(classificationRoot, ...segments.slice(0, index + 1))
+    const entryPath = join(ancestorDir, 'entry.md')
+    if (!fileExists(entryPath)) continue
+    const part = readTextFile(entryPath).trim()
+    if (part.length > 0) {
+      fragments.push(part)
+    }
+  }
+  return fragments
+}
+
+function loadClassificationRootOnly(skillsDir: string): string {
+  const entryPath = join(getClassificationRootDirectory(skillsDir), 'entry.md')
+  if (!fileExists(entryPath)) {
+    throw new Error(`Classification skill not found at ${entryPath}`)
+  }
+  return readTextFile(entryPath).trim()
+}
+
+function loadForkedSkillAtDirectory(skillDir: string, selectors: SkillPromptSelectors): string {
+  const entryPath = join(skillDir, 'entry.md')
+  if (!fileExists(entryPath)) {
+    throw new Error(`Skill directory has no entry.md at ${entryPath}`)
+  }
+  return assembleForkedSkillPrompt(skillDir, selectors)
+}
+
+function loadForkedSkill(skillsDir: string, name: string, selectors: SkillPromptSelectors): string {
+  const mountDir = resolveMountedSkillDirectory(skillsDir, name)
+  if (mountDir !== null) {
+    const classificationRoot = getClassificationRootDirectory(skillsDir)
+    const segments = SKILL_MOUNT_SEGMENTS[name]
+    if (!segments) {
+      throw new Error(`Mount segments missing for skill "${name}"`)
+    }
+    const ancestors = collectAncestorEntryFragments(classificationRoot, segments)
+    const body = loadForkedSkillAtDirectory(mountDir, selectors)
+    if (ancestors.length === 0) {
+      return body
+    }
+    return [...ancestors, body].join('\n\n---\n\n')
+  }
+
+  const skillDir = join(skillsDir, name)
+  const entryPath = join(skillDir, 'entry.md')
+  if (!fileExists(entryPath)) {
+    throw new Error(`Skill "${name}" not found at ${entryPath}`)
+  }
+  return assembleForkedSkillPrompt(skillDir, selectors)
+}
+
+export function loadSkill(name: string, selectors: SkillPromptSelectors = {}): string {
+  const cacheKey = getSkillCacheKey(name, selectors)
+  const cached = skillCache.get(cacheKey)
   if (cached) return cached
 
   const skillsDir = getSkillsDirectory()
-  const filePath = join(skillsDir, `${name}.md`)
 
   try {
-    const content = readFileSync(filePath, 'utf-8')
-    skillCache.set(name, content)
+    if (name === FIRST_TURN_SKILL_ID) {
+      const content = loadClassificationRootOnly(skillsDir)
+      skillCache.set(cacheKey, content)
+      return content
+    }
+
+    const mountDir = resolveMountedSkillDirectory(skillsDir, name)
+    const forkEntryPath =
+      mountDir !== null
+        ? join(mountDir, 'entry.md')
+        : join(skillsDir, name, 'entry.md')
+
+    const content = fileExists(forkEntryPath)
+      ? loadForkedSkill(skillsDir, name, selectors)
+      : loadLegacySkill(skillsDir, name)
+
+    skillCache.set(cacheKey, content)
     return content
   } catch (err) {
-    logger.error({ err, name, filePath }, '[SkillLoader] Failed to load skill')
-    throw new Error(`Skill "${name}" not found at ${filePath}`)
+    const mountDir = resolveMountedSkillDirectory(skillsDir, name)
+    const forkEntryPath =
+      mountDir !== null
+        ? join(mountDir, 'entry.md')
+        : join(skillsDir, name, 'entry.md')
+    const legacyPath = join(skillsDir, `${name}.md`)
+    logger.error({ err, name, legacyPath, forkEntryPath }, '[SkillLoader] Failed to load skill')
+    throw new Error(`Skill "${name}" not found at ${legacyPath} or ${forkEntryPath}`)
   }
 }
 
@@ -82,15 +255,36 @@ export function loadAllSkills(): readonly SkillFile[] {
   if (allSkillsCache) return allSkillsCache
 
   const skillsDir = getSkillsDirectory()
-
+  let entries: string[] = []
   try {
-    allSkillsCache = readSkillFilesRecursive(skillsDir)
-    logger.debug({ count: allSkillsCache.length }, '[SkillLoader] Loaded all skills')
-    return allSkillsCache
+    entries = readdirSync(skillsDir)
   } catch (err) {
     logger.error({ err }, '[SkillLoader] Failed to load skills directory')
     return []
   }
+
+  const results: SkillFile[] = []
+  for (const entry of entries) {
+    const fullPath = join(skillsDir, entry)
+    const stat = statSync(fullPath)
+
+    if (stat.isFile() && extname(entry) === '.md') {
+      const skillName = basename(entry, '.md')
+      results.push({ name: skillName, content: readTextFile(fullPath) })
+      continue
+    }
+
+    if (stat.isDirectory()) {
+      const entryMdPath = join(fullPath, 'entry.md')
+      if (fileExists(entryMdPath)) {
+        results.push({ name: entry, content: readTextFile(entryMdPath) })
+      }
+    }
+  }
+
+  allSkillsCache = results
+  logger.debug({ count: allSkillsCache.length }, '[SkillLoader] Loaded all skills')
+  return allSkillsCache
 }
 
 function toTitleCase(name: string): string {

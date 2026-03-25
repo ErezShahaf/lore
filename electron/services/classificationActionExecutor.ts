@@ -12,7 +12,7 @@ import type {
   LoreDocument,
 } from '../../shared/types'
 
-function inferStatusFromMessage(message: string, intent: InputClassification): 'succeeded' | 'failed' {
+function inferStatusFromMessage(message: string): 'succeeded' | 'failed' {
   const lower = message.toLowerCase()
   if (
     lower.includes('could not')
@@ -228,7 +228,7 @@ export async function* executeClassificationAction(
     ? 'failed'
     : (action.intent === 'save' && hadStored) || (action.intent === 'delete' && hadDeleted)
       ? 'succeeded'
-      : inferStatusFromMessage(chunkContent, action.intent)
+      : inferStatusFromMessage(chunkContent)
 
   const message = hadError ? errorMessage : (chunkContent.trim() || 'Done.')
 

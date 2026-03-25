@@ -67,7 +67,15 @@ export async function* handleCommand(
 
   let resolution
   try {
-    resolution = await resolveCommandTargets(userInput, documents, conversationHistory, userInstructionsBlock)
+    resolution = await resolveCommandTargets(
+      userInput,
+      documents,
+      conversationHistory,
+      userInstructionsBlock,
+      classification.intent === 'delete' || classification.intent === 'edit'
+        ? classification.intent
+        : undefined,
+    )
   } catch {
     yield {
       type: 'turn_step_summary',

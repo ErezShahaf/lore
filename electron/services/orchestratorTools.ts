@@ -21,7 +21,6 @@ import {
   type ConversationEntry,
   type DocumentType,
   type InputClassification,
-  type LoreDocument,
   type OllamaTool,
   type RetrievalOptions,
   type ScoredDocument,
@@ -51,21 +50,6 @@ function optionalObject<T>(args: Record<string, unknown>, key: string): T | unde
   if (value === undefined || value === null) return undefined
   if (typeof value !== 'object' || Array.isArray(value)) return undefined
   return value as T
-}
-
-function optionalArray(args: Record<string, unknown>, key: string): unknown[] | undefined {
-  const value = args[key]
-  if (value === undefined || value === null) return undefined
-  if (!Array.isArray(value)) return undefined
-  return value
-}
-
-function requireArray(args: Record<string, unknown>, key: string): unknown[] {
-  const value = args[key]
-  if (!Array.isArray(value)) {
-    throw new Error(`Missing or invalid array parameter: ${key}`)
-  }
-  return value
 }
 
 function requireString(args: Record<string, unknown>, key: string): string {
@@ -114,6 +98,7 @@ async function handleComposeReply(
   args: Record<string, unknown>,
   context: OrchestratorToolContext,
 ): Promise<ToolExecutionResult> {
+  void context
   const factKind = requireString(args, 'factKind')
   const payloadRaw = optionalObject<Record<string, unknown>>(args, 'payload') ?? {}
 

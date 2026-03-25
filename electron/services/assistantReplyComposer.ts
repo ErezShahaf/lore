@@ -11,7 +11,7 @@ export async function* streamAssistantUserReply(input: {
   readonly model: string
 }): AsyncGenerator<string> {
   const systemPrompt = appendUserInstructionsToSystemPrompt(
-    loadSkill('assistant-user-reply'),
+    loadSkill('assistant-user-reply', { kind: input.facts.kind }),
     input.userInstructionsBlock,
   )
 

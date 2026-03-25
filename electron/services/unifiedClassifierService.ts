@@ -1,7 +1,7 @@
 import { generateStructuredResponse } from './ollamaService'
 import { formatLocalDate } from './localDate'
 import { getSettings } from './settingsService'
-import { loadSkill } from './skillLoader'
+import { FIRST_TURN_SKILL_ID, loadSkill } from './skillLoader'
 import { logger } from '../logger'
 import { appendUserInstructionsToSystemPrompt } from './userInstructionsContext'
 import type {
@@ -86,7 +86,7 @@ function buildSystemPrompt(now: Date): string {
   lastMonday.setDate(lastMonday.getDate() - 7)
   const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
-  const section = loadSkill('skill-classification')
+  const section = loadSkill(FIRST_TURN_SKILL_ID)
   return section
     .replace(/\{currentDate\}/g, currentDate)
     .replace('{currentDay}', DAY_NAMES[now.getDay()])

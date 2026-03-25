@@ -74,7 +74,12 @@ export async function* handleQuestion(
   const sortedFallbackDocuments = isTodoQuery
     ? sortDocumentsNewestFirstBySemanticDate(fallbackResult.documents)
     : fallbackResult.documents
-  let documents = selectDocumentsForAnswer(userInput, sortedFallbackDocuments, maxFocusedDocumentsForAnswer)
+  let documents = selectDocumentsForAnswer(
+    userInput,
+    classification,
+    sortedFallbackDocuments,
+    maxFocusedDocumentsForAnswer,
+  )
 
   const instructionRequestsTodoListing = instructionDocumentsRequestTodoListing(userInstructionDocuments)
 
@@ -142,8 +147,19 @@ export async function* handleQuestion(
     for (const todoDoc of sortedTodoDocuments) mergedById.set(todoDoc.id, todoDoc)
     for (const doc of documents) mergedById.set(doc.id, doc)
 
-    documents = selectDocumentsForAnswer(userInput, [...mergedById.values()], maxFocusedDocuments)
+    documents = selectDocumentsForAnswer(
+      userInput,
+      classification,
+      [...mergedById.values()],
+      maxFocusedDocuments,
+    )
   }
+
+  const questionAnswerSelectors = {
+    retrievalStatus: documents.length === 0 ? 'empty' : 'non_empty',
+    structuredRetrieved: containsRawStructuredContent(documents) ? 'yes' : 'no',
+    todoListing: isTodoQuery ? 'yes' : 'no',
+  } as const
 
   if (documents.length === 0) {
     yield {
@@ -152,7 +168,7 @@ export async function* handleQuestion(
     }
     yield { type: 'status', message: 'No matching notes in your library—drafting a reply…' }
     const ragSystemPrompt = appendUserInstructionsToSystemPrompt(
-      loadSkill('question-answer'),
+      loadSkill('question-answer', questionAnswerSelectors),
       userInstructionsBlock,
     )
     const noDocumentsMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -249,7 +265,7 @@ export async function* handleQuestion(
     documents,
   })
   const ragSystemPrompt = appendUserInstructionsToSystemPrompt(
-    loadSkill('question-answer'),
+    loadSkill('question-answer', questionAnswerSelectors),
     userInstructionsBlock,
   )
 
@@ -289,10 +305,23 @@ export async function* handleQuestion(
 
 function selectDocumentsForAnswer(
   userInput: string,
+  classification: ClassificationForHandler,
   documents: readonly ScoredDocument[],
   maxFocusedDocuments: number,
 ): ScoredDocument[] {
-  return documents.slice(0, maxFocusedDocuments)
+  if (documents.length <= 1) {
+    return documents.slice(0, maxFocusedDocuments)
+  }
+
+  const referenceText = buildRetrievalQueryText(userInput, classification)
+  const lexicalRatios = documents.map((document) =>
+    lexicalMatchRatio(referenceText, document.content),
+  )
+  const bestRatio = Math.max(...lexicalRatios)
+  const threshold = Math.max(bestRatio - 0.12, 0.25)
+  const narrowed = documents.filter((_, index) => lexicalRatios[index] >= threshold)
+  const chosen = narrowed.length > 0 ? narrowed : documents
+  return chosen.slice(0, maxFocusedDocuments)
 }
 
 function sortDocumentsNewestFirstBySemanticDate(documents: readonly ScoredDocument[]): ScoredDocument[] {

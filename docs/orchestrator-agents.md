@@ -12,17 +12,21 @@
 
 [`electron/services/orchestratorService.ts`](../electron/services/orchestratorService.ts) is deprecated. Kept for potential rollback.
 
+## Skill prompts on disk
+
+All prompts live under **`skills/skill-classification/`**: the root **`entry.md`** is the unified classifier only. Subfolders mirror routing — **`read/`**, **`save/`**, **`command/`** (for both **`edit`** and **`delete`**), **`speak/`**, plus **`reply/`**, **`shared/`**, **`auxiliary/`**. Each branch has an **`entry.md`** describing its children; agent folders have their own **`entry.md`** and optional **`forks/<decision>/<outcome>/`** trees. `loadSkill` still uses the same logical ids (for example `question-answer`); the loader resolves them under this tree and prepends ancestor branch **`entry.md`** fragments. Mount paths and fork outcomes are defined in **[`shared/skillTreeSpec.ts`](../shared/skillTreeSpec.ts)**; **`npm test`** runs [`electron/services/skillTreeAlignment.test.ts`](../electron/services/skillTreeAlignment.test.ts) to ensure the folder tree stays aligned.
+
 ## Services used by the main multi-action path
 
 | Step | Service / module |
 |------|-------------------|
-| Classify | `unifiedClassifierService` (`skill-classification`) |
+| Classify | `unifiedClassifierService` → `loadSkill(FIRST_TURN_SKILL_ID)` → `skills/skill-classification/entry.md` (root only; no subtree) |
 | Per-action execution | `classificationActionExecutor` → thought / question / command / conversational handlers |
 | Duplicate decision (save) | `duplicateResolutionService` |
-| Turn reply (multi-action) | `assistantReplyComposer` (`assistant-user-reply`) |
+| Turn reply (multi-action) | `assistantReplyComposer` → `skills/skill-classification/reply/assistant-user-reply/` |
 | Question strategy / answer | `questionStrategistService`, `questionAnswerComposition`, `documentPipeline` |
 | Command targets | `commandDecompositionService` |
 
 ## Legacy skills note
 
-Older filenames mentioned in git history (`classification.md`, `question.md`, `save-decomposition.md`, `save-shape`, `save-items`) may still appear in docs or dist; the live classifier skill is `skill-classification.md`.
+Older filenames mentioned in git history (`classification.md`, `question.md`, `save-decomposition.md`, `save-shape`, `save-items`) may still appear in docs or dist; the live classifier prompt is `skills/skill-classification/entry.md` (skill id `skill-classification` in code).

@@ -75,8 +75,18 @@ export async function resolveCommandTargets(
   documents: readonly LoreDocument[],
   conversationHistory: readonly ConversationEntry[] = [],
   userInstructionsBlock: string = '',
+  classifiedCommandIntent: 'edit' | 'delete' | undefined = undefined,
 ): Promise<CommandResolution> {
   const settings = getSettings()
+
+  const deterministicResolution = tryResolveCommandDeterministically(userInput, documents)
+  if (deterministicResolution !== null) {
+    logger.debug(
+      { userInput, status: deterministicResolution.status },
+      '[CommandDecomposition] Deterministic resolution',
+    )
+    return applyClassifiedIntentToResolution(deterministicResolution, classifiedCommandIntent)
+  }
 
   const docsForPrompt = documents
     .map((document) => `ID: ${document.id}\nType: ${document.type}\nDate: ${document.date}\nContent: ${document.content}`)
@@ -92,9 +102,16 @@ export async function resolveCommandTargets(
     messages.push({ role: entry.role, content: entry.content })
   }
 
+  const classifiedIntentLine =
+    classifiedCommandIntent === 'delete'
+      ? '\n\nClassifier intent: DELETE (remove matching rows from storage). Every operation must use action "delete" with updatedContent null. Never use "update" to stand in for removal.'
+      : classifiedCommandIntent === 'edit'
+        ? '\n\nClassifier intent: EDIT (change stored text). Use action "update" with the new text the user asked for; do not delete unless they clearly asked to remove rows.'
+        : ''
+
   messages.push({
     role: 'user',
-    content: `User wants to: ${userInput}\n\nMatching documents from database:\n${docsForPrompt}`,
+    content: `User wants to: ${userInput}${classifiedIntentLine}\n\nMatching documents from database:\n${docsForPrompt}`,
   })
 
   try {
@@ -103,7 +120,7 @@ export async function resolveCommandTargets(
       messages,
       schema: COMMAND_RESOLUTION_SCHEMA,
       maxAttempts: MAX_RETRIES,
-      validate: (parsed) => validateResolution(userInput, parsed, documents),
+      validate: (parsed) => validateResolution(userInput, parsed, documents, classifiedCommandIntent),
     })
 
     logger.debug(
@@ -126,10 +143,29 @@ export async function resolveCommandTargets(
   }
 }
 
+function applyClassifiedIntentToResolution(
+  resolution: CommandResolution,
+  classifiedCommandIntent: 'edit' | 'delete' | undefined,
+): CommandResolution {
+  if (classifiedCommandIntent !== 'delete' || resolution.status !== 'execute') {
+    return resolution
+  }
+
+  return {
+    ...resolution,
+    operations: resolution.operations.map((operation) => ({
+      ...operation,
+      action: 'delete' as const,
+      updatedContent: null,
+    })),
+  }
+}
+
 function validateResolution(
   userInput: string,
   parsed: Record<string, unknown>,
   documents: readonly LoreDocument[],
+  classifiedCommandIntent: 'edit' | 'delete' | undefined,
 ): CommandResolution {
   if (parsed.status === 'clarify') {
     return {
@@ -179,7 +215,16 @@ function validateResolution(
     })
   }
 
-  if (operations.length === 0) {
+  const normalizedOperations =
+    classifiedCommandIntent === 'delete'
+      ? operations.map((operation) => ({
+        ...operation,
+        action: 'delete' as const,
+        updatedContent: null,
+      }))
+      : operations
+
+  if (normalizedOperations.length === 0) {
     return {
       status: 'clarify',
       operations: [],
@@ -189,7 +234,7 @@ function validateResolution(
 
   return {
     status: 'execute',
-    operations,
+    operations: normalizedOperations,
     clarificationMessage: null,
   }
 }
@@ -206,9 +251,6 @@ interface CandidateMatch {
   readonly score: number
 }
 
-// Not used anymore after moving to LLM-only resolution.
-// Keeping the implementation for potential future regression debugging.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function tryResolveCommandDeterministically(
   userInput: string,
   documents: readonly LoreDocument[],
@@ -280,7 +322,7 @@ function parseDeterministicCommand(userInput: string): ParsedDeterministicComman
     }
   }
 
-  if (/\b(delete|remove|forget|clear|done|finished|completed|complete)\b/i.test(userInput)) {
+  if (/\b(delete|remove|forget|clear|finished|completed|complete)\b/i.test(userInput)) {
     return {
       action: 'delete',
       referenceText: userInput,
@@ -362,18 +404,6 @@ function buildSingleTargetExecutionResolution(
   }
 }
 
-function extractReferenceTextForSafety(
-  userInput: string,
-  operation: CommandOperation,
-): string {
-  const parsedCommand = parseDeterministicCommand(userInput)
-  if (parsedCommand && parsedCommand.referenceText.length > 0) {
-    return parsedCommand.referenceText
-  }
-
-  return userInput.length > 0 ? userInput : operation.description
-}
-
 function rankCandidateMatches(referenceText: string, documents: readonly LoreDocument[]): CandidateMatch[] {
   const salientTerms = extractSalientTerms(referenceText)
   if (salientTerms.length === 0) {
@@ -401,37 +431,6 @@ function scoreDocumentMatch(salientTerms: readonly string[], content: string): n
   }).length
 
   return matchedTerms / salientTerms.length
-}
-
-const MAX_CLARIFICATION_LIST_ITEMS = 8
-
-function buildCandidateClarification(
-  candidateMatches: readonly CandidateMatch[],
-  documents: readonly LoreDocument[],
-  prefix: string,
-): string {
-  const rawCandidates = candidateMatches.length > 0
-    ? candidateMatches
-    : documents.map((document) => ({ document, score: 0 }))
-  const previewCandidates = [...rawCandidates].sort((a, b) =>
-    a.document.content.localeCompare(b.document.content) || a.document.id.localeCompare(b.document.id),
-  )
-
-  const previewList = previewCandidates
-    .slice(0, MAX_CLARIFICATION_LIST_ITEMS)
-    .map((candidate, index) => `${index + 1}. "${truncateContent(candidate.document.content, 60)}"`)
-    .join('\n')
-
-  if (previewList.length === 0) {
-    return `${prefix} Could you be more specific?`
-  }
-
-  const listedCount = Math.min(previewCandidates.length, MAX_CLARIFICATION_LIST_ITEMS)
-  const replyHint = listedCount >= 2
-    ? '\n\nYou can reply with the number as it appears (1, 2, …), say **all** or **all of them** for every item, or describe which one.'
-    : '\n\nYou can reply with the number (1) or describe which one.'
-
-  return `${prefix}\n${previewList}\n\nWhich one did you mean?${replyHint}`
 }
 
 function extractSalientTerms(text: string): string[] {

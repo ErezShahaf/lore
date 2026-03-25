@@ -264,7 +264,7 @@ export function primaryClassificationAction(result: ClassificationResult): Class
 /** Shape passed to handlers; satisfied by ClassificationAction. */
 export type HandlerClassification = Pick<
   ClassificationAction,
-  'intent' | 'extractedDate' | 'extractedTags' | 'situationSummary' | 'saveDocumentType'
+  'intent' | 'extractedDate' | 'extractedTags' | 'situationSummary' | 'data' | 'saveDocumentType'
 >
 
 /** Single action as handler input; backwards compatible with old ClassificationResult. */

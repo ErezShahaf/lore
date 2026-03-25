@@ -355,7 +355,7 @@ function parseToolChatMessage(message: Record<string, unknown>): ToolChatMessage
   const content = normalizeOllamaAssistantTextField(message.content)
   const rawToolCalls = message.tool_calls as ReadonlyArray<Record<string, unknown>> | undefined
 
-  let toolCalls: readonly ToolCall[] | undefined = rawToolCalls?.map((call) => {
+  const toolCalls: readonly ToolCall[] | undefined = rawToolCalls?.map((call) => {
     const func = (call.function as Record<string, unknown>) ?? {}
     return {
       function: {
@@ -487,9 +487,11 @@ export async function* streamChatWithTools(
   }
   let lastDoneMessage: Record<string, unknown> | null = null
 
-  while (true) {
+  let isStreamDone = false
+  while (!isStreamDone) {
     const { done, value } = await reader.read()
     if (done) {
+      isStreamDone = true
       break
     }
 
@@ -546,6 +548,7 @@ export async function* streamChatWithTools(
   const mergedMessage: Record<string, unknown> = {
     ...lastDoneMessage,
     content: mergedContent,
+    thinking: mergedThinking,
   }
 
   const finalMessage = parseToolChatMessage(mergedMessage)
