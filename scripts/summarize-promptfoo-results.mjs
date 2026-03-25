@@ -128,9 +128,10 @@ const PROMPT_LEVER_BY_COMPONENT = {
   unified_classifier: 'skills/skill-classification/entry.md',
   action_handlers:
     'electron/services/classificationActionExecutor.ts and electron/services/handlers/',
-  assistant_reply_composer: 'skills/skill-classification/reply/assistant-user-reply/entry.md',
+  assistant_reply_composer:
+    'skills/skill-classification/decisions/reply/shared/assistant-user-reply/entry.md',
   conversational_or_composer:
-    'electron/services/handlers/conversationalHandler.ts or assistant-user-reply (skills/skill-classification/reply/assistant-user-reply/entry.md)',
+    'electron/services/handlers/conversationalHandler.ts or assistant-user-reply (skills/skill-classification/decisions/reply/shared/assistant-user-reply/entry.md)',
   unknown: '(inspect pipelineTrace and failedChecks in result JSON)',
 }
 

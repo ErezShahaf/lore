@@ -1,3 +1,4 @@
+import { WORKER_KIND_TO_SKILL_MOUNT_ID } from '../../shared/skillTreeSpec'
 import {
   primaryClassificationAction,
   type ClassificationResult,
@@ -80,10 +81,10 @@ export function buildWorkerSystemPrompt(
   userInstructionsBlock: string,
   classification: ClassificationResult,
 ): string {
-  const workerSkillFileName = `skill-worker-${workerKind}` as const
+  const workerSkillMountId = WORKER_KIND_TO_SKILL_MOUNT_ID[workerKind]
   const parts: string[] = [
     loadSkill('skill-shared-protocol'),
-    loadSkill(workerSkillFileName),
+    loadSkill(workerSkillMountId),
     [
       '## Router classification',
       'Align tool params with this summary; refine only if clearly wrong.',

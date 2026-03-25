@@ -179,16 +179,18 @@ For each action object, every field (tags, dates, `situationSummary`, `saveDocum
 
 # Where follow-on prompts live (repository)
 
-This file is **only** the unified classifier system prompt. Downstream Lore agents live under **`skill-classification/`** in folders that mirror routing:
+This file is **only** the unified classifier system prompt. On disk each node uses the same shape: **`entry.md`**, optional **`decisions/`** (forks and multi-agent picks), optional **`shared/`** (mounted single agents, fragments, helpers—anything that is not a fork dimension). That pattern recurses.
+
+Classifier intents live under **`skill-classification/decisions/`**. Non-intent helpers live under **`skill-classification/shared/`** (for example **`shared/auxiliary/`**)—the classifier does **not** emit an `auxiliary` intent.
 
 | `intent` (each action) | Folder |
 |------------------------|--------|
-| `read` | `read/` |
-| `save` | `save/` |
-| `edit` or `delete` | `command/` (shared command agents) |
-| `speak` | `speak/` |
+| `read` | `decisions/read/` |
+| `save` | `decisions/save/` |
+| `edit` or `delete` | `decisions/command/` |
+| `speak` | `decisions/speak/` |
 
-Cross-cutting prompts: **`reply/`** (user-facing reply after actions), **`shared/`** (worker protocol), **`auxiliary/`** (optional helpers). Each branch has an `entry.md` describing its subfolders; each agent folder has its own `entry.md` and optional `forks/<decision>/<outcome>/` trees for runtime selectors.
+Cross-cutting pipeline stages (not extra classifier intents on the first line, but still under **`decisions/`** as siblings of the intents above): **`decisions/reply/`**, **`decisions/shared/`** (worker protocol branch—name clashes with the per-node **`shared/`** folder; here **`shared/`** means “reusable bucket”).
 
 ## Full tree (must match disk; see `shared/skillTreeSpec.ts` + `skillTreeAlignment.test.ts`)
 
@@ -196,25 +198,25 @@ Classifier output uses **`saveDocumentType`** only when `intent` is **`save`**: 
 
 | Path | Loader id(s) | Notes |
 |------|----------------|------|
-| `read/entry.md` | _(branch only)_ | Then agents below. |
-| `read/question-answer/` | `question-answer` | `forks/`: `retrievalStatus` → `empty` \| `non_empty` \| `default`; `todoListing` → `yes` \| `no` \| `default`; `structuredRetrieved` → `yes` \| `no` \| `default` (see `questionHandler`). |
-| `read/question-strategist/` | `question-strategist` | |
-| `read/skill-worker-question/` | `skill-worker-question` | Tool-loop read worker. |
-| `save/entry.md` | _(branch only)_ | |
-| `save/skill-worker-thought/` | `skill-worker-thought` | Primary save worker (todos, notes, thoughts, meetings). |
-| `save/duplicate-resolution/` | `duplicate-resolution` | |
-| `save/skill-worker-instruction/` | `skill-worker-instruction` | Reserved / not used by main path today. |
-| `command/entry.md` | _(branch only)_ | For classifier **`edit`** and **`delete`**. |
-| `command/command-decomposition/` | `command-decomposition` | |
-| `command/skill-worker-command/` | `skill-worker-command` | |
-| `speak/entry.md` | _(branch only)_ | |
-| `speak/skill-worker-conversational/` | `skill-worker-conversational` | |
-| `reply/entry.md` | _(branch only)_ | |
-| `reply/assistant-user-reply/` | `assistant-user-reply` | `forks/kind/`: `thought_saved_single`, `thought_saved_many`, `instruction_stored`, `command_no_documents`, `command_no_match`, `command_executed`, `multi_action_summary`, `default`. |
-| `shared/entry.md` | _(branch only)_ | |
-| `shared/skill-shared-protocol/` | `skill-shared-protocol` | Prepended with worker skills. |
-| `auxiliary/entry.md` | _(branch only)_ | |
-| `auxiliary/situation/` | `situation` | |
-| `auxiliary/intent-route/` | `intent-route` | |
-| `auxiliary/metadata-extraction/` | `metadata-extraction` | |
-| `auxiliary/orchestrator-low-confidence/` | `orchestrator-low-confidence` | |
+| `decisions/read/entry.md` | _(branch only)_ | Agents under `decisions/read/decisions/`. |
+| `decisions/read/decisions/question-answer/` | `question-answer` | Nested `decisions/`: `retrievalStatus` → `empty` \| `non_empty` \| `default`; `todoListing` → `yes` \| `no` \| `default`; `structuredRetrieved` → `yes` \| `no` \| `default` (see `questionHandler`). |
+| `decisions/read/decisions/question-strategist/` | `question-strategist` | |
+| `decisions/read/decisions/skill-worker-question/` | `skill-worker-question` | Tool-loop read worker. |
+| `decisions/save/entry.md` | _(branch only)_ | |
+| `decisions/save/decisions/skill-worker-thought/` | `skill-worker-thought` | Primary save worker (todos, notes, thoughts, meetings). |
+| `decisions/save/decisions/duplicate-resolution/` | `duplicate-resolution` | |
+| `decisions/save/decisions/skill-worker-instruction/` | `skill-worker-instruction` | Reserved / not used by main path today. |
+| `decisions/command/entry.md` | _(branch only)_ | For classifier **`edit`** and **`delete`**. |
+| `decisions/command/decisions/command-decomposition/` | `command-decomposition` | |
+| `decisions/command/decisions/skill-worker-command/` | `skill-worker-command` | |
+| `decisions/speak/entry.md` | _(branch only)_ | |
+| `decisions/speak/shared/skill-worker-conversational/` | `skill-worker-conversational` | Single agent under branch **`shared/`**. |
+| `decisions/reply/entry.md` | _(branch only)_ | |
+| `decisions/reply/shared/assistant-user-reply/` | `assistant-user-reply` | `decisions/kind/`: … (see `assistantReplyComposer`). |
+| `decisions/shared/entry.md` | _(branch only)_ | Intent branch named **`shared`** (protocol). |
+| `decisions/shared/shared/skill-shared-protocol/` | `skill-shared-protocol` | Inner **`shared/`** holds the mounted agent. |
+| `shared/auxiliary/entry.md` | _(helpers; not classifier intent)_ | Top-level **`shared/`** next to **`decisions/`**. |
+| `shared/auxiliary/decisions/situation/` | `situation` | |
+| `shared/auxiliary/decisions/intent-route/` | `intent-route` | |
+| `shared/auxiliary/decisions/metadata-extraction/` | `metadata-extraction` | |
+| `shared/auxiliary/decisions/orchestrator-low-confidence/` | `orchestrator-low-confidence` | |

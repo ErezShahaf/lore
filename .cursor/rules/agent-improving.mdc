@@ -5,59 +5,90 @@ alwaysApply: false
 
 # Agent improving — evals, traces, and honest fixes
 
-Use this when you are asked to diagnose eval failures, tune the agent, or change prompts/skills based on scenario results.
+Use this when you are asked to diagnose eval failures, tune the agent, or change prompts and skills based on scenario results. Use it as the **policy** for a repeatable loop: run tests → inspect newest artifacts → trace-backed fixes → re-run tests.
 
-## Goals
+## Purpose
 
 - Ground fixes in **what actually happened** in the pipeline (classifier output, retrieval, composed reply, and so on), not only in the final pass or fail string.
 - Prefer changes that **generalize**: they should help whole *classes* of user inputs, not one scenario’s exact wording.
 - **Never pass a test by breaking product behavior** that the test does not cover.
 
-## Workflow (practical order)
+## Inputs (each iteration)
 
-1. **Run evals when it matters**  
-   After meaningful prompt, retrieval, or orchestration changes, run the appropriate suite (for example via `scripts/run-promptfoo.mjs`) so failures and traces match the current code. Do not tune only against stale artifacts unless the user explicitly wants historical comparison.
+1. Prefer the **newest full run JSON** under `evals/results/`: files named like `promptfoo-<suite>-<timestamp>.json`. That file has complete `pipelineTrace` data.
+2. Use `*-summary.json` or `*-summary.md` only for a quick overview; they may truncate or sample traces.
+3. For each failure, record **scenario id**, **step**, **failed checks or judge output**, and align with the **scenario rubric** so you know *which stage* should have behaved differently.
 
-2. **Pick the latest run**  
-   Artifacts live under `evals/results/`. Prefer the **newest** `promptfoo-*` files by timestamp in the filename. Use the **full run JSON** (files named like `promptfoo-<suite>-<timestamp>.json`) when you need complete `pipelineTrace` data; `*-summary.json` is for overview and may truncate or sample traces.
+## Diagnosis workflow (do not skip)
 
-3. **Locate the failing scenario and the right trace**  
-   Find the failing case in the JSON (scenario id, step, last assistant turn). Use the **`pipelineTrace` for that turn** (and earlier turns if the failure is multi-turn). Align trace stages with **failed checks** and the scenario rubric so you know *which stage* went wrong, not only that something failed.
+1. **Enumerate** failing scenarios from the full JSON.
+2. For each failure, open **`pipelineTrace`** for the relevant assistant turn (and earlier turns if the scenario is multi-step).
+3. Name the **failing stage** (for example classification, retrieval, worker prompt, reply composition).
+4. Write a **one-line hypothesis** (for example “classifier merged two intents”, “wrong `decisions` branch”, “composer dropped structured facts”).
+5. Pick a **single primary lever** for that failure class: parameters, prompts or skills, routing or architecture.
+6. Implement the **smallest** change set that addresses the hypothesis class—not a grab bag of edits.
 
-4. **Hypothesis → lever → change**  
-   State a short hypothesis (“retrieval rank too low”, “classifier merged intents”, “composer ignored structured facts”). Then pick a lever: settings/thresholds, prompts/skills, or architecture. Implement the smallest change that addresses the *class* of error.
+## Closing the iteration (mandatory)
 
-5. **Sanity pass**  
-   Re-run evals or at least the previously failing scenario when possible. Watch for **new failures**; fixing one scenario while regressing others is a sign of overfitting.
+1. After edits, **re-run evals** for the same suite you used (for example via `scripts/run-promptfoo.mjs`), or the subset the user defined—prefer a **full suite** when the change touches shared prompts or routing.
+2. Report **pass or fail delta** (counts or scenario ids) and call out **new** failures. Fixing one scenario while regressing others is a sign of overfitting; widen or revert the change.
+
+## Prompt budget (300 tokens per contributing fragment)
+
+Skills with `decisions/` trees merge multiple `entry.md` files (see `electron/services/skillLoader.ts`). The budget applies **per file**: each **`entry.md` body** you add or edit under `skills/skill-classification/` (after trim) should stay within **300 tokens** of instructional content.
+
+- **Why per file**: Assembly joins many fragments; keeping each `entry.md` small forces **narrow leaves** and clear routing instead of one overloaded blob.
+- **How to estimate**: Prefer a real tokenizer when available. If you only need a quick check, **approximate** with `ceil(characterCount / 4)` on the trimmed UTF-8 body (English-heavy markdown). Values near the ceiling should be tightened or split.
+- **If content does not fit**: **Split**—add or deepen `decisions/<decisionKey>/<value>/` branches, move cross-cutting lines into a parent that only routes, and keep detailed rules in leaves. Do not “vague out” constraints just to save tokens.
+
+**First-turn classifier**: `skills/skill-classification/entry.md` is a **single** loaded file (no subtree merge for that call). It must satisfy the same **300-token** budget on its own.
 
 ## Allowed fix levers
 
 - **Parameters and settings**: thresholds, retrieval limits, cutoff scores, model choice, and other config the app already exposes.
-- **Prompts and skills**: clarify constraints, ordering, failure modes, and boundaries in reusable language.
+- **Prompts and skills**: clarify constraints, ordering, failure modes, and boundaries in reusable language that reads like **durable policy**, not a ticket note.
+- **Structural skill-tree changes** (encouraged when traces show **conflation** or unstable behavior across cases that should differ):
+  - Add or refine **`decisions/<decisionKey>/<value>/`** directories and **`entry.md`** leaves so one path does one job.
+  - Keep **parent** `entry.md` files thin: routing, scope, and what to defer to children. Put detailed behavior in **leaves**, each under the token budget.
+  - **Wire-up must stay honest**:
+    - New **mounted** skills or path changes may require updates to `shared/skillTreeSpec.ts` (`SKILL_MOUNT_SEGMENTS`, decision outcome constants if applicable).
+    - Selectors passed to `loadSkill` must match **decision keys** and **directory names** under `decisions/`. Merge order for decision keys follows `DECISION_KEY_MERGE_PRIORITY` in `skillLoader.ts` (add new high-impact keys there if you introduce another ordered pipeline dimension).
+    - Layout may be enforced by tests (for example skill tree alignment); run the relevant tests after structural edits.
 - **Agent architecture**: additional stages, different handoffs, structured outputs between steps—when the error is fundamentally staged wrong, not just worded wrong.
-- **Scalable “outside the box” ideas**: allowed when they do not rely on brittle string matching or per-test hacks.
+- **Scalable ideas** that do not rely on brittle string matching or per-scenario hacks.
 
 ## Forbidden and weak approaches
 
-- **Do not route behavior with regex (or similar) on user text** to patch evals. It does not scale; we assume models improve and prompts should teach general behavior.
+- **Do not route behavior with regex (or similar) on user text** to patch evals. It does not scale; prompts should teach general behavior.
 - **Do not special-case the scenario**: avoid instructions that only make sense for that test’s exact phrases, names, or IDs. Reframe as a general principle or policy.
 - **Do not weaken success criteria** in tests or judges just to turn a failure green unless the user explicitly wants the rubric changed.
 - **Do not fix evaluator-only issues in production prompts** if the real product answer was already correct for users.
+- **Do not edit only final user-facing wording** when `pipelineTrace` shows an **earlier** stage failure—fix the stage that lied first unless the bug is purely presentational.
 
 ## The “are we cheating?” checklist
 
 Before treating a change as done, ask:
 
 1. **Trade-off**: Could this fix harm a reasonable user goal that is not in this test (for example skipping save, skipping retrieval, or always refusing a valid action)? If yes, revise.
-2. **Narrowness**: Would this break or confuse inputs that are like the scenario but not identical? If the fix only works for the literal test string, generalize or use config/architecture instead.
+2. **Narrowness**: Would this break or confuse inputs that are like the scenario but not identical? If the fix only works for the literal test string, generalize or use config or architecture instead.
 3. **Stage honesty**: Does the trace show the real failure stage? Fix that stage—not only the final message formatting—unless the bug is purely presentational.
+4. **Tree honesty**: If you added decision branches or mounts, does the runtime actually load them (spec, selectors, and tests updated)? An unread `entry.md` does not count as a fix.
 
 ## Collaboration
 
 You may **disagree constructively** with the user’s assumptions when evidence (trace + rubric + product intent) supports a different fix.
 
-## Extra topics worth remembering (optional but useful)
+## Optional reminders
 
 - **Flakes and environment**: note if failures might be nondeterministic (model temperature, ordering); separate prompt bugs from instability.
 - **Minimal reproduction**: for complex scenarios, trace the minimum user path that reproduces the bad stage.
-- **Documentation of intent**: when you change a skill, the edit should read like a durable policy any future model can follow, not a patch note for one ticket.
+- **Stopping**: if several iterations move traces but not pass rate, pause—consider rubric bugs, missing scenarios, or a different architecture lever rather than more prompt churn.
+
+## Post-run prompt template (for the human or chat turn)
+
+Use a short operator message after each eval run that **does not duplicate** this whole file. Example shape:
+
+- Follow **Agent improving** (`agent-improving.mdc`).
+- Full results file: `evals/results/<promptfoo-…>.json`.
+- Suite and any focus scenarios or known flakes.
+- After changes, run: `<same eval command>` and summarize regressions.

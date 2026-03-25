@@ -54,20 +54,20 @@ function getSkillCacheKey(name: string, selectors?: SkillPromptSelectors): strin
 }
 
 /**
- * When a skill has multiple `forks/<decisionKey>/` directories, merge order follows this list first,
+ * When a skill has multiple `decisions/<decisionKey>/` directories, merge order follows this list first,
  * then any other keys alphabetically. Matches `question-answer` pipeline: retrieval, todo shape, structured bodies.
  */
-const FORK_DECISION_KEY_MERGE_PRIORITY: readonly string[] = [
+const DECISION_KEY_MERGE_PRIORITY: readonly string[] = [
   'retrievalStatus',
   'todoListing',
   'structuredRetrieved',
   'kind',
 ]
 
-function sortForkDecisionKeys(decisionKeys: readonly string[]): string[] {
+function sortDecisionKeys(decisionKeys: readonly string[]): string[] {
   const priorityIndex = (key: string): number => {
-    const index = FORK_DECISION_KEY_MERGE_PRIORITY.indexOf(key)
-    return index === -1 ? FORK_DECISION_KEY_MERGE_PRIORITY.length : index
+    const index = DECISION_KEY_MERGE_PRIORITY.indexOf(key)
+    return index === -1 ? DECISION_KEY_MERGE_PRIORITY.length : index
   }
   return [...decisionKeys].sort((a, b) => {
     const delta = priorityIndex(a) - priorityIndex(b)
@@ -89,13 +89,13 @@ function assembleForkedSkillPrompt(skillDir: string, selectors: SkillPromptSelec
       }
     }
 
-    const forksDir = join(nodeDir, 'forks')
-    if (!directoryExists(forksDir)) return
+    const decisionsDir = join(nodeDir, 'decisions')
+    if (!directoryExists(decisionsDir)) return
 
     let decisionKeys: string[] = []
     try {
-      decisionKeys = sortForkDecisionKeys(
-        readdirSync(forksDir).filter((entry) => directoryExists(join(forksDir, entry))),
+      decisionKeys = sortDecisionKeys(
+        readdirSync(decisionsDir).filter((entry) => directoryExists(join(decisionsDir, entry))),
       )
     } catch {
       return
@@ -104,7 +104,7 @@ function assembleForkedSkillPrompt(skillDir: string, selectors: SkillPromptSelec
     for (const decisionKey of decisionKeys) {
       const chosenValue = selectors[decisionKey]
       const chosenDir = chosenValue
-        ? join(forksDir, decisionKey, chosenValue)
+        ? join(decisionsDir, decisionKey, chosenValue)
         : null
 
       if (chosenDir && directoryExists(chosenDir)) {
@@ -112,7 +112,7 @@ function assembleForkedSkillPrompt(skillDir: string, selectors: SkillPromptSelec
         continue
       }
 
-      const defaultDir = join(forksDir, decisionKey, 'default')
+      const defaultDir = join(decisionsDir, decisionKey, 'default')
       if (directoryExists(defaultDir)) {
         walk(defaultDir)
       }

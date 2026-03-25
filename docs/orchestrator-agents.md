@@ -14,7 +14,7 @@
 
 ## Skill prompts on disk
 
-All prompts live under **`skills/skill-classification/`**: the root **`entry.md`** is the unified classifier only. Subfolders mirror routing — **`read/`**, **`save/`**, **`command/`** (for both **`edit`** and **`delete`**), **`speak/`**, plus **`reply/`**, **`shared/`**, **`auxiliary/`**. Each branch has an **`entry.md`** describing its children; agent folders have their own **`entry.md`** and optional **`forks/<decision>/<outcome>/`** trees. `loadSkill` still uses the same logical ids (for example `question-answer`); the loader resolves them under this tree and prepends ancestor branch **`entry.md`** fragments. Mount paths and fork outcomes are defined in **[`shared/skillTreeSpec.ts`](../shared/skillTreeSpec.ts)**; **`npm test`** runs [`electron/services/skillTreeAlignment.test.ts`](../electron/services/skillTreeAlignment.test.ts) to ensure the folder tree stays aligned.
+All prompts live under **`skills/skill-classification/`**: the root **`entry.md`** is the unified classifier only. **Classifier** intents sit under **`decisions/`** (`read`, `save`, `command`, `speak`, plus pipeline branches **`reply/`** and **`shared/`**). Everything else at the repository root of that tree is under **`shared/`** (for example **`shared/auxiliary/`** for situation extraction, routing hints, metadata, and similar—not classifier outputs). Each node may repeat **`entry.md`**, **`decisions/`**, and **`shared/`**. `loadSkill` ids are unchanged; paths are in **[`shared/skillTreeSpec.ts`](../shared/skillTreeSpec.ts)**. **`npm test`** runs [`electron/services/skillTreeAlignment.test.ts`](../electron/services/skillTreeAlignment.test.ts) to keep the tree aligned.
 
 ## Services used by the main multi-action path
 
@@ -23,7 +23,7 @@ All prompts live under **`skills/skill-classification/`**: the root **`entry.md`
 | Classify | `unifiedClassifierService` → `loadSkill(FIRST_TURN_SKILL_ID)` → `skills/skill-classification/entry.md` (root only; no subtree) |
 | Per-action execution | `classificationActionExecutor` → thought / question / command / conversational handlers |
 | Duplicate decision (save) | `duplicateResolutionService` |
-| Turn reply (multi-action) | `assistantReplyComposer` → `skills/skill-classification/reply/assistant-user-reply/` |
+| Turn reply (multi-action) | `assistantReplyComposer` → `skills/skill-classification/decisions/reply/shared/assistant-user-reply/` |
 | Question strategy / answer | `questionStrategistService`, `questionAnswerComposition`, `documentPipeline` |
 | Command targets | `commandDecompositionService` |
 
