@@ -1,5 +1,6 @@
 import { logger } from '../../logger'
 import {
+  lexicalMatchRatio,
   multiQueryRetrieve,
   retrieveByFilters,
   retrieveWithAdaptiveThreshold,
@@ -43,7 +44,11 @@ export async function* handleQuestion(
   const settings = getSettings()
 
   const retrievalOpts = buildRetrievalOptions(userInput, classification, retrievalOverrides)
-  logger.debug({ userInput, tags: classification.extractedTags }, '[question] searching')
+  const retrievalQueryText = buildRetrievalQueryText(userInput, classification)
+  logger.debug(
+    { userInput, retrievalQueryText, tags: classification.extractedTags },
+    '[question] searching',
+  )
 
   const isTodoQuery = retrievalOpts.type === 'todo'
   const maxFocusedDocumentsForAnswer = isTodoQuery ? MAX_TODO_DOCUMENTS_FOR_CONVERSATIONAL_INSTRUCTIONS : MAX_FOCUSED_ANSWER_DOCUMENTS
@@ -57,10 +62,13 @@ export async function* handleQuestion(
       // The prompt-context limiter will further trim it.
       maxResults: 50,
     })
-    : await retrieveWithAdaptiveThreshold(userInput, retrievalOpts)
+    : await retrieveWithAdaptiveThreshold(retrievalQueryText, retrievalOpts)
 
   const fallbackResult = !isTodoQuery && result.documents.length === 0
-    ? await multiQueryRetrieve(buildQuestionFallbackQueries(userInput, classification), retrievalOpts)
+    ? await multiQueryRetrieve(
+      buildQuestionFallbackQueries(retrievalQueryText, classification),
+      retrievalOpts,
+    )
     : result
 
   const sortedFallbackDocuments = isTodoQuery
@@ -188,7 +196,7 @@ export async function* handleQuestion(
     cutoffScore: documents.length > 0 ? documents[documents.length - 1].score : fallbackResult.cutoffScore,
   }
 
-  const directStructuredResponse = buildDirectStructuredResponse(userInput, documents)
+  const directStructuredResponse = buildDirectStructuredResponse(userInput, documents, classification)
   if (directStructuredResponse) {
     yield {
       type: 'turn_step_summary',
@@ -307,31 +315,69 @@ function stripTemporalFilters(options: RetrievalOptions): RetrievalOptions {
   return rest
 }
 
-function buildQuestionFallbackQueries(
+function buildRetrievalQueryText(
   userInput: string,
+  classification: ClassificationForHandler,
+): string {
+  const trimmedInput = userInput.trim()
+  const trimmedData = classification.data.trim()
+  if (trimmedData.length === 0) return trimmedInput
+  if (trimmedData === trimmedInput) return trimmedInput
+  return `${trimmedInput}\n${trimmedData}`
+}
+
+function buildQuestionFallbackQueries(
+  retrievalQueryText: string,
   classification: ClassificationForHandler,
 ): string[] {
   const fallbackQueries = [
-    userInput,
+    retrievalQueryText,
     ...classification.extractedTags.filter((tag) => tag.length >= 4),
   ]
 
   return [...new Set(fallbackQueries.map((query) => query.trim()).filter((query) => query.length > 0))]
 }
 
+function pickJsonDocumentByLexicalOverlap(
+  referenceText: string,
+  candidates: readonly ScoredDocument[],
+): ScoredDocument {
+  let best = candidates[0]
+  let bestRatio = -1
+  for (const document of candidates) {
+    const ratio = lexicalMatchRatio(referenceText, document.content)
+    if (ratio > bestRatio) {
+      bestRatio = ratio
+      best = document
+    }
+  }
+  return best
+}
+
 function buildDirectStructuredResponse(
   userInput: string,
   documents: readonly ScoredDocument[],
+  classification: ClassificationForHandler,
 ): string | null {
-  if (documents.length !== 1 || !/\b(json|payload)\b/i.test(userInput)) {
+  if (!/\b(json|payload)\b/i.test(userInput)) {
     return null
   }
 
-  const content = documents[0].content.trim()
-  if (!content.startsWith('{') && !content.startsWith('[')) {
+  const jsonCandidates = documents.filter((document) => {
+    const trimmed = document.content.trim()
+    return trimmed.startsWith('{') || trimmed.startsWith('[')
+  })
+  if (jsonCandidates.length === 0) {
     return null
   }
 
+  const referenceText = buildRetrievalQueryText(userInput, classification)
+  const selected =
+    jsonCandidates.length === 1
+      ? jsonCandidates[0]
+      : pickJsonDocumentByLexicalOverlap(referenceText, jsonCandidates)
+
+  const content = selected.content.trim()
   return `\`\`\`json\n${content}\n\`\`\``
 }
 

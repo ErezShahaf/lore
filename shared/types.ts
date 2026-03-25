@@ -11,7 +11,8 @@ export interface ThoughtDocument {
 // ── Vector database types ─────────────────────────────────────
 
 export type DocumentType = 'thought' | 'todo' | 'instruction' | 'meeting' | 'note'
-export type DecomposedDocumentType = Exclude<DocumentType, 'instruction'>
+/** Document kinds the unified classifier may choose for `save` (includes standing user instructions). */
+export type DecomposedDocumentType = DocumentType
 
 export interface LoreDocument {
   id: string

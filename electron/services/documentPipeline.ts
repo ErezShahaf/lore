@@ -21,6 +21,30 @@ const RELEVANCE_CLIFF_RATIO = 0.3
 const MINIMUM_RELEVANCE_SCORE = 0.26
 
 const TAG_BOOST_FACTOR = 0.32
+const LEXICAL_OVERLAP_BOOST_MAX = 0.14
+
+function extractRetrievalLexicalTokens(text: string): readonly string[] {
+  const normalized = text.toLowerCase()
+  const raw = normalized.match(/\b[\w.]+\b/g) ?? []
+  const filtered = raw.filter((token) => token.length >= 3)
+  return [...new Set(filtered)]
+}
+
+export function lexicalMatchRatio(referenceText: string, documentContent: string): number {
+  const tokens = extractRetrievalLexicalTokens(referenceText)
+  if (tokens.length === 0) return 0
+  const lowerContent = documentContent.toLowerCase()
+  const hitCount = tokens.filter((token) => lowerContent.includes(token)).length
+  return hitCount / tokens.length
+}
+
+function boostByLexicalOverlap(docs: ScoredDocument[], referenceText: string): ScoredDocument[] {
+  if (referenceText.trim().length === 0) return docs
+  return docs.map((document) => {
+    const ratio = lexicalMatchRatio(referenceText, document.content)
+    return { ...document, score: document.score + ratio * LEXICAL_OVERLAP_BOOST_MAX }
+  })
+}
 
 function buildFilter(options?: RetrievalOptions): string | undefined {
   const parts: string[] = []
@@ -188,8 +212,8 @@ export async function retrieveWithAdaptiveThreshold(
     return { ...doc, score: 1 - distance }
   })
 
-  const boosted = boostByTags(scored, options?.tags ?? [])
-    .sort((a, b) => b.score - a.score)
+  const tagged = boostByTags(scored, options?.tags ?? [])
+  const boosted = boostByLexicalOverlap(tagged, query).sort((left, right) => right.score - left.score)
 
   if (boosted.length > 0) {
     logger.debug(
@@ -296,7 +320,11 @@ export async function multiQueryRetrieve(
   }
 
   const merged = [...bestById.values()]
-  const scored = boostByTags(merged, options?.tags ?? []).sort((left, right) => right.score - left.score)
+  const queryTextForLexical = queries.join('\n')
+  const tagged = boostByTags(merged, options?.tags ?? [])
+  const scored = boostByLexicalOverlap(tagged, queryTextForLexical).sort(
+    (left, right) => right.score - left.score,
+  )
 
   if (scored.length > 0) {
     logger.debug(

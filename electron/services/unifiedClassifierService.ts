@@ -32,7 +32,7 @@ const ACTION_ITEM_SCHEMA = {
       anyOf: [
         {
           type: 'string',
-          enum: ['thought', 'todo', 'note', 'meeting'],
+          enum: ['thought', 'todo', 'note', 'meeting', 'instruction'],
         },
         { type: 'null' },
       ],
@@ -106,6 +106,7 @@ const VALID_DECOMPOSED_TYPES: readonly DecomposedDocumentType[] = [
   'todo',
   'note',
   'meeting',
+  'instruction',
 ]
 
 function parseSaveDocumentType(

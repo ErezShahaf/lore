@@ -1,13 +1,63 @@
-In our project, there are evals that simulate user interactions with our system, which can be used to see regression and find new issues. But there are a few points you need to know:
+---
+description: How to improve Lore from eval failures using pipeline traces—no test-cheating, no overfitting.
+alwaysApply: false
+---
 
-If I ask you to suggest improvements for the failed cases, never try to use regex to determine what the user wants,
-this is because its not scaleable. Our base assumption is that LLMs are going improve with time and we need to trust them.
-When you suggest a fix, those are your options
+# Agent improving — evals, traces, and honest fixes
 
-- Tweak params like thresholds and configurable settings we have such as db retreival or any other.
-- Improve the prompts (skills)
-- Suggest a new agent architecture - more agents in the flow, change the communication between agents, and so on.
-- Outside the box thinking, you are definitely allowed to toss new solutions into the air, as long as they are scaleable you will never be judged.
-- You can argue with me about my assumptions, and prove me wrong. We are building together, sometimes I may be wrong.
-- When you think of a solution, always ask yourself the question - "did I solve a test case by cheating the test case and ruining something else that is not in the test?" if yes, it is not a real solution. For example if the test failed to get a json because it inserted something and you tell the classifier "when the user gives you a json, always get it, do not save it" it is not a real solution because you ruined saving.
-- Never use a super specific case just because that's what happened in reality or in the test, try to explain it generically.
+Use this when you are asked to diagnose eval failures, tune the agent, or change prompts/skills based on scenario results.
+
+## Goals
+
+- Ground fixes in **what actually happened** in the pipeline (classifier output, retrieval, composed reply, and so on), not only in the final pass or fail string.
+- Prefer changes that **generalize**: they should help whole *classes* of user inputs, not one scenario’s exact wording.
+- **Never pass a test by breaking product behavior** that the test does not cover.
+
+## Workflow (practical order)
+
+1. **Run evals when it matters**  
+   After meaningful prompt, retrieval, or orchestration changes, run the appropriate suite (for example via `scripts/run-promptfoo.mjs`) so failures and traces match the current code. Do not tune only against stale artifacts unless the user explicitly wants historical comparison.
+
+2. **Pick the latest run**  
+   Artifacts live under `evals/results/`. Prefer the **newest** `promptfoo-*` files by timestamp in the filename. Use the **full run JSON** (files named like `promptfoo-<suite>-<timestamp>.json`) when you need complete `pipelineTrace` data; `*-summary.json` is for overview and may truncate or sample traces.
+
+3. **Locate the failing scenario and the right trace**  
+   Find the failing case in the JSON (scenario id, step, last assistant turn). Use the **`pipelineTrace` for that turn** (and earlier turns if the failure is multi-turn). Align trace stages with **failed checks** and the scenario rubric so you know *which stage* went wrong, not only that something failed.
+
+4. **Hypothesis → lever → change**  
+   State a short hypothesis (“retrieval rank too low”, “classifier merged intents”, “composer ignored structured facts”). Then pick a lever: settings/thresholds, prompts/skills, or architecture. Implement the smallest change that addresses the *class* of error.
+
+5. **Sanity pass**  
+   Re-run evals or at least the previously failing scenario when possible. Watch for **new failures**; fixing one scenario while regressing others is a sign of overfitting.
+
+## Allowed fix levers
+
+- **Parameters and settings**: thresholds, retrieval limits, cutoff scores, model choice, and other config the app already exposes.
+- **Prompts and skills**: clarify constraints, ordering, failure modes, and boundaries in reusable language.
+- **Agent architecture**: additional stages, different handoffs, structured outputs between steps—when the error is fundamentally staged wrong, not just worded wrong.
+- **Scalable “outside the box” ideas**: allowed when they do not rely on brittle string matching or per-test hacks.
+
+## Forbidden and weak approaches
+
+- **Do not route behavior with regex (or similar) on user text** to patch evals. It does not scale; we assume models improve and prompts should teach general behavior.
+- **Do not special-case the scenario**: avoid instructions that only make sense for that test’s exact phrases, names, or IDs. Reframe as a general principle or policy.
+- **Do not weaken success criteria** in tests or judges just to turn a failure green unless the user explicitly wants the rubric changed.
+- **Do not fix evaluator-only issues in production prompts** if the real product answer was already correct for users.
+
+## The “are we cheating?” checklist
+
+Before treating a change as done, ask:
+
+1. **Trade-off**: Could this fix harm a reasonable user goal that is not in this test (for example skipping save, skipping retrieval, or always refusing a valid action)? If yes, revise.
+2. **Narrowness**: Would this break or confuse inputs that are like the scenario but not identical? If the fix only works for the literal test string, generalize or use config/architecture instead.
+3. **Stage honesty**: Does the trace show the real failure stage? Fix that stage—not only the final message formatting—unless the bug is purely presentational.
+
+## Collaboration
+
+You may **disagree constructively** with the user’s assumptions when evidence (trace + rubric + product intent) supports a different fix.
+
+## Extra topics worth remembering (optional but useful)
+
+- **Flakes and environment**: note if failures might be nondeterministic (model temperature, ordering); separate prompt bugs from instability.
+- **Minimal reproduction**: for complex scenarios, trace the minimum user path that reproduces the bad stage.
+- **Documentation of intent**: when you change a skill, the edit should read like a durable policy any future model can follow, not a patch note for one ticket.
