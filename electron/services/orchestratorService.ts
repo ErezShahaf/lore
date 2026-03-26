@@ -2,6 +2,7 @@
  * @deprecated The main flow now uses toolOrchestrator (orchestratorTools + toolOrchestrator).
  * This classification-based orchestrator is kept for potential rollback or reference.
  */
+import { classificationIntentStatusLabel } from './classificationActionExecutor'
 import { classifyInputWithStatusEvents } from './classifierService'
 import { logger } from '../logger'
 import { handleThought } from './handlers/thoughtHandler'
@@ -39,7 +40,7 @@ export async function* runOrchestratedTurn(
 ): AsyncGenerator<AgentEvent> {
   for (let stepIndex = 0; stepIndex < ORCHESTRATOR_MAX_STEPS; stepIndex += 1) {
     if (stepIndex === 0) {
-      yield { type: 'status', message: 'Starting your turn…' }
+      yield { type: 'status', message: 'Working on your message…' }
 
       const userInstructionDocuments = await loadAllUserInstructionDocuments()
       turn.userInstructionDocuments = userInstructionDocuments
@@ -75,7 +76,7 @@ export async function* runOrchestratedTurn(
 
       yield {
         type: 'status',
-        message: `Orchestrator: routing to ${primaryAction.intent}…`,
+        message: classificationIntentStatusLabel(primaryAction.intent, null),
       }
 
       yield* dispatchIntentHandlers(userInput, priorHistory, primaryAction, turn)
@@ -98,7 +99,7 @@ async function* dispatchIntentHandlers(
   try {
     switch (classification.intent) {
       case 'save': {
-        yield { type: 'status', message: 'Thought path: saving or updating your note…' }
+        yield { type: 'status', message: 'Saving or updating your note…' }
         turn.lastDocumentIds = []
         recordDispatcher(turn, 'ThoughtHandler')
         for await (const event of handleThought(userInput, classification, priorHistory, turn.userInstructionsBlock)) {
@@ -111,7 +112,7 @@ async function* dispatchIntentHandlers(
         break
       }
       case 'read': {
-        yield { type: 'status', message: 'Question path: retrieving and answering from your library…' }
+        yield { type: 'status', message: 'Looking through your library to answer you…' }
         turn.lastDocumentIds = []
         const isTodoQuery = classification.extractedTags.some((tag) => tag === 'todo')
         const todoOverrides = isTodoQuery ? ({ type: 'todo' } as const) : undefined
@@ -134,7 +135,7 @@ async function* dispatchIntentHandlers(
       }
       case 'edit':
       case 'delete': {
-        yield { type: 'status', message: 'Command path: applying changes to stored documents…' }
+        yield { type: 'status', message: 'Applying changes to your stored notes…' }
         recordDispatcher(turn, 'CommandHandler')
         for await (const event of handleCommand(userInput, classification, priorHistory, undefined, turn.userInstructionsBlock)) {
           if (event.type === 'chunk') turn.assistantResponse += event.content
@@ -146,7 +147,7 @@ async function* dispatchIntentHandlers(
         break
       }
       case 'speak': {
-        yield { type: 'status', message: 'Conversational path: checking for relevant saved instructions…' }
+        yield { type: 'status', message: 'Checking your saved instructions for anything relevant…' }
         const relevantInstructions = await retrieveRelevantDocuments(userInput, {
           type: 'instruction',
           similarityThreshold: 0.8,
@@ -155,7 +156,7 @@ async function* dispatchIntentHandlers(
         if (relevantInstructions.length > 0) {
           yield {
             type: 'status',
-            message: 'Instructions matched: switching to question-style retrieval and answer…',
+            message: 'Something you saved fits this—answering from your notes…',
           }
           turn.lastDocumentIds = []
           recordDispatcher(turn, 'QuestionHandlerViaInstructions')
@@ -174,7 +175,7 @@ async function* dispatchIntentHandlers(
             }
           }
         } else {
-          yield { type: 'status', message: 'No instruction override: drafting a short reply…' }
+          yield { type: 'status', message: 'No saved rule applied—drafting a short reply…' }
           recordDispatcher(turn, 'ConversationalHandler')
           for await (const event of handleConversational(userInput, classification, priorHistory, turn.userInstructionsBlock)) {
             if (event.type === 'chunk') turn.assistantResponse += event.content

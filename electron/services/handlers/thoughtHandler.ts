@@ -73,6 +73,10 @@ async function* storeSingleItem(
   userInstructionsBlock: string,
   conversationHistory: readonly ConversationEntry[] = [],
 ): AsyncGenerator<AgentEvent> {
+  yield {
+    type: 'status',
+    message: 'Checking whether you already saved something very similar…',
+  }
   const duplicate = await checkForDuplicate(content)
 
   if (duplicate) {
@@ -93,6 +97,7 @@ async function* storeSingleItem(
       return
     }
     if (resolution === 'update') {
+      yield { type: 'status', message: 'Updating your existing note…' }
       const vector = await embedText(content)
       await updateDocument(duplicate.id, { content, vector })
       yield { type: 'stored', documentId: duplicate.id }
@@ -114,6 +119,7 @@ async function* storeSingleItem(
     }
   }
 
+  yield { type: 'status', message: 'Saving to your library…' }
   const doc = await storeThought({
     content,
     originalInput,

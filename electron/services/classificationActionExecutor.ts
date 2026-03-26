@@ -87,24 +87,46 @@ function toErrorMessage(error: unknown): string {
 export function buildClassificationActionInput(
   action: ClassificationAction,
   fallbackUserInput: string,
+  totalActionCount: number = 1,
 ): string {
+  if (
+    totalActionCount > 1
+    && (action.intent === 'delete' || action.intent === 'edit')
+  ) {
+    return fallbackUserInput
+  }
+
   if (action.data.trim().length > 0) {
     return action.data
   }
   return fallbackUserInput
 }
 
-export function classificationIntentStatusLabel(intent: InputClassification): string {
+export interface ClassificationIntentStatusOptions {
+  readonly actionIndex: number
+  readonly totalActions: number
+}
+
+export function classificationIntentStatusLabel(
+  intent: InputClassification,
+  options: ClassificationIntentStatusOptions | null = null,
+): string {
+  const hasMultiStepPrefix = options !== null && options.totalActions > 1
+  const stepPrefix = hasMultiStepPrefix
+    ? `Step ${options.actionIndex + 1} of ${options.totalActions} — `
+    : ''
+
   switch (intent) {
     case 'save':
-      return 'Saving…'
+      return `${stepPrefix}Capturing this in your library…`
     case 'read':
-      return 'Retrieving and answering…'
+      return `${stepPrefix}Looking through your notes for an answer…`
     case 'edit':
+      return `${stepPrefix}Finding the notes you want updated…`
     case 'delete':
-      return 'Applying changes…'
+      return `${stepPrefix}Finding what you want removed…`
     case 'speak':
-      return 'Replying…'
+      return `${stepPrefix}Putting a reply together…`
   }
 }
 

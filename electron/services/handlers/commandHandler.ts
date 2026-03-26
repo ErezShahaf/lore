@@ -63,7 +63,7 @@ export async function* handleCommand(
     totalRetrieved: documents.length,
   }
 
-  yield { type: 'status', message: 'Resolving which documents to change (command agent)…' }
+  yield { type: 'status', message: 'Narrowing down exactly which notes to change…' }
 
   let resolution
   try {
@@ -117,10 +117,13 @@ export async function* handleCommand(
     return
   }
 
-  const operationLabel = resolution.operations.length === 1
-    ? resolution.operations[0].action
-    : `${resolution.operations.length} operations`
-  yield { type: 'status', message: `Executing ${operationLabel}...` }
+  const executionStatusMessage =
+    resolution.operations.length === 1
+      ? resolution.operations[0].action === 'update'
+        ? 'Updating your note…'
+        : 'Removing that note…'
+      : 'Applying your changes…'
+  yield { type: 'status', message: executionStatusMessage }
 
   const documentLookup = new Map(documents.map((document) => [document.id, document]))
   const results: ExecutionResult[] = []

@@ -47,7 +47,7 @@ export async function* handleConversational(
   conversationHistory: readonly ConversationEntry[] = [],
   userInstructionsBlock: string = '',
 ): AsyncGenerator<AgentEvent> {
-  yield { type: 'status', message: 'Drafting a conversational reply…' }
+  yield { type: 'status', message: 'Drafting a natural reply…' }
 
   const settings = getSettings()
   const systemPrompt = appendUserInstructionsToSystemPrompt(

@@ -78,7 +78,7 @@ export async function* runToolOrchestratedTurn(
   userInput: string,
   priorHistory: readonly ConversationEntry[],
 ): AsyncGenerator<AgentEvent> {
-  yield { type: 'status', message: 'Starting your turn…' }
+  yield { type: 'status', message: 'Working on your message…' }
 
   const settings = getSettings()
   const model = settings.selectedModel
@@ -86,7 +86,7 @@ export async function* runToolOrchestratedTurn(
   const userInstructionDocuments = await loadAllUserInstructionDocuments()
   const userInstructionsBlock = formatUserInstructionsBlock(userInstructionDocuments)
 
-  yield { type: 'status', message: 'Understanding your message…' }
+  yield { type: 'status', message: 'Figuring out what you need…' }
 
   let workerKind: WorkerKind
   let routerClassification: Awaited<ReturnType<typeof resolveWorkerForTurn>>['classification']
@@ -137,7 +137,7 @@ export async function* runToolOrchestratedTurn(
   for (let step = 0; step < ORCHESTRATOR_MAX_STEPS; step += 1) {
     yield {
       type: 'status',
-      message: step === 0 ? 'Thinking…' : `Working (step ${step + 1})…`,
+      message: step === 0 ? 'Deciding what to do next…' : 'Taking another pass at your request…',
     }
 
     let rawResponse: string
@@ -279,6 +279,6 @@ function toolStatusMessage(agentName: string): string {
     case 'compose_reply':
       return 'Composing response…'
     default:
-      return `Running ${agentName}…`
+      return 'Carrying out a quick task…'
   }
 }

@@ -39,7 +39,7 @@ export async function* handleQuestion(
   userInstructionDocuments: readonly LoreDocument[] = [],
   userInstructionsBlock: string = '',
 ): AsyncGenerator<AgentEvent> {
-  yield { type: 'status', message: 'Searching your notes and matching filters…' }
+  yield { type: 'status', message: 'Searching your notes…' }
 
   const settings = getSettings()
 
@@ -166,7 +166,7 @@ export async function* handleQuestion(
       type: 'turn_step_summary',
       summary: 'Read: retrieval returned zero matching documents; answer used the no-library context path.',
     }
-    yield { type: 'status', message: 'No matching notes in your library—drafting a reply…' }
+    yield { type: 'status', message: 'Nothing quite matched—drafting a helpful reply anyway…' }
     const ragSystemPrompt = appendUserInstructionsToSystemPrompt(
       loadSkill('question-answer', questionAnswerSelectors),
       userInstructionsBlock,
@@ -223,9 +223,9 @@ export async function* handleQuestion(
     return
   }
 
-  yield { type: 'status', message: 'Preparing an answer from the retrieved context…' }
+  yield { type: 'status', message: 'Pulling the important details together…' }
 
-  yield { type: 'status', message: 'Deciding whether to answer directly or ask a clarifying question…' }
+  yield { type: 'status', message: 'Choosing the clearest way to answer…' }
   const strategy = await decideQuestionStrategy({
     userInput,
     situationSummary: classification.situationSummary,
@@ -249,7 +249,7 @@ export async function* handleQuestion(
 
   yield {
     type: 'status',
-    message: `Writing your answer from ${documents.length} retrieved note(s)…`,
+    message: `Writing your answer from ${documents.length} matching note${documents.length === 1 ? '' : 's'}…`,
   }
 
   const contextBlock = formatRetrievedDocuments(documents)

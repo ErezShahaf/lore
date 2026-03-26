@@ -37,7 +37,7 @@ The confirmation text should include the word `saved`.
 
 - `content`: exact user wording
 - `type`: `thought`, `todo`, `note`, or `meeting`
-- `tags`: one to five lowercase tags
+- `tags`: one to five lowercase tags for **this row only**. Derive them from **that row’s** `content` and `type` (for example include `todo` when type is `todo`). With several `items`, each entry gets its **own** tags when the texts differ; do **not** reuse one tag list for every row, and do **not** copy the router block’s full `extractedTags` onto each row unless every tag still fits that row’s content alone.
 
 # Splitting into multiple todos
 
@@ -46,7 +46,7 @@ Split into multiple todo items when the user clearly listed separate tasks, for 
 - comma-separated items after `"todo:"`
 - lines like `"add to my todo list: …"` with several lines
 
-For multiline “add to todo” messages, one non-empty line usually equals one todo.
+For multiline “add to todo” messages, one non-empty line usually equals one todo. When you split like this, **tag each todo from its own segment**, not from the whole user message.
 
 If the user clearly provided one verbatim note, keep a single item. Do not chop long prose or quoted dialogue that is obviously one note.
 

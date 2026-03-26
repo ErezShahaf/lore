@@ -9,14 +9,14 @@ export async function* handleInstruction(
   classification: ClassificationResult,
   userInstructionsBlock: string = '',
 ): AsyncGenerator<AgentEvent> {
-  yield { type: 'status', message: 'Checking for similar saved instructions…' }
+  yield { type: 'status', message: 'Checking whether you already saved something like this…' }
 
   const existing = await retrieveRelevantDocuments(userInput, {
     type: 'instruction',
     similarityThreshold: 0.8,
   })
 
-  yield { type: 'status', message: 'Saving your instruction…' }
+  yield { type: 'status', message: 'Saving this so we can follow it next time…' }
 
   const today = formatLocalDate(new Date())
   const action = primaryClassificationAction(classification)

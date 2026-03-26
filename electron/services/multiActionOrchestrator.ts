@@ -51,12 +51,12 @@ export async function* runMultiActionTurn(
   priorHistory: readonly ConversationEntry[],
   traceSink: MutablePipelineTraceSink | null = null,
 ): AsyncGenerator<AgentEvent> {
-  yield { type: 'status', message: 'Starting your turn…' }
+  yield { type: 'status', message: 'Working on your message…' }
 
   const userInstructionDocuments = await loadAllUserInstructionDocuments()
   const userInstructionsBlock = formatUserInstructionsBlock(userInstructionDocuments)
 
-  yield { type: 'status', message: 'Understanding your message…' }
+  yield { type: 'status', message: 'Figuring out what you need…' }
 
   let classification
   try {
@@ -86,9 +86,15 @@ export async function* runMultiActionTurn(
 
   for (let index = 0; index < actions.length; index += 1) {
     const action = actions[index]
-    const actionInput = buildClassificationActionInput(action, userInput)
+    const actionInput = buildClassificationActionInput(action, userInput, actions.length)
 
-    yield { type: 'status', message: classificationIntentStatusLabel(action.intent) }
+    yield {
+      type: 'status',
+      message: classificationIntentStatusLabel(action.intent, {
+        actionIndex: index,
+        totalActions: actions.length,
+      }),
+    }
 
     streamedSpeakChunksForLastAction = false
 
@@ -139,7 +145,7 @@ export async function* runMultiActionTurn(
     return
   }
 
-  yield { type: 'status', message: 'Composing your reply…' }
+  yield { type: 'status', message: 'Summarizing everything for you…' }
 
   const multiActionFacts = { kind: 'multi_action_summary' as const, outcomes }
   let composedReplyAccumulated = ''

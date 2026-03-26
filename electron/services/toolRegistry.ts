@@ -298,7 +298,7 @@ const SAVE_DOCUMENTS_TOOL: OllamaTool = {
   type: 'function',
   function: {
     name: 'save_documents',
-    description: 'Save one or more new documents to the user\'s library. Each item needs content, type, and tags. Returns the saved document IDs or duplicate warnings.',
+    description: 'Save one or more new documents to the user\'s library. Each item needs content, type, and tags. Tags on each item must reflect only that item\'s content (and type), not other items in the same batch. Returns the saved document IDs or duplicate warnings.',
     parameters: {
       type: 'object',
       required: ['items'],
@@ -322,7 +322,8 @@ const SAVE_DOCUMENTS_TOOL: OllamaTool = {
               tags: {
                 type: 'array',
                 items: { type: 'string' },
-                description: 'Lowercase tags for retrieval',
+                description:
+                  'Lowercase tags for retrieval for this item only. Derive from this item\'s content (and document type); do not copy tags from sibling items or the full user message.',
               },
               date: {
                 type: 'string',

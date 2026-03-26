@@ -35,6 +35,31 @@ function tryBuildDeterministicAllSuccessfulTodoSavesReply(
   return `Saved ${count} ${todoWord}.`
 }
 
+type MultiActionSummaryOutcome = Extract<
+  AssistantReplyFacts,
+  { readonly kind: 'multi_action_summary' }
+>['outcomes'][number]
+
+function tryBuildPassThroughStructuredReadReply(
+  outcomes: readonly MultiActionSummaryOutcome[],
+): string | null {
+  if (outcomes.length !== 1) {
+    return null
+  }
+
+  const outcome = outcomes[0]
+  if (outcome.intent !== 'read' || outcome.status !== 'succeeded') {
+    return null
+  }
+
+  const trimmedMessage = outcome.message.trim()
+  if (!trimmedMessage.startsWith('```')) {
+    return null
+  }
+
+  return outcome.message
+}
+
 export async function* streamAssistantUserReply(input: {
   readonly facts: AssistantReplyFacts
   readonly userInstructionsBlock: string
@@ -74,6 +99,12 @@ export async function* streamAssistantUserReplyWithFallback(input: {
     const deterministic = tryBuildDeterministicAllSuccessfulTodoSavesReply(input.facts.outcomes)
     if (deterministic !== null) {
       yield deterministic
+      return
+    }
+
+    const structuredRead = tryBuildPassThroughStructuredReadReply(input.facts.outcomes)
+    if (structuredRead !== null) {
+      yield structuredRead
       return
     }
   }

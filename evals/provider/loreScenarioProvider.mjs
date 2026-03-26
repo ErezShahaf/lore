@@ -221,6 +221,23 @@ function includesNormalized(haystack, needle) {
 
 const judgeInvalidJsonReasonPrefix = 'Judge returned invalid JSON:'
 
+function judgeMisattributesAssistantJsonRequirement(reason) {
+  if (typeof reason !== 'string') {
+    return false
+  }
+  const lower = reason.toLowerCase()
+  const mentionsStructuredAssistantOutput =
+    lower.includes('json object')
+    || lower.includes('two keys')
+    || lower.includes('code fence')
+    || lower.includes('formatting requirement')
+  const readsLikeAssistantFormatComplaint =
+    lower.includes('assistant')
+    || lower.includes('natural language')
+    || lower.includes('conversational text')
+  return mentionsStructuredAssistantOutput && readsLikeAssistantFormatComplaint
+}
+
 function heuristicAssistantAsksForClarification(response) {
   const text = normalizeText(response)
   if (text.length < 12) {
@@ -232,6 +249,7 @@ function heuristicAssistantAsksForClarification(response) {
     ' which ',
     'not sure which',
     "i'm not sure which",
+    'not entirely sure',
     'could you let me know',
     'which one',
     'which todo',
@@ -690,6 +708,15 @@ async function evaluateClarificationExpectation({
     && typeof judgment.reason === 'string'
     && judgment.reason.startsWith(judgeInvalidJsonReasonPrefix)
     && heuristicAssistantAsksForClarification(actualState.response)
+  ) {
+    return []
+  }
+
+  if (
+    shouldRequireClarification
+    && !judgment.pass
+    && heuristicAssistantAsksForClarification(actualState.response)
+    && judgeMisattributesAssistantJsonRequirement(judgment.reason)
   ) {
     return []
   }

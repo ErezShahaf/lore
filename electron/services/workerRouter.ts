@@ -87,7 +87,7 @@ export function buildWorkerSystemPrompt(
     loadSkill(workerSkillMountId),
     [
       '## Router classification',
-      'Align tool params with this summary; refine only if clearly wrong.',
+      'Use intent, date, situation summary, and `saveDocumentType` from this JSON. `extractedTags` describe the turn for search-style hints; they are not a tag list to paste onto every row of `save_documents`. Each saved item needs tags derived from that item’s own `content`.',
       '',
       '```json',
       compactClassificationForPrompt(classification),
@@ -105,12 +105,12 @@ export function buildWorkerSystemPrompt(
 export function workerKindStatusLabel(workerKind: WorkerKind): string {
   switch (workerKind) {
     case 'question':
-      return 'Question specialist…'
+      return 'Focusing on answering from your notes…'
     case 'thought':
-      return 'Save specialist…'
+      return 'Focusing on saving something for you…'
     case 'command':
-      return 'Update specialist…'
+      return 'Focusing on the changes you asked for…'
     case 'conversational':
-      return 'Conversation…'
+      return 'Focusing on a relaxed chat-style reply…'
   }
 }
