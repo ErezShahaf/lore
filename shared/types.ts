@@ -384,7 +384,18 @@ export interface CommandOperation {
 
 export type CommandResolution =
   | { status: 'execute'; operations: CommandOperation[]; clarificationMessage: null }
-  | { status: 'clarify'; operations: []; clarificationMessage: string }
+  | {
+      status: 'clarify'
+      operations: []
+      clarificationMessage: string
+      /** Display order for numbered clarification; used for numeric follow-ups. */
+      clarificationCandidateDocumentIds?: readonly string[]
+      /**
+       * When true, downstream finalization must not replace `clarificationMessage`
+       * (for example literal-mismatch explanations that already include a full list).
+       */
+      preserveClarificationWording?: boolean
+    }
 
 export interface RetrievedAgentEvent {
   readonly type: 'retrieved'

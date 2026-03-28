@@ -1,2 +1,3 @@
-- Confirm what was saved; mention duplicates briefly.
-
+- Confirm the save; include the word `saved`.
+- If `storedContentPreview` is non-empty, treat it as a **verbatim excerpt** of what was stored—especially JSON or structured text. **Do not** rewrite it as a narrative summary or “explain” the JSON in place of showing it.
+- If `hadDuplicate` / `duplicatePreview` are set, mention the duplicate briefly without contradicting the facts.

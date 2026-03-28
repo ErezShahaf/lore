@@ -1,11 +1,18 @@
 import { retrieveRelevantDocuments, retrieveTodoCandidatesForCommand } from '../documentPipeline'
-import { hardDeleteDocument, updateDocument } from '../lanceService'
+import { hardDeleteDocument, getDocumentById, updateDocument } from '../lanceService'
 import { embedText } from '../embeddingService'
 import { resolveCommandTargets } from '../commandDecompositionService'
 import { streamAssistantUserReplyWithFallback } from '../assistantReplyComposer'
+import {
+  clearPendingCommandClarification,
+  getPendingCommandClarification,
+  parseClarificationNumericReply,
+  setPendingCommandClarification,
+} from '../commandClarificationState'
 import type { AssistantReplyFacts } from '../assistantReplyTypes'
 import type {
   ClassificationForHandler,
+  CommandResolution,
   ConversationEntry,
   AgentEvent,
   LoreDocument,
@@ -43,6 +50,7 @@ export async function* handleCommand(
       : await retrieveRelevantDocuments(userInput, retrievalOpts)
 
   if (documents.length === 0) {
+    clearPendingCommandClarification()
     yield {
       type: 'turn_step_summary',
       summary: 'Command: no documents matched the search; nothing was modified.',
@@ -65,31 +73,100 @@ export async function* handleCommand(
 
   yield { type: 'status', message: 'Narrowing down exactly which notes to change…' }
 
-  let resolution
-  try {
-    resolution = await resolveCommandTargets(
-      userInput,
-      documents,
-      conversationHistory,
-      userInstructionsBlock,
-      classification.intent === 'delete' || classification.intent === 'edit'
-        ? classification.intent
-        : undefined,
-    )
-  } catch {
-    yield {
-      type: 'turn_step_summary',
-      summary: 'Command: decomposition failed; no documents were changed.',
+  let resolution: CommandResolution
+  const pending = getPendingCommandClarification()
+  const numericSelection = parseClarificationNumericReply(userInput.trim())
+  const commandIntentForPending: 'delete' | 'edit' | null =
+    classification.intent === 'delete' || classification.intent === 'edit'
+      ? classification.intent
+      : null
+
+  const resolvedFromPendingNumeric =
+    pending !== null
+    && commandIntentForPending !== null
+    && pending.commandIntent === commandIntentForPending
+    && numericSelection !== null
+    && numericSelection >= 1
+    && numericSelection <= pending.candidateDocumentIds.length
+
+  if (resolvedFromPendingNumeric) {
+    const chosenId = pending.candidateDocumentIds[numericSelection - 1]!
+    const chosenFromBatch = documents.find((document) => document.id === chosenId)
+    const chosenDocument = chosenFromBatch ?? (await getDocumentById(chosenId))
+    if (chosenDocument !== null) {
+      clearPendingCommandClarification()
+      resolution = {
+        status: 'execute',
+        operations: [{
+          targetDocumentIds: [chosenId],
+          action: commandIntentForPending === 'delete' ? 'delete' : 'update',
+          updatedContent: null,
+          confidence: 0.99,
+          description: `User selected option ${numericSelection} from the clarification list.`,
+        }],
+        clarificationMessage: null,
+      }
+    } else {
+      clearPendingCommandClarification()
+      try {
+        resolution = await resolveCommandTargets(
+          userInput,
+          documents,
+          conversationHistory,
+          userInstructionsBlock,
+          classification.intent === 'delete' || classification.intent === 'edit'
+            ? classification.intent
+            : undefined,
+        )
+      } catch {
+        yield {
+          type: 'turn_step_summary',
+          summary: 'Command: decomposition failed; no documents were changed.',
+        }
+        yield {
+          type: 'error',
+          message: 'Failed to understand which documents to modify. Please try being more specific.',
+        }
+        yield { type: 'done' }
+        return
+      }
     }
-    yield {
-      type: 'error',
-      message: 'Failed to understand which documents to modify. Please try being more specific.',
+  } else {
+    try {
+      resolution = await resolveCommandTargets(
+        userInput,
+        documents,
+        conversationHistory,
+        userInstructionsBlock,
+        classification.intent === 'delete' || classification.intent === 'edit'
+          ? classification.intent
+          : undefined,
+      )
+    } catch {
+      yield {
+        type: 'turn_step_summary',
+        summary: 'Command: decomposition failed; no documents were changed.',
+      }
+      yield {
+        type: 'error',
+        message: 'Failed to understand which documents to modify. Please try being more specific.',
+      }
+      yield { type: 'done' }
+      return
     }
-    yield { type: 'done' }
-    return
   }
 
   if (resolution.status === 'clarify') {
+    const clarificationIds =
+      resolution.clarificationCandidateDocumentIds
+      ?? documents.map((document) => document.id)
+    if (commandIntentForPending !== null) {
+      setPendingCommandClarification({
+        candidateDocumentIds: clarificationIds,
+        commandIntent: commandIntentForPending,
+        retrievalOptions: retrievalOpts,
+      })
+    }
     yield {
       type: 'turn_step_summary',
       summary: 'Command: targets were ambiguous; user was sent a clarification question. No edits or deletes ran.',
@@ -101,6 +178,8 @@ export async function* handleCommand(
     yield { type: 'done' }
     return
   }
+
+  clearPendingCommandClarification()
 
   if (resolution.operations.length === 0) {
     yield {

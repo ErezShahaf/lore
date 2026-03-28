@@ -5,7 +5,19 @@ import {
   classificationIntentStatusLabel,
   executeClassificationAction,
 } from './classificationActionExecutor'
+import {
+  getPendingCommandClarification,
+  isClarificationOptionsReplayRequest,
+  parseClarificationNumericReply,
+} from './commandClarificationState'
+import {
+  clearPendingQuestionClarification,
+  getPendingQuestionClarification,
+  looksLikeQuestionClarificationNarrowingReply,
+  setConsumedQuestionFollowUp,
+} from './questionClarificationState'
 import { formatUserInstructionsBlock, loadAllUserInstructionDocuments } from './userInstructionsContext'
+import { producePendingClarificationReplay } from './pendingClarificationReplay'
 import { streamAssistantUserReplyWithFallback } from './assistantReplyComposer'
 import { getSettings } from './settingsService'
 import type {
@@ -68,9 +80,6 @@ export async function* runMultiActionTurn(
     return
   }
 
-  const actions = classification.actions
-  logger.debug({ actionCount: actions.length, intents: actions.map((a) => a.intent) }, '[MultiActionOrchestrator] Classified')
-
   if (traceSink) {
     traceSink.stages.push({
       stageId: 'unified_classifier',
@@ -79,6 +88,95 @@ export async function* runMultiActionTurn(
       output: { actions: classification.actions.map((action) => ({ ...action })) },
     })
   }
+
+  const pendingGate = getPendingCommandClarification()
+  if (pendingGate !== null && isClarificationOptionsReplayRequest(userInput)) {
+    const replay = await producePendingClarificationReplay(pendingGate)
+    if (replay !== null) {
+      yield { type: 'status', message: 'Listing your options…' }
+      const replayOutcome: ActionOutcome = {
+        intent: 'speak',
+        saveDocumentType: null,
+        situationSummary: 'Repeated numbered options for pending command clarification.',
+        status: 'succeeded',
+        message: replay.message,
+        handlerResultSummary: replay.summary,
+        storedDocumentIds: [],
+        retrievedDocumentIds: [...replay.retrievedIds],
+        deletedDocumentCount: 0,
+      }
+      if (traceSink) {
+        traceSink.stages.push({
+          stageId: 'action_execution',
+          ordinal: traceSink.stages.length,
+          timestamp: new Date().toISOString(),
+          output: outcomeToTraceOutput(0, replayOutcome),
+        })
+      }
+      yield { type: 'chunk', content: replay.message }
+      yield { type: 'done' }
+      return
+    }
+  }
+
+  const numericFollowUp = parseClarificationNumericReply(userInput.trim())
+  let actions = classification.actions
+  if (
+    pendingGate !== null
+    && numericFollowUp !== null
+    && numericFollowUp >= 1
+    && numericFollowUp <= pendingGate.candidateDocumentIds.length
+  ) {
+    const todoScoped = pendingGate.retrievalOptions?.type === 'todo'
+    actions = [
+      {
+        intent: pendingGate.commandIntent,
+        data: userInput,
+        extractedDate: null,
+        extractedTags: todoScoped ? ['todo'] : [],
+        situationSummary: 'User chose a number from the prior clarification list.',
+        saveDocumentType: null,
+      },
+    ]
+  }
+
+  let pendingQuestion = getPendingQuestionClarification()
+  if (
+    pendingQuestion !== null
+    && !looksLikeQuestionClarificationNarrowingReply(userInput)
+  ) {
+    clearPendingQuestionClarification()
+    pendingQuestion = null
+  }
+  if (
+    pendingQuestion !== null
+    && looksLikeQuestionClarificationNarrowingReply(userInput)
+  ) {
+    clearPendingQuestionClarification()
+    const mergedUserInput = `${pendingQuestion.priorUserInput}\n${userInput}`.trim()
+    setConsumedQuestionFollowUp({
+      priorUserInput: pendingQuestion.priorUserInput,
+      followUpInput: userInput.trim(),
+      mergedUserInput,
+      candidateDocumentIds: pendingQuestion.candidateDocumentIds,
+      classificationSnapshot: pendingQuestion.classificationSnapshot,
+    })
+    actions = [
+      {
+        intent: 'read',
+        data: mergedUserInput,
+        extractedDate: pendingQuestion.classificationSnapshot.extractedDate,
+        extractedTags: [...pendingQuestion.classificationSnapshot.extractedTags],
+        situationSummary: 'User narrowed a prior ambiguous question after retrieval clarification.',
+        saveDocumentType: null,
+      },
+    ]
+  }
+
+  logger.debug(
+    { actionCount: actions.length, intents: actions.map((action) => action.intent) },
+    '[MultiActionOrchestrator] Classified',
+  )
 
   const outcomes: ActionOutcome[] = []
   const historyForHandlers = [...priorHistory]
@@ -105,6 +203,8 @@ export async function* runMultiActionTurn(
       conversationHistory: historyForHandlers,
       userInstructionDocuments,
       userInstructionsBlock,
+      originalUserMessage: userInput,
+      totalActionsInTurn: actions.length,
     })
 
     let step = await executor.next()

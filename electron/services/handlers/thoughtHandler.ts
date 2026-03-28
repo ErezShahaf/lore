@@ -4,6 +4,13 @@ import { embedText } from '../embeddingService'
 import { formatLocalDate } from '../localDate'
 import { streamAssistantUserReplyWithFallback } from '../assistantReplyComposer'
 import { resolveDuplicateIntent } from '../duplicateResolutionService'
+import { resolveDuplicatePromptFollowUp } from '../duplicatePromptFollowUpService'
+import {
+  clearPendingDuplicateSaveClarification,
+  getPendingDuplicateSaveClarification,
+  setPendingDuplicateSaveClarification,
+} from '../duplicateSaveClarificationState'
+import { resolveSaveNoteBody } from '../saveNoteBodyResolutionService'
 import { logger } from '../../logger'
 import type {
   ClassificationForHandler,
@@ -12,6 +19,29 @@ import type {
   DocumentType,
   ConversationEntry,
 } from '../../../shared/types'
+
+export interface HandleThoughtOptions {
+  /**
+   * When the classifier split this turn into several actions, each save step receives only
+   * that step's payload in `userInput`. Body-resolution must not merge the full turn back in.
+   */
+  readonly totalActionsInTurn?: number
+}
+
+function normalizeTodoBodyForStorage(raw: string): string {
+  let text = raw.trim()
+  const commandPrefixes = [
+    /^add to my todo(?: list)?:\s*/i,
+    /^add to (?:my )?(?:todo )?list:\s*/i,
+    /^add to my todos?:\s*/i,
+    /^todo:\s*/i,
+    /^remind me(?: to)?:\s*/i,
+  ] as const
+  for (const pattern of commandPrefixes) {
+    text = text.replace(pattern, '')
+  }
+  return text.trim()
+}
 
 function tagsForSaveDocument(
   documentType: DecomposedDocumentType,
@@ -31,8 +61,14 @@ export async function* handleThought(
   classification: ClassificationForHandler,
   conversationHistory: readonly ConversationEntry[] = [],
   userInstructionsBlock: string = '',
+  fullTurnUserMessage?: string,
+  options: HandleThoughtOptions = {},
 ): AsyncGenerator<AgentEvent> {
   const trimmed = userInput.trim()
+  const fullTurn = (fullTurnUserMessage ?? userInput).trim()
+  const isMultiActionTurn =
+    options.totalActionsInTurn !== undefined && options.totalActionsInTurn > 1
+
   if (trimmed.length === 0) {
     logger.warn({ userInput }, '[ThoughtHandler] Empty save input')
     yield {
@@ -44,14 +80,123 @@ export async function* handleThought(
     return
   }
 
+  const pendingDuplicate = getPendingDuplicateSaveClarification()
+  if (pendingDuplicate !== null) {
+    const followUp = await resolveDuplicatePromptFollowUp({
+      userMessage: trimmed,
+      conversationHistory,
+      userInstructionsBlock,
+      pendingContentPreview: pendingDuplicate.contentToStore,
+    })
+    if (followUp === 'add_second_copy') {
+      clearPendingDuplicateSaveClarification()
+      yield* storeSingleItem(
+        pendingDuplicate.contentToStore,
+        pendingDuplicate.originalInputForSource,
+        pendingDuplicate.documentType,
+        pendingDuplicate.date,
+        [...pendingDuplicate.tags],
+        null,
+        userInstructionsBlock,
+        conversationHistory,
+        { skipDuplicateCheck: true },
+      )
+      yield { type: 'done' }
+      return
+    }
+    if (followUp === 'replace_existing') {
+      clearPendingDuplicateSaveClarification()
+      yield* emitThoughtUpdateAfterDuplicateChoice(
+        pendingDuplicate.duplicateDocumentId,
+        pendingDuplicate.contentToStore,
+        userInstructionsBlock,
+      )
+      yield { type: 'done' }
+      return
+    }
+    clearPendingDuplicateSaveClarification()
+  }
+
+  let resolvedContent = trimmed
+  const documentTypeForResolution = classification.saveDocumentType ?? 'thought'
+  const skipStructuredBodyResolution = documentTypeForResolution === 'instruction'
+
+  if (isMultiActionTurn) {
+    if (resolvedContent.length === 0) {
+      logger.warn({ userInput, fullTurn }, '[ThoughtHandler] Multi-action save had empty payload')
+      yield {
+        type: 'turn_step_summary',
+        summary: 'Save: multi-action step had empty payload; nothing was stored.',
+      }
+      yield { type: 'chunk', content: 'Nothing to save for this step.' }
+      yield { type: 'done' }
+      return
+    }
+  } else if (!skipStructuredBodyResolution) {
+    const bodyResolution = await resolveSaveNoteBody({
+      handlerPayload: trimmed,
+      fullTurnUserMessage: fullTurn,
+      conversationHistory,
+      routerSituationSummary: classification.situationSummary,
+      userInstructionsBlock,
+    })
+
+    if (bodyResolution.step === 'clarify_intent') {
+      yield {
+        type: 'turn_step_summary',
+        summary:
+          'Save: model chose intent clarification; nothing was stored until the user is clearer.',
+      }
+      yield {
+        type: 'chunk',
+        content:
+          'You sent structured data without saying what to do with it. Should I save it as a note, help you find something in your library, or answer a question about it?',
+      }
+      yield { type: 'done' }
+      return
+    }
+
+    if (bodyResolution.step === 'ask_short_title') {
+      yield {
+        type: 'turn_step_summary',
+        summary:
+          'Save: model asked for a short title or description before writing structured data.',
+      }
+    yield {
+      type: 'chunk',
+      content:
+        'Before I save it, what should I call this, or do you want a one-line description? That makes it easier to find later—I can use it in the title or tags.',
+    }
+      yield { type: 'done' }
+      return
+    }
+
+    resolvedContent = bodyResolution.noteBody.trim()
+  }
+
+  if (documentTypeForResolution === 'todo') {
+    resolvedContent = normalizeTodoBodyForStorage(resolvedContent)
+  }
+
+  if (resolvedContent.length === 0) {
+    logger.warn({ userInput, fullTurn }, '[ThoughtHandler] Resolved save body was empty')
+    yield {
+      type: 'turn_step_summary',
+      summary: 'Save: resolved note body was empty; nothing was stored.',
+    }
+    yield { type: 'chunk', content: 'Nothing to save.' }
+    yield { type: 'done' }
+    return
+  }
+
   const today = formatLocalDate(new Date())
   const date = classification.extractedDate ?? today
-  const documentType = classification.saveDocumentType ?? 'thought'
+  const documentType = documentTypeForResolution
   const tags = tagsForSaveDocument(documentType, classification.extractedTags)
 
   yield* storeSingleItem(
-    trimmed,
-    trimmed,
+    resolvedContent,
+    resolvedContent,
     documentType,
     date,
     tags,
@@ -63,6 +208,35 @@ export async function* handleThought(
   yield { type: 'done' }
 }
 
+interface StoreSingleItemOptions {
+  readonly skipDuplicateCheck?: boolean
+}
+
+async function* emitThoughtUpdateAfterDuplicateChoice(
+  documentId: string,
+  content: string,
+  userInstructionsBlock: string,
+): AsyncGenerator<AgentEvent> {
+  yield { type: 'status', message: 'Updating your existing note…' }
+  const vector = await embedText(content)
+  await updateDocument(documentId, { content, vector })
+  yield { type: 'stored', documentId }
+  const preview = content.slice(0, 60) + (content.length > 60 ? '...' : '')
+  yield {
+    type: 'turn_step_summary',
+    summary: `Save: updated existing similar document in place (id ${documentId}).`,
+  }
+  for await (const chunk of streamAssistantUserReplyWithFallback({
+    userInstructionsBlock,
+    facts: {
+      kind: 'command_executed',
+      operations: [{ action: 'update', contentPreview: preview }],
+    },
+  })) {
+    yield { type: 'chunk', content: chunk }
+  }
+}
+
 async function* storeSingleItem(
   content: string,
   originalInput: string,
@@ -72,50 +246,53 @@ async function* storeSingleItem(
   customSavedJsonMessage: string | null,
   userInstructionsBlock: string,
   conversationHistory: readonly ConversationEntry[] = [],
+  options: StoreSingleItemOptions = {},
 ): AsyncGenerator<AgentEvent> {
-  yield {
-    type: 'status',
-    message: 'Checking whether you already saved something very similar…',
-  }
-  const duplicate = await checkForDuplicate(content)
-
-  if (duplicate) {
-    const resolution = await resolveDuplicateIntent(originalInput, conversationHistory, userInstructionsBlock)
-    if (resolution === 'ask') {
-      const preview = duplicate.content.slice(0, 120)
-      yield { type: 'duplicate', existingContent: preview }
-      yield {
-        type: 'turn_step_summary',
-        summary:
-          'Save: duplicate check found very similar existing note; user was asked to reply with add new or update. No new document was written.',
-      }
-      yield {
-        type: 'chunk',
-        content:
-          'You already have a similar note. Reply with "add new" to save it separately, or "update" to replace the existing one.',
-      }
-      return
+  if (!options.skipDuplicateCheck) {
+    yield {
+      type: 'status',
+      message: 'Checking for an existing duplicate…',
     }
-    if (resolution === 'update') {
-      yield { type: 'status', message: 'Updating your existing note…' }
-      const vector = await embedText(content)
-      await updateDocument(duplicate.id, { content, vector })
-      yield { type: 'stored', documentId: duplicate.id }
-      const preview = content.slice(0, 60) + (content.length > 60 ? '...' : '')
-      yield {
-        type: 'turn_step_summary',
-        summary: `Save: updated existing similar document in place (id ${duplicate.id}).`,
-      }
-      for await (const chunk of streamAssistantUserReplyWithFallback({
+    const duplicate = await checkForDuplicate(content, { documentType: docType })
+
+    if (duplicate) {
+      const resolution = await resolveDuplicateIntent(
+        originalInput,
+        conversationHistory,
         userInstructionsBlock,
-        facts: {
-          kind: 'command_executed',
-          operations: [{ action: 'update', contentPreview: preview }],
-        },
-      })) {
-        yield { type: 'chunk', content: chunk }
+      )
+      if (resolution === 'ask') {
+        setPendingDuplicateSaveClarification({
+          contentToStore: content,
+          originalInputForSource: originalInput,
+          documentType: docType,
+          date,
+          tags: [...tags],
+          duplicateDocumentId: duplicate.id,
+        })
+        const preview = duplicate.content.slice(0, 120)
+        yield { type: 'duplicate', existingContent: preview }
+        yield {
+          type: 'turn_step_summary',
+          summary:
+            'Save: duplicate check found a likely duplicate; user was asked to reply with add new or update. No new document was written.',
+        }
+        yield {
+          type: 'chunk',
+          content: [
+            'You may already have the same (or almost the same) note. Here is what is on file:',
+            '',
+            formatDuplicateExistingNoteBlock(duplicate.content),
+            '',
+            'Tell me if you want to keep a second copy alongside the existing note, or replace the existing one.',
+          ].join('\n'),
+        }
+        return
       }
-      return
+      if (resolution === 'update') {
+        yield* emitThoughtUpdateAfterDuplicateChoice(duplicate.id, content, userInstructionsBlock)
+        return
+      }
     }
   }
 
@@ -153,10 +330,40 @@ async function* storeSingleItem(
       topicSummary: topic,
       hadDuplicate: false,
       duplicatePreview: null,
+      storedContentPreview: buildStoredContentPreviewForReply(content),
     },
   })) {
     yield { type: 'chunk', content: chunk }
   }
+}
+
+const STORED_CONTENT_PREVIEW_MAX_CHARS = 480
+const DUPLICATE_EXISTING_NOTE_BLOCK_MAX_CHARS = 800
+
+function buildStoredContentPreviewForReply(rawContent: string): string | null {
+  const trimmed = rawContent.trim()
+  if (trimmed.length === 0) {
+    return null
+  }
+  if (trimmed.length <= STORED_CONTENT_PREVIEW_MAX_CHARS) {
+    return trimmed
+  }
+  return `${trimmed.slice(0, STORED_CONTENT_PREVIEW_MAX_CHARS)}…`
+}
+
+function formatDuplicateExistingNoteBlock(existingContent: string): string {
+  const trimmed = existingContent.trim()
+  const body =
+    trimmed.length > DUPLICATE_EXISTING_NOTE_BLOCK_MAX_CHARS
+      ? `${trimmed.slice(0, DUPLICATE_EXISTING_NOTE_BLOCK_MAX_CHARS)}…`
+      : trimmed
+  if (body.length === 0) {
+    return '> (empty)'
+  }
+  return body
+    .split('\n')
+    .map((line) => `> ${line}`)
+    .join('\n')
 }
 
 function summarizeTopic(input: string): string {

@@ -87,12 +87,9 @@ function toErrorMessage(error: unknown): string {
 export function buildClassificationActionInput(
   action: ClassificationAction,
   fallbackUserInput: string,
-  totalActionCount: number = 1,
+  _totalActionCount: number = 1,
 ): string {
-  if (
-    totalActionCount > 1
-    && (action.intent === 'delete' || action.intent === 'edit')
-  ) {
+  if (action.intent === 'delete' || action.intent === 'edit') {
     return fallbackUserInput
   }
 
@@ -136,27 +133,33 @@ type HandlerInvocation = (
   history: ConversationEntry[],
   userInstructionDocuments: readonly LoreDocument[],
   userInstructionsBlock: string,
+  originalUserMessage: string,
 ) => AsyncGenerator<AgentEvent>
 
-function selectHandler(action: ClassificationAction): HandlerInvocation {
+function selectHandler(
+  action: ClassificationAction,
+  totalActionsInTurn: number,
+): HandlerInvocation {
   switch (action.intent) {
     case 'save':
-      return async function* (input, classification, history, _, instructions) {
-        yield* handleThought(input, classification, history, instructions)
+      return async function* (input, classification, history, _, instructions, originalUserMessage) {
+        yield* handleThought(input, classification, history, instructions, originalUserMessage, {
+          totalActionsInTurn,
+        })
       }
     case 'read':
-      return async function* (input, classification, history, instructionDocs, instructions) {
+      return async function* (input, classification, history, instructionDocs, instructions, _originalUserMessage) {
         const isTodoQuery = classification.extractedTags.some((tag) => tag === 'todo')
         const todoOverrides = isTodoQuery ? ({ type: 'todo' } as const) : undefined
         yield* handleQuestion(input, classification, history, todoOverrides, instructionDocs, instructions)
       }
     case 'edit':
     case 'delete':
-      return async function* (input, classification, history, _, instructions) {
+      return async function* (input, classification, history, _, instructions, _originalUserMessage) {
         yield* handleCommand(input, classification, history, undefined, instructions)
       }
     case 'speak':
-      return async function* (input, classification, history, _, instructions) {
+      return async function* (input, classification, history, _, instructions, _originalUserMessage) {
         yield* handleConversational(input, classification, history, instructions)
       }
   }
@@ -169,6 +172,10 @@ export interface ExecuteClassificationActionParams {
   readonly conversationHistory: readonly ConversationEntry[]
   readonly userInstructionDocuments: readonly LoreDocument[]
   readonly userInstructionsBlock: string
+  /** Full user message for this turn (before per-action payload extraction). */
+  readonly originalUserMessage: string
+  /** When greater than 1, each save uses only {@link actionInput} as the stored body. */
+  readonly totalActionsInTurn?: number
 }
 
 /**
@@ -185,6 +192,8 @@ export async function* executeClassificationAction(
     conversationHistory,
     userInstructionDocuments,
     userInstructionsBlock,
+    originalUserMessage,
+    totalActionsInTurn = 1,
   } = params
 
   let chunkContent = ''
@@ -199,13 +208,14 @@ export async function* executeClassificationAction(
   let explicitHandlerSummary = ''
 
   try {
-    const handler = selectHandler(action)
+    const handler = selectHandler(action, totalActionsInTurn)
     for await (const event of handler(
       actionInput,
       action,
       [...conversationHistory],
       userInstructionDocuments,
       userInstructionsBlock,
+      originalUserMessage,
     )) {
       if (event.type === 'turn_step_summary') {
         explicitHandlerSummary = event.summary

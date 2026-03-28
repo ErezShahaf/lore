@@ -53,11 +53,14 @@ function tryBuildPassThroughStructuredReadReply(
   }
 
   const trimmedMessage = outcome.message.trim()
-  if (!trimmedMessage.startsWith('```')) {
-    return null
+  if (trimmedMessage.startsWith('```')) {
+    return outcome.message
+  }
+  if (trimmedMessage.includes('```')) {
+    return outcome.message
   }
 
-  return outcome.message
+  return null
 }
 
 export async function* streamAssistantUserReply(input: {
@@ -127,7 +130,11 @@ export function buildFallbackAssistantReply(facts: AssistantReplyFacts): string 
       const dup = facts.hadDuplicate && facts.duplicatePreview
         ? ` (similar to something you already had: "${facts.duplicatePreview.slice(0, 80)}${facts.duplicatePreview.length > 80 ? '…' : ''}")`
         : ''
-      return `Saved your ${facts.documentType}${dup}.`
+      const preview =
+        facts.storedContentPreview && facts.storedContentPreview.trim().length > 0
+          ? ` Content stored (excerpt): ${facts.storedContentPreview.slice(0, 200)}${facts.storedContentPreview.length > 200 ? '…' : ''}`
+          : ''
+      return `Saved your ${facts.documentType}${dup}.${preview}`
     }
     case 'thought_saved_many': {
       const label =

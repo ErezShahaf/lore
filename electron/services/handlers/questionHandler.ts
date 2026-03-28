@@ -18,6 +18,14 @@ import {
   buildNoDocumentsQuestionUserMessage,
   streamQuestionLlmChunks,
 } from '../questionAnswerComposition'
+import { noteContainsStructuredPayload } from '../jsonBlobUtils'
+import { getDocumentById } from '../lanceService'
+import { parseClarificationNumericReply } from '../commandClarificationState'
+import {
+  setConsumedQuestionFollowUp,
+  setPendingQuestionClarification,
+  takeConsumedQuestionFollowUp,
+} from '../questionClarificationState'
 import type {
   ClassificationForHandler,
   AgentEvent,
@@ -31,6 +39,194 @@ import type {
 const MAX_FOCUSED_ANSWER_DOCUMENTS = 8
 const MAX_TODO_DOCUMENTS_FOR_CONVERSATIONAL_INSTRUCTIONS = 6
 
+function narrowDocumentsForQuestionFollowUp(
+  followUpInput: string,
+  priorUserInput: string,
+  candidates: readonly LoreDocument[],
+): LoreDocument[] {
+  if (candidates.length === 0) {
+    return []
+  }
+  const numericChoice = parseClarificationNumericReply(followUpInput.trim())
+  if (
+    numericChoice !== null
+    && numericChoice >= 1
+    && numericChoice <= candidates.length
+  ) {
+    const chosen = candidates[numericChoice - 1]
+    return chosen !== undefined ? [chosen] : []
+  }
+
+  const referenceText = `${priorUserInput}\n${followUpInput}`.trim()
+  const scored = candidates.map((document) => ({
+    document,
+    ratio: lexicalMatchRatio(referenceText, document.content),
+  }))
+  scored.sort((left, right) => right.ratio - left.ratio)
+  const best = scored[0]
+  if (best === undefined) {
+    return []
+  }
+  if (candidates.length === 1) {
+    return [best.document]
+  }
+  const second = scored[1]
+  if (second === undefined) {
+    return [best.document]
+  }
+  if (best.ratio < 0.08) {
+    return []
+  }
+  if (best.ratio - second.ratio >= 0.04) {
+    return [best.document]
+  }
+  return []
+}
+
+interface AnswerFromRetrievedNotesParams {
+  readonly userInput: string
+  readonly classification: ClassificationForHandler
+  readonly documents: readonly ScoredDocument[]
+  readonly conversationContext?: Array<{ role: 'user' | 'assistant'; content: string }>
+  readonly userInstructionsBlock: string
+  readonly skipStrategistClarification: boolean
+}
+
+async function* answerQuestionFromRetrievedCandidateNotes(
+  params: AnswerFromRetrievedNotesParams,
+): AsyncGenerator<AgentEvent> {
+  const {
+    userInput,
+    classification,
+    documents,
+    conversationContext,
+    userInstructionsBlock,
+    skipStrategistClarification,
+  } = params
+
+  yield { type: 'status', message: 'Searching your notes…' }
+
+  const settings = getSettings()
+  const retrievalOpts = buildRetrievalOptions(userInput, classification, undefined)
+  const isTodoQuery = retrievalOpts.type === 'todo'
+  const questionAnswerSelectors = {
+    retrievalStatus: documents.length === 0 ? 'empty' : 'non_empty',
+    structuredRetrieved: containsRawStructuredContent(documents) ? 'yes' : 'no',
+    todoListing: isTodoQuery ? 'yes' : 'no',
+  } as const
+
+  yield {
+    type: 'retrieved',
+    documentIds: documents.map((document) => document.id),
+    totalRetrieved: documents.length,
+    totalCandidates: documents.length,
+    cutoffScore: documents.length > 0 ? documents[documents.length - 1].score : 1,
+  }
+
+  const directStructuredResponse = buildDirectStructuredResponse(userInput, documents, classification)
+  if (directStructuredResponse) {
+    yield {
+      type: 'turn_step_summary',
+      summary:
+        'Read: returned structured content from a single retrieved document without the full answer model.',
+    }
+    yield { type: 'chunk', content: directStructuredResponse }
+    yield { type: 'done' }
+    return
+  }
+
+  yield { type: 'status', message: 'Pulling the important details together…' }
+
+  if (!skipStrategistClarification) {
+    yield { type: 'status', message: 'Choosing the clearest way to answer…' }
+    const strategy = await decideQuestionStrategy({
+      userInput,
+      situationSummary: classification.situationSummary,
+      documentPreviews: documents.map((document) => ({
+        id: document.id,
+        preview: document.content.slice(0, 220),
+      })),
+      userInstructionsBlock,
+    })
+
+    if (strategy.mode === 'ask_clarification' && strategy.clarificationMessage) {
+      setPendingQuestionClarification({
+        priorUserInput: userInput,
+        candidateDocumentIds: documents.map((document) => document.id),
+        classificationSnapshot: {
+          extractedTags: classification.extractedTags,
+          extractedDate: classification.extractedDate,
+          situationSummary: classification.situationSummary,
+          data: classification.data,
+        },
+      })
+      yield {
+        type: 'turn_step_summary',
+        summary:
+          'Read: question strategist chose clarification instead of a direct answer; user was asked to narrow the question.',
+      }
+      yield { type: 'chunk', content: strategy.clarificationMessage }
+      yield { type: 'done' }
+      return
+    }
+  }
+
+  yield {
+    type: 'status',
+    message: `Writing your answer from ${documents.length} matching note${documents.length === 1 ? '' : 's'}…`,
+  }
+
+  const contextBlock = formatRetrievedDocuments([...documents])
+  const shouldMentionDates = classification.extractedDate !== null
+  const shouldMentionTags = classification.extractedTags.length > 0
+
+  const ragPrompt = buildRagPrompt({
+    context: contextBlock,
+    instructions: '(none)',
+    userInput,
+    shouldMentionDates,
+    shouldMentionTags,
+    documents,
+  })
+  const ragSystemPrompt = appendUserInstructionsToSystemPrompt(
+    loadSkill('question-answer', questionAnswerSelectors),
+    userInstructionsBlock,
+  )
+
+  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+    { role: 'system', content: ragSystemPrompt },
+  ]
+
+  if (conversationContext) {
+    for (const msg of conversationContext) {
+      messages.push({ role: msg.role, content: msg.content })
+    }
+  }
+
+  messages.push({ role: 'user', content: ragPrompt })
+
+  try {
+    for await (const chunk of streamQuestionLlmChunks(settings.selectedModel, messages)) {
+      yield { type: 'chunk', content: chunk }
+    }
+    yield {
+      type: 'turn_step_summary',
+      summary: `Read: streamed grounded answer using ${documents.length} retrieved note(s) in context.`,
+    }
+  } catch (err) {
+    yield {
+      type: 'turn_step_summary',
+      summary: 'Read: answer model failed after documents were retrieved.',
+    }
+    yield {
+      type: 'error',
+      message: err instanceof Error ? err.message : 'Failed to generate answer',
+    }
+  }
+
+  yield { type: 'done' }
+}
+
 export async function* handleQuestion(
   userInput: string,
   classification: ClassificationForHandler,
@@ -39,6 +235,45 @@ export async function* handleQuestion(
   userInstructionDocuments: readonly LoreDocument[] = [],
   userInstructionsBlock: string = '',
 ): AsyncGenerator<AgentEvent> {
+  const narrowConsumed = takeConsumedQuestionFollowUp()
+  if (narrowConsumed !== null) {
+    const loaded: LoreDocument[] = []
+    for (const id of narrowConsumed.candidateDocumentIds) {
+      const document = await getDocumentById(id)
+      if (document !== null) {
+        loaded.push(document)
+      }
+    }
+    if (loaded.length === 0) {
+      setConsumedQuestionFollowUp(narrowConsumed)
+    } else {
+      const narrowed = narrowDocumentsForQuestionFollowUp(
+        narrowConsumed.followUpInput,
+        narrowConsumed.priorUserInput,
+        loaded,
+      )
+      const chosenLore = narrowed.length > 0 ? narrowed : loaded
+      const scored: ScoredDocument[] = chosenLore.map((document) => ({ ...document, score: 1 }))
+      const narrowedClassification: ClassificationForHandler = {
+        intent: 'read',
+        saveDocumentType: null,
+        extractedDate: narrowConsumed.classificationSnapshot.extractedDate,
+        extractedTags: [...narrowConsumed.classificationSnapshot.extractedTags],
+        situationSummary: narrowConsumed.classificationSnapshot.situationSummary,
+        data: narrowConsumed.classificationSnapshot.data,
+      }
+      yield* answerQuestionFromRetrievedCandidateNotes({
+        userInput: narrowConsumed.mergedUserInput,
+        classification: narrowedClassification,
+        documents: scored,
+        conversationContext,
+        userInstructionsBlock,
+        skipStrategistClarification: scored.length === 1,
+      })
+      return
+    }
+  }
+
   yield { type: 'status', message: 'Searching your notes…' }
 
   const settings = getSettings()
@@ -237,6 +472,16 @@ export async function* handleQuestion(
   })
 
   if (strategy.mode === 'ask_clarification' && strategy.clarificationMessage) {
+    setPendingQuestionClarification({
+      priorUserInput: userInput,
+      candidateDocumentIds: documents.map((document) => document.id),
+      classificationSnapshot: {
+        extractedTags: classification.extractedTags,
+        extractedDate: classification.extractedDate,
+        situationSummary: classification.situationSummary,
+        data: classification.data,
+      },
+    })
     yield {
       type: 'turn_step_summary',
       summary:
@@ -383,11 +628,33 @@ function pickJsonDocumentByLexicalOverlap(
   return best
 }
 
+function extractFirstHttpUrl(text: string): string | null {
+  const match = text.match(/https?:\/\/[^\s"'<>)\]]+/)
+  return match !== null ? match[0] : null
+}
+
+function looksLikeWebhookUrlQuestion(userInput: string): boolean {
+  const lower = userInput.toLowerCase()
+  return (
+    /\bwebhook\b/.test(lower)
+    && (/\burl\b/.test(lower) || /\blink\b/.test(lower) || /\buri\b/.test(lower))
+  )
+}
+
 function buildDirectStructuredResponse(
   userInput: string,
   documents: readonly ScoredDocument[],
   classification: ClassificationForHandler,
 ): string | null {
+  if (looksLikeWebhookUrlQuestion(userInput)) {
+    for (const document of documents) {
+      const url = extractFirstHttpUrl(document.content)
+      if (url !== null) {
+        return `Based on your stored notes, here is the webhook URL:\n\n${url}`
+      }
+    }
+  }
+
   if (!/\b(json|payload)\b/i.test(userInput)) {
     return null
   }
@@ -488,10 +755,7 @@ interface RagPromptInput {
 }
 
 function containsRawStructuredContent(documents: readonly ScoredDocument[]): boolean {
-  return documents.some((document) => {
-    const trimmed = document.content.trim()
-    return (trimmed.startsWith('{') || trimmed.startsWith('['))
-  })
+  return documents.some((document) => noteContainsStructuredPayload(document.content))
 }
 
 function buildRagPrompt({

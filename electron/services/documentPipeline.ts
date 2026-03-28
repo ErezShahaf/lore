@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 import { logger } from '../logger'
+import { canonicalizeJsonFromNoteText } from './jsonBlobUtils'
 import { embedText } from './embeddingService'
 import {
   insertDocument,
@@ -8,6 +9,7 @@ import {
   getDocumentsByFilter,
 } from './lanceService'
 import type {
+  DocumentType,
   LoreDocument,
   StoreThoughtInput,
   RetrievalOptions,
@@ -17,6 +19,7 @@ import type {
 
 const DEFAULT_MAX_RESULTS = 1000
 const DUPLICATE_THRESHOLD = 0.92
+const DUPLICATE_THRESHOLD_TODO = 0.97
 const RELEVANCE_CLIFF_RATIO = 0.3
 const MINIMUM_RELEVANCE_SCORE = 0.26
 
@@ -148,21 +151,98 @@ export async function storeThoughtWithMetadata(
 
 // ── Duplicate detection ───────────────────────────────────────
 
-export async function checkForDuplicate(content: string): Promise<LoreDocument | null> {
+const DUPLICATE_VECTOR_SEARCH_LIMIT = 8
+
+export interface CheckDuplicateOptions {
+  readonly documentType?: DocumentType
+}
+
+const TODO_MEASURE_PATTERN = /(\d+(?:\.\d+)?)\s*(km|kilometers?|mi|miles?|mins?|minutes?|hrs?|hours?)\b/gi
+
+function canonicalMeasureUnit(rawUnit: string): string | null {
+  const lower = rawUnit.toLowerCase()
+  if (lower === 'km' || lower.startsWith('kilometer')) return 'km'
+  if (lower === 'mi' || lower.startsWith('mile')) return 'mi'
+  if (lower === 'min' || lower === 'mins' || lower.startsWith('minute')) return 'min'
+  if (lower === 'hr' || lower === 'hrs' || lower.startsWith('hour')) return 'hr'
+  return null
+}
+
+export function extractTodoMeasureMap(text: string): ReadonlyMap<string, number> {
+  const map = new Map<string, number>()
+  const pattern = new RegExp(TODO_MEASURE_PATTERN.source, TODO_MEASURE_PATTERN.flags)
+  let match: RegExpExecArray | null
+  while ((match = pattern.exec(text)) !== null) {
+    const value = Number.parseFloat(match[1])
+    if (Number.isNaN(value)) continue
+    const unitKey = canonicalMeasureUnit(match[2])
+    if (unitKey === null) continue
+    map.set(unitKey, value)
+  }
+  return map
+}
+
+function todoMeasuresConflict(incomingContent: string, existingContent: string): boolean {
+  const incomingMeasures = extractTodoMeasureMap(incomingContent)
+  const existingMeasures = extractTodoMeasureMap(existingContent)
+  if (incomingMeasures.size === 0 || existingMeasures.size === 0) {
+    return false
+  }
+  for (const [unitKey, incomingValue] of incomingMeasures) {
+    if (!existingMeasures.has(unitKey)) continue
+    const existingValue = existingMeasures.get(unitKey)!
+    if (Math.abs(incomingValue - existingValue) > 1e-6) {
+      return true
+    }
+  }
+  return false
+}
+
+function duplicateSimilarityThreshold(documentType: DocumentType | undefined): number {
+  return documentType === 'todo' ? DUPLICATE_THRESHOLD_TODO : DUPLICATE_THRESHOLD
+}
+
+export async function checkForDuplicate(
+  content: string,
+  options?: CheckDuplicateOptions,
+): Promise<LoreDocument | null> {
   const embedding = await embedText(content)
-  const results = await searchSimilar(embedding, 1)
+  const results = await searchSimilar(embedding, DUPLICATE_VECTOR_SEARCH_LIMIT)
 
   if (results.length === 0) return null
 
-  const top = results[0]
-  const distance = '_distance' in top
-    ? (top as Record<string, unknown>)._distance as number
-    : 1
-  const similarity = 1 - distance
-
-  if (similarity >= DUPLICATE_THRESHOLD) {
-    return rowToLoreDoc(top as unknown as Record<string, unknown>)
+  const canonicalIncoming = canonicalizeJsonFromNoteText(content)
+  if (canonicalIncoming !== null) {
+    for (const row of results) {
+      const document = rowToLoreDoc(row as unknown as Record<string, unknown>)
+      const canonicalExisting = canonicalizeJsonFromNoteText(document.content)
+      if (
+        canonicalExisting !== null
+        && canonicalExisting === canonicalIncoming
+      ) {
+        return document
+      }
+    }
   }
+
+  const documentType = options?.documentType
+  const threshold = duplicateSimilarityThreshold(documentType)
+
+  for (const row of results) {
+    const candidate = rowToLoreDoc(row as unknown as Record<string, unknown>)
+    const distance = '_distance' in row
+      ? (row as Record<string, unknown>)._distance as number
+      : 1
+    const similarity = 1 - distance
+    if (similarity < threshold) {
+      continue
+    }
+    if (documentType === 'todo' && todoMeasuresConflict(content, candidate.content)) {
+      continue
+    }
+    return candidate
+  }
+
   return null
 }
 

@@ -50,15 +50,13 @@ If the message is **only** tasks (no question, no request for advice), prefer **
 
 # Finishing todos (removing completed work)
 
-When the user reports that specific tasks are **done**, **finished**, **completed**, **shipped**, or no longer needed—and you can tie what they said to concrete todos (for example they repeat wording from a list you just showed, or they clearly name the same items)—they usually want those todos **removed from storage**, not only a congratulatory reply.
+**Vague shared theme overrides batch delete.** If many stored todos share the **same vague activity** (several different “ride …” lines, several “run …” km lines, several “water”-related lines, etc.) and the user only says they finished **the ride**, **running**, **that**, or another **category word** without repeating **distinct todo text** from the list, classify **`speak`**: ask which line they mean (optionally offer **all** matching lines or an **all** choice when they clearly want everything). Do **not** emit several **`delete`** actions from that kind of guess.
 
-Classify **`delete`** with **one action per distinct task** they clearly completed, using `data` that names that task. When they batch-complete several items in one sentence, emit **multiple `delete` actions**, not **`speak`**, unless the reference is too vague to map safely.
+When the user **does** tie their words to **specific** stored lines (repeated wording, distinctive fragments, clear one-to-one paraphrases), they usually want those todos **removed**. Classify **`delete`** with **one action per distinct** completed task in `data`. When they clearly batch-complete **named** items in one sentence, emit **multiple `delete` actions**.
 
-When one message names **several completions** using phrases that **line up with several different stored todos** (product names, people’s names, distinctive lines from the list, or clear paraphrases of those lines), emit **one `delete` per matched todo**. That still applies when the tone is casual or the grammar runs several clauses together.
+When one message names **several completions** that each map cleanly to **different** stored todos, emit **one `delete` per matched todo**.
 
-If many todos share the same vague theme (several different “ride …” items, several “run …” items, etc.) and the user does **not** pinpoint which one(s) they finished, use **`speak`** to ask which todo they mean—do **not** pick one with **`delete`**.
-
-Do **not** infer **`delete`** from a **single** vague milestone with **no** tie to text (for example only “we shipped” or “all good”) when you cannot map it to identifiable todos. Prefer **`speak`** there.
+Do **not** infer **`delete`** from celebration alone (“all good”, “thanks”) with **no** identifiable tasks. Prefer **`speak`** there.
 
 When the message is only vague celebration with **no** identifiable tasks (“all good”, “thanks”) and **no** link to items they track, **`speak`** is appropriate.
 
@@ -66,11 +64,17 @@ When the message is only vague celebration with **no** identifiable tasks (“al
 
 When the user sets a **lasting preference** for how Lore should behave later — for example "from now on", "always", "whenever you list my todos", default ordering, or how future answers should be formatted — classify **`save`** with **`saveDocumentType` `instruction`**. That is different from a one-off note (`thought`). Do **not** classify these as **`speak`** just because they mention product behavior; the user is asking you to **remember** the rule.
 
+# After retrieval clarification
+
+If the **assistant** just asked which note, person, or record the user meant (for example two people named Alex) and the user answers with a **narrowing** reply (“I mean the finance one”, “number 1”, “the first”), classify **`read`**, not **`speak`**. Merge their answer with the **prior question** in `data` / `situationSummary` so retrieval can target the right note.
+
 ---
 
 # Dealing with ambiguity
 
 When the user reference is ambiguous, choose `speak` so Lore can ask a clarification question.
+
+If the user pasted **substantial content** (long prose, lists, or structured data) **without** saying what to do (save, find, explain), prefer **`speak`** so Lore can ask their intent—do not assume **`save`**.
 
 For example: if there are multiple candidate records and the user points to one in a way that does not uniquely identify it, do not guess.
 If the user asks to remove something that could match multiple records, clarify unless they clearly want to remove all matches.
@@ -142,6 +146,8 @@ When `intent` is `edit` or `delete` and the user is clearly referring to **tasks
 
 This is the content that the `intent` operates on.
 
+For **`save`**, `data` must be **verbatim** user material to store: same wording, line breaks, bullets, and JSON structure. Only strip explicit meta phrases (“save this:”, “remember:”, “add to my todo:” as a label—not the task text after it). Do **not** summarize, polish, or translate into your own words.
+
 Examples:
 
 - If the user says `save: XYZ`, set `data` to `XYZ` (the content to store, without the save instruction text).
@@ -211,6 +217,8 @@ Classifier output uses **`saveDocumentType`** only when `intent` is **`save`**: 
 | `decisions/save/entry.md` | _(branch only)_ | |
 | `decisions/save/decisions/skill-worker-thought/` | `skill-worker-thought` | Primary save worker (todos, notes, thoughts, meetings). |
 | `decisions/save/decisions/duplicate-resolution/` | `duplicate-resolution` | |
+| `decisions/save/decisions/duplicate-prompt-follow-up/` | `duplicate-prompt-follow-up` | |
+| `decisions/save/decisions/save-note-body-resolution/` | `save-note-body-resolution` | |
 | `decisions/save/decisions/skill-worker-instruction/` | `skill-worker-instruction` | Reserved / not used by main path today. |
 | `decisions/command/entry.md` | _(branch only)_ | For classifier **`edit`** and **`delete`**. |
 | `decisions/command/decisions/command-decomposition/` | `command-decomposition` | |

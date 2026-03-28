@@ -11,6 +11,8 @@ export type AssistantReplyFacts =
     readonly topicSummary: string
     readonly hadDuplicate: boolean
     readonly duplicatePreview: string | null
+    /** Verbatim excerpt of what was stored (especially JSON); do not replace with a prose summary. */
+    readonly storedContentPreview: string | null
   }
   | {
       readonly kind: 'thought_saved_many'

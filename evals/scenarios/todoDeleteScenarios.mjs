@@ -24,6 +24,88 @@ export const todoDeleteScenarios = [
     ],
   },
   {
+    id: 'ambiguous-running-todos-delete-needs-clarification',
+    topic: 'todo-delete',
+    title: 'Vague “about running” delete does not remove multiple run todos',
+    suites: ['full'],
+    steps: [
+      {
+        userInput: 'Todos: run 10 km, run 5 km',
+        expect: {
+          storedCount: 2,
+          todoCount: 2,
+        },
+      },
+      {
+        userInput: 'remove the todo about running',
+        expect: {
+          requiresClarification: true,
+          todoCount: 2,
+          deletedCount: 0,
+          responseJudge:
+            'The assistant must not only say that multiple items match. It must list the actual saved todo lines so the user can choose—for example it should show both "run 10 km" and "run 5 km" (verbatim or clearly quoted), numbered or otherwise clearly separated—not vague references like "two run entries" with no text.',
+        },
+      },
+    ],
+  },
+  {
+    id: 'delete-with-wrong-distance-clarifies-not-silent-wrong-todo',
+    topic: 'todo-delete',
+    title: 'Delete naming a distance that does not match a candidate should clarify',
+    suites: ['full'],
+    steps: [
+      {
+        userInput: 'Todos: run 10 km',
+        expect: {
+          storedCount: 1,
+          todoCount: 1,
+        },
+      },
+      {
+        userInput: 'remove the todo about the 15 km run',
+        expect: {
+          requiresClarification: true,
+          deletedCount: 0,
+          todoCount: 1,
+          responseJudge:
+            'The assistant must not claim it removed a 15 km run that the user never saved. It should clarify using the real stored wording (10 km) or list actual candidates—not invent a different distance.',
+        },
+      },
+    ],
+  },
+  {
+    id: 'ambiguous-delete-then-what-are-options-lists-real-todos',
+    topic: 'todo-delete',
+    title: 'Asking what the options are repeats numbered list from stored todos',
+    suites: ['full'],
+    steps: [
+      {
+        userInput: 'Todos: run 10 km, run 5 km',
+        expect: {
+          storedCount: 2,
+          todoCount: 2,
+        },
+      },
+      {
+        userInput: 'remove the todo about running',
+        expect: {
+          requiresClarification: true,
+          todoCount: 2,
+          deletedCount: 0,
+        },
+      },
+      {
+        userInput: 'what are the options?',
+        expect: {
+          responseJudge:
+            'The assistant must show the real saved todo lines: the user-visible options must include the substring "run 10 km" and the substring "run 5 km" as two distinct choices. It must not invent unrelated run descriptions the user never stored.',
+          todoCount: 2,
+          deletedCount: 0,
+        },
+      },
+    ],
+  },
+  {
     id: 'ambiguous-delete-needs-clarification',
     topic: 'todo-delete',
     title: 'Ambiguous delete does not act immediately',

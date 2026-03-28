@@ -102,7 +102,13 @@ async function* dispatchIntentHandlers(
         yield { type: 'status', message: 'Saving or updating your note…' }
         turn.lastDocumentIds = []
         recordDispatcher(turn, 'ThoughtHandler')
-        for await (const event of handleThought(userInput, classification, priorHistory, turn.userInstructionsBlock)) {
+        for await (const event of handleThought(
+          userInput,
+          classification,
+          priorHistory,
+          turn.userInstructionsBlock,
+          userInput,
+        )) {
           if (event.type === 'chunk') turn.assistantResponse += event.content
           if (event.type === 'stored') turn.lastDocumentIds.push(event.documentId)
           if (event.type !== 'turn_step_summary') {

@@ -15,6 +15,8 @@ export const SKILL_MOUNT_SEGMENTS: Readonly<Record<string, readonly string[]>> =
   'skill-worker-question': ['decisions', 'read', 'decisions', 'skill-worker-question'],
   'skill-worker-thought': ['decisions', 'save', 'decisions', 'skill-worker-thought'],
   'duplicate-resolution': ['decisions', 'save', 'decisions', 'duplicate-resolution'],
+  'duplicate-prompt-follow-up': ['decisions', 'save', 'decisions', 'duplicate-prompt-follow-up'],
+  'save-note-body-resolution': ['decisions', 'save', 'decisions', 'save-note-body-resolution'],
   'skill-worker-instruction': ['decisions', 'save', 'decisions', 'skill-worker-instruction'],
   'command-decomposition': ['decisions', 'command', 'decisions', 'command-decomposition'],
   'skill-worker-command': ['decisions', 'command', 'decisions', 'skill-worker-command'],

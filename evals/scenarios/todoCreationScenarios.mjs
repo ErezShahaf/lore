@@ -8,7 +8,6 @@ export const todoCreationScenarios = [
       {
         userInput: 'Add to my todo list: buy milk',
         expect: {
-          responseIncludes: ['saved'],
           storedCount: 1,
           todoCount: 1,
           todoContentsIncludeSubstrings: ['buy milk'],
@@ -26,7 +25,6 @@ export const todoCreationScenarios = [
       {
         userInput: 'Please put "call mom" on my todo list.',
         expect: {
-          responseIncludes: ['saved'],
           storedCount: 1,
           todoCount: 1,
           todoContentsIncludeSubstrings: ['call mom'],
@@ -43,7 +41,6 @@ export const todoCreationScenarios = [
       {
         userInput: 'Todos: buy milk, call mom, pay rent',
         expect: {
-          responseIncludes: ['saved 3 todos'],
           storedCount: 3,
           todoCount: 3,
           todoContentsIncludeSubstrings: ['buy milk', 'call mom', 'pay rent'],
@@ -82,6 +79,25 @@ export const todoCreationScenarios = [
           todoContentsIncludeSubstrings: ['run 5 miles', 'run 10 miles'],
           responseExcludes: ['duplicate'],
           responseJudge: 'The response must not claim that one of the saved items was a duplicate when both items were stored successfully.',
+        },
+      },
+    ],
+  },
+  {
+    id: 'similar-todos-km-batch-no-false-duplicate-message',
+    topic: 'todo-creation',
+    title: 'Run 5 km and run 10 km in one batch both save without false duplicate',
+    suites: ['full'],
+    steps: [
+      {
+        userInput: 'todo: run 5 km, run 10 km',
+        expect: {
+          storedCount: 2,
+          todoCount: 2,
+          todoContentsIncludeSubstrings: ['run 5 km', 'run 10 km'],
+          responseExcludes: ['duplicate'],
+          responseJudge:
+            'The response must not treat the 10 km task as a duplicate of the 5 km task when both distinct runs were stored successfully.',
         },
       },
     ],

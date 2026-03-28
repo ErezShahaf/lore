@@ -37,8 +37,10 @@ Do not include any additional top-level fields beyond `status`, `operations`, an
 - For update: `action` is `"update"` and `updatedContent` is the new text the user wants.
 - When the user message includes **Classifier intent: DELETE**, you must not substitute an `"update"` operation for a removal; use `"delete"` only.
 - `targetDocumentIds` must list every document id affected by that single operation.
+- Do **not** put several ids in one operation because a **single vague phrase** matches several rows (for example several different “run …” todos), unless the user clearly asked to affect **all** of them (“both”, “all matching …”, “every run reminder”).
 - If `confidence` is below about `0.5`, prefer `status: "clarify"` over executing blindly.
-- If multiple documents could match and the user was vague, set `status: "clarify"` and describe the candidates in plain language.
+- If multiple documents could match and the user was vague, set `status: "clarify"`. In `clarificationMessage`, you **must** list candidates by **copying each row’s `Content` field verbatim** from the matching-documents list, **numbered** `1.`, `2.`, … (blockquoted lines are fine). Do **not** only say that there are two matches—**show** both lines. **Never invent or paraphrase** candidate text; if you cannot copy from that list, say you need a clearer pointer instead of guessing.
+- On follow-up turns, map the user’s choice only to **document ids and `Content` that appear in the latest candidate list** in the user message payload—not to paraphrases from chat alone.
 
 # Conversation memory
 

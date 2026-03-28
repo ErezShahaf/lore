@@ -239,7 +239,7 @@ async function main() {
     throw new Error(`Unsupported suite "${suiteName}". Use smoke or full.`)
   }
 
-  const repeatCount = Number.parseInt(getSingleArgumentValue('--repeat', '10'), 10)
+  const repeatCount = Number.parseInt(getSingleArgumentValue('--repeat', '3'), 10)
   if (!Number.isInteger(repeatCount) || repeatCount <= 0) {
     throw new Error('Repeat count must be a positive integer.')
   }

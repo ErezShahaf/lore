@@ -3,6 +3,29 @@ const stripePaymentFailedJson = '{"provider":"stripe","event":"payment_intent.pa
 const stripeSubscriptionUpdatedJson = '{"provider":"stripe","event":"customer.subscription.updated","url":"https://example.com/lore/stripe/subscription-updated"}'
 const adyenAuthorisationJson = '{"provider":"adyen","eventCode":"AUTHORISATION","url":"https://example.com/lore/adyen/authorisation"}'
 
+const mmaFightNightCardObject = {
+  event: {
+    id: 'evt_55321',
+    name: 'Midnight Clash 12',
+    location: 'Las Vegas, NV',
+    date: '2026-05-14',
+  },
+  attendance: 18250,
+  ppvBuys: 320000,
+}
+
+const mmaFightNightCardJson = JSON.stringify(mmaFightNightCardObject)
+const mmaFightNightCardJsonReordered = JSON.stringify({
+  ppvBuys: 320000,
+  attendance: 18250,
+  event: {
+    date: '2026-05-14',
+    location: 'Las Vegas, NV',
+    name: 'Midnight Clash 12',
+    id: 'evt_55321',
+  },
+})
+
 export const structuredDataScenarios = [
   {
     id: 'instruction-plus-json-saves-on-first-turn',
@@ -230,6 +253,109 @@ export const structuredDataScenarios = [
             eventCode: 'AUTHORISATION',
             url: 'https://example.com/lore/adyen/authorisation',
           },
+        },
+      },
+    ],
+  },
+  {
+    id: 'large-event-json-without-save-wording-clarifies',
+    topic: 'structured-data',
+    title: 'Large JSON-only message does not auto-save without explicit save intent',
+    suites: ['full'],
+    steps: [
+      {
+        userInput: mmaFightNightCardJson,
+        expect: {
+          storedCount: 0,
+          responseJudge:
+            'The assistant should treat the message as raw structured data with no explicit instruction. It should ask what the user wants to do (save, look up, summarize, etc.) or otherwise clarify intent, and must not claim the data was saved yet.',
+          dataJudge:
+            'The library must contain zero new documents from this step; nothing should be persisted solely because a JSON blob appeared.',
+        },
+      },
+    ],
+  },
+  {
+    id: 'restaurant-json-clarify-then-save-preserves-json',
+    topic: 'structured-data',
+    title: 'Follow-up save after JSON clarification keeps JSON-shaped content',
+    suites: ['full'],
+    steps: [
+      {
+        userInput: '{"restaurant":"Spice Route","city":"Tel Aviv","menu_item":"Shakshuka"}',
+        expect: {
+          storedCount: 0,
+          responseJudge:
+            'The assistant should ask what to do with the structured data or clarify intent; it must not claim the JSON was already saved.',
+          dataJudge: 'The library must stay empty after this step.',
+        },
+      },
+      {
+        userInput: 'I want to save it',
+        expect: {
+          storedCount: 1,
+          responseJudge:
+            'The assistant should confirm saving and must not imply it already completed a save before the user clarified.',
+          dataJudge:
+            'The stored document content must include the substring "Spice Route" and must still look like structured data (for example containing `"restaurant"` or `{`), not only a loose prose summary with no JSON markers.',
+        },
+      },
+    ],
+  },
+  {
+    id: 'restaurant-json-title-follow-up-embeds-json-body',
+    topic: 'structured-data',
+    title: 'After title prompt, stored note includes user title plus prior JSON blob',
+    suites: ['full'],
+    steps: [
+      {
+        userInput: '{"restaurant":"Spice Route","city":"Tel Aviv"}',
+        expect: {
+          storedCount: 0,
+          responseJudge:
+            'The assistant should ask what to do with the structured data or clarify intent; it must not claim the JSON was already saved.',
+        },
+      },
+      {
+        userInput: 'save it',
+        expect: {
+          storedCount: 0,
+          responseJudge:
+            'The assistant should ask for a short title or label before saving, not write the note yet.',
+        },
+      },
+      {
+        userInput: 'Tel Aviv food API sample response',
+        expect: {
+          storedCount: 1,
+          dataJudge:
+            'The stored document must include the user’s title line (or clear paraphrase such as "Tel Aviv food API") and must still contain JSON markers and the substring "Spice Route". It must not be only the title sentence with no JSON body.',
+        },
+      },
+    ],
+  },
+  {
+    id: 'canonical-json-duplicate-detects-reordered-keys',
+    topic: 'structured-data',
+    title: 'Semantically identical JSON with different key order surfaces duplicate handling',
+    suites: ['full'],
+    seedDocuments: [
+      {
+        content: mmaFightNightCardJson,
+        type: 'thought',
+        date: '2026-03-20',
+        tags: ['mma', 'fight-card'],
+        source: 'eval-seed',
+      },
+    ],
+    steps: [
+      {
+        userInput: `Please save this fight-night card.\n\n${mmaFightNightCardJsonReordered}`,
+        expect: {
+          responseJudge:
+            'The assistant should not describe a brand-new unrelated save as if no similar note exists. It should treat this as overlapping the existing fight card (duplicate / update / add-new choice or equivalent), not silently create a duplicate twin.',
+          dataJudge:
+            'There must be exactly one document in the library about Midnight Clash 12 (evt_55321). There must not be two separate stored copies that are only JSON reorderings of the same object.',
         },
       },
     ],

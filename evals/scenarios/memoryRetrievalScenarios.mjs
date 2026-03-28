@@ -166,4 +166,37 @@ export const memoryRetrievalScenarios = [
       },
     ],
   },
+  {
+    id: 'seeded-analytics-json-verbatim-in-answer',
+    topic: 'memory-retrieval',
+    title: 'Analytics-shaped note is returned as stored JSON not paraphrased',
+    suites: ['full'],
+    seedDocuments: [
+      ...buildNoiseThoughtDocuments('Misc', 6),
+      {
+        content:
+          'Session analytics export\n\n{"userId":"pixelNomad","clicks":137,"conversionRatePercent":4.2,"recentEvents":["page_view","purchase"]}',
+        type: 'thought',
+        tags: ['analytics', 'session'],
+        source: 'eval-seed',
+      },
+    ],
+    steps: [
+      {
+        userInput: 'Show me the session analytics JSON I saved with pixelNomad and the click counts.',
+        expect: {
+          minRetrievedCount: 1,
+          maxRetrievedCount: 10,
+          retrievedContentsIncludeSubstrings: ['pixelNomad'],
+          responseCodeBlockJsonIncludesFields: {
+            userId: 'pixelNomad',
+            clicks: '137',
+            conversionRatePercent: '4.2',
+          },
+          responseJudge:
+            'The answer must include the saved JSON in a markdown code block so the user sees their data as stored, not only a prose summary that rewrites metrics in different words.',
+        },
+      },
+    ],
+  },
 ]

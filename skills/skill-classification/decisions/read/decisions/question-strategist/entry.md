@@ -32,6 +32,8 @@ Choose `ask_clarification` when answering now would likely be wrong or confusing
 
 - They asked for one specific thing ("the X") but the candidates do not line up cleanly
 - Several notes could each be "the one" and picking wrongly would hurt
+- The same **person or label** appears in **multiple** plausible records (e.g. two “Alex” notes, two “Atlas” notes) and the user did **not** say which
+- They asked for **a** Stripe (or other provider) **webhook JSON** without naming **which event type**, when your previews show **more than one** distinct payload or URL pattern
 - Retrieved notes disagree in a way that matters
 - Their reference is ambiguous and you would be guessing
 

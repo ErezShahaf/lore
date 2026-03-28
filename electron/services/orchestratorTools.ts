@@ -111,6 +111,9 @@ async function handleComposeReply(
         topicSummary: String(payloadRaw.topicSummary ?? ''),
         hadDuplicate: Boolean(payloadRaw.hadDuplicate),
         duplicatePreview: typeof payloadRaw.duplicatePreview === 'string' ? payloadRaw.duplicatePreview : null,
+        storedContentPreview: typeof payloadRaw.storedContentPreview === 'string'
+          ? payloadRaw.storedContentPreview
+          : null,
       }
       break
     case 'thought_saved_many':

@@ -3,6 +3,7 @@ import { getSettings } from './settingsService'
 import { loadSkill } from './skillLoader'
 import { logger } from '../logger'
 import { appendUserInstructionsToSystemPrompt } from './userInstructionsContext'
+import { extractTodoMeasureMap } from './documentPipeline'
 import type {
   CommandResolution,
   CommandOperation,
@@ -85,7 +86,28 @@ export async function resolveCommandTargets(
       { userInput, status: deterministicResolution.status },
       '[CommandDecomposition] Deterministic resolution',
     )
-    return applyClassifiedIntentToResolution(deterministicResolution, classifiedCommandIntent)
+    const appliedDeterministic = applyClassifiedIntentToResolution(
+      deterministicResolution,
+      classifiedCommandIntent,
+    )
+    if (
+      appliedDeterministic.status === 'execute'
+      && classifiedCommandIntent === 'delete'
+    ) {
+      const literalClarify = clarifyIfDeleteLiteralsMismatchTargets(
+        userInput,
+        appliedDeterministic.operations,
+        documents,
+      )
+      if (literalClarify !== null) {
+        return literalClarify
+      }
+    }
+    return finalizeCommandResolutionWithMandatoryCandidateListing(
+      appliedDeterministic,
+      documents,
+      classifiedCommandIntent,
+    )
   }
 
   const docsForPrompt = documents
@@ -131,7 +153,11 @@ export async function resolveCommandTargets(
       '[CommandDecomposition] Resolved command',
     )
 
-    return resolution
+    return finalizeCommandResolutionWithMandatoryCandidateListing(
+      resolution,
+      documents,
+      classifiedCommandIntent,
+    )
   } catch (error) {
     logger.error(
       { error },
@@ -174,6 +200,7 @@ function validateResolution(
       clarificationMessage: typeof parsed.clarificationMessage === 'string'
         ? parsed.clarificationMessage
         : "I'm not sure which documents you're referring to. Could you be more specific?",
+      clarificationCandidateDocumentIds: documents.map((document) => document.id),
     }
   }
 
@@ -203,6 +230,7 @@ function validateResolution(
         clarificationMessage: description
           ? `I'm not confident about this: "${description}". Could you be more specific about which document you mean?`
           : "I'm not sure which documents you're referring to. Could you be more specific?",
+        clarificationCandidateDocumentIds: documents.map((document) => document.id),
       }
     }
 
@@ -229,6 +257,18 @@ function validateResolution(
       status: 'clarify',
       operations: [],
       clarificationMessage: "I couldn't determine which documents you're referring to. Could you be more specific?",
+      clarificationCandidateDocumentIds: documents.map((document) => document.id),
+    }
+  }
+
+  if (classifiedCommandIntent === 'delete') {
+    const literalClarify = clarifyIfDeleteLiteralsMismatchTargets(
+      userInput,
+      normalizedOperations,
+      documents,
+    )
+    if (literalClarify !== null) {
+      return literalClarify
     }
   }
 
@@ -249,6 +289,129 @@ function validateAction(value: unknown): CommandOperation['action'] {
 interface CandidateMatch {
   readonly document: LoreDocument
   readonly score: number
+}
+
+const AMBIGUOUS_CANDIDATE_CONTENT_MAX_CHARS = 2000
+
+function formatDocumentContentAsBlockquoteLines(rawContent: string): string {
+  const trimmed = rawContent.trim()
+  const truncated =
+    trimmed.length > AMBIGUOUS_CANDIDATE_CONTENT_MAX_CHARS
+      ? `${trimmed.slice(0, AMBIGUOUS_CANDIDATE_CONTENT_MAX_CHARS)}...`
+      : trimmed
+  if (truncated.length === 0) {
+    return '>'
+  }
+  return truncated
+    .split('\n')
+    .map((line) => `> ${line}`)
+    .join('\n')
+}
+
+export function buildClarificationCandidateListMessage(
+  action: CommandOperation['action'],
+  orderedDocuments: readonly LoreDocument[],
+): string {
+  const verb = action === 'delete' ? 'remove' : 'change'
+  const blocks = orderedDocuments.map((document, index) => {
+    const quotedBody = formatDocumentContentAsBlockquoteLines(document.content)
+    return `${index + 1}.\n${quotedBody}`
+  })
+  return [
+    `More than one saved item matches; I am not sure which one you want to ${verb}:`,
+    '',
+    blocks.join('\n\n'),
+    '',
+    'Reply with the number or paste the exact wording of the item you mean.',
+  ].join('\n')
+}
+
+function finalizeCommandResolutionWithMandatoryCandidateListing(
+  resolution: CommandResolution,
+  documents: readonly LoreDocument[],
+  classifiedCommandIntent: 'edit' | 'delete' | undefined,
+): CommandResolution {
+  if (resolution.status !== 'clarify') {
+    return resolution
+  }
+  if (documents.length < 2) {
+    return resolution
+  }
+  if (resolution.preserveClarificationWording === true) {
+    return resolution
+  }
+  const commandAction: CommandOperation['action'] =
+    classifiedCommandIntent === 'edit' ? 'update' : 'delete'
+  return {
+    ...resolution,
+    clarificationMessage: buildClarificationCandidateListMessage(commandAction, documents),
+    clarificationCandidateDocumentIds: documents.map((document) => document.id),
+  }
+}
+
+function buildLiteralMismatchClarification(
+  action: CommandOperation['action'],
+  documents: readonly LoreDocument[],
+): CommandResolution {
+  const verb = action === 'delete' ? 'remove' : 'change'
+  const blocks = documents.map((document, index) => {
+    const quotedBody = formatDocumentContentAsBlockquoteLines(document.content)
+    return `${index + 1}.\n${quotedBody}`
+  })
+  return {
+    status: 'clarify',
+    operations: [],
+    clarificationMessage: [
+      `I could not match your wording to a single row to ${verb}. Here are the items from this search:`,
+      '',
+      blocks.join('\n\n'),
+      '',
+      'Reply with the number or paste the exact wording of the item you mean.',
+    ].join('\n'),
+    clarificationCandidateDocumentIds: documents.map((document) => document.id),
+    preserveClarificationWording: true,
+  }
+}
+
+function clarifyIfDeleteLiteralsMismatchTargets(
+  userInput: string,
+  operations: readonly CommandOperation[],
+  documents: readonly LoreDocument[],
+): CommandResolution | null {
+  const documentById = new Map(documents.map((document) => [document.id, document]))
+  const userMeasures = extractTodoMeasureMap(userInput)
+  const quotedPhrases = [...userInput.matchAll(/"([^"]+)"/g)]
+    .map((match) => normalizeContentForMatching(match[1]))
+    .filter((phrase) => phrase.length >= 2)
+
+  for (const operation of operations) {
+    if (operation.action !== 'delete') continue
+    for (const targetId of operation.targetDocumentIds) {
+      const targetDocument = documentById.get(targetId)
+      if (!targetDocument) continue
+
+      if (userMeasures.size > 0) {
+        const documentMeasures = extractTodoMeasureMap(targetDocument.content)
+        for (const [unitKey, userValue] of userMeasures) {
+          if (!documentMeasures.has(unitKey)) {
+            return buildLiteralMismatchClarification('delete', documents)
+          }
+          const documentValue = documentMeasures.get(unitKey)!
+          if (Math.abs(userValue - documentValue) > 1e-6) {
+            return buildLiteralMismatchClarification('delete', documents)
+          }
+        }
+      }
+
+      const normalizedContent = normalizeContentForMatching(targetDocument.content)
+      for (const phrase of quotedPhrases) {
+        if (!normalizedContent.includes(phrase)) {
+          return buildLiteralMismatchClarification('delete', documents)
+        }
+      }
+    }
+  }
+  return null
 }
 
 function tryResolveCommandDeterministically(
@@ -274,16 +437,27 @@ function tryResolveCommandDeterministically(
 
   const candidateMatches = rankCandidateMatches(parsedCommand.referenceText, documents)
   const clearCandidate = selectClearSingleCandidate(candidateMatches)
-  if (!clearCandidate) {
-    return null
+  if (clearCandidate) {
+    return buildSingleTargetExecutionResolution(
+      parsedCommand.action,
+      clearCandidate.document,
+      parsedCommand.updatedContent,
+      userInput,
+    )
   }
 
-  return buildSingleTargetExecutionResolution(
-    parsedCommand.action,
-    clearCandidate.document,
-    parsedCommand.updatedContent,
-    userInput,
-  )
+  const strongMatches = candidateMatches.filter((candidate) => candidate.score >= MIN_CLEAR_MATCH_SCORE)
+  if (strongMatches.length >= 2) {
+    const orderedDocuments = strongMatches.map((match) => match.document)
+    return {
+      status: 'clarify',
+      operations: [],
+      clarificationMessage: buildClarificationCandidateListMessage(parsedCommand.action, orderedDocuments),
+      clarificationCandidateDocumentIds: orderedDocuments.map((document) => document.id),
+    }
+  }
+
+  return null
 }
 
 function parseDeterministicCommand(userInput: string): ParsedDeterministicCommand | null {

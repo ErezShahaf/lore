@@ -40,14 +40,14 @@ export function useChat() {
 
     const cleanupEnd = window.loreAPI.onResponseEnd(() => {
       const id = streamingIdRef.current
-      if (!id) return
-
-      setMessages(prev =>
-        prev.map(msg =>
-          msg.id === id ? { ...msg, isStreaming: false } : msg,
-        ),
-      )
-      streamingIdRef.current = null
+      if (id) {
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.id === id ? { ...msg, isStreaming: false } : msg,
+          ),
+        )
+        streamingIdRef.current = null
+      }
       setIsLoading(false)
       setStatusMessage(null)
     })

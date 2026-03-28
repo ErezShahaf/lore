@@ -181,7 +181,7 @@ async function handleSaveDocuments(args: Record<string, unknown>): Promise<ToolE
       : []
     const date = (typeof item.date === 'string' && item.date.length > 0) ? item.date : today
 
-    const duplicate = await checkForDuplicate(content)
+    const duplicate = await checkForDuplicate(content, { documentType: type })
     if (duplicate) {
       const preview = duplicate.content.slice(0, 120)
       results.push({ id: duplicate.id, status: 'duplicate_found', duplicatePreview: preview })

@@ -1,4 +1,6 @@
 import { logger } from '../logger'
+import { clearPendingCommandClarification } from './commandClarificationState'
+import { clearPendingDuplicateSaveClarification } from './duplicateSaveClarificationState'
 import { runMultiActionTurn } from './multiActionOrchestrator'
 import {
   PIPELINE_TRACE_SCHEMA_VERSION,
@@ -21,6 +23,8 @@ let session: SessionContext = {
 }
 
 export function clearConversation(): void {
+  clearPendingCommandClarification()
+  clearPendingDuplicateSaveClarification()
   session = {
     history: [],
     lastDocumentIds: [],
