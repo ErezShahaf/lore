@@ -21,6 +21,7 @@ const judgeSystemPrompt = [
   'Numbered lists, bullets, and markdown in the assistant response are allowed and are not a reason to fail by themselves.',
   'Evaluate only whether the assistant behavior satisfies the rubric.',
   'Your own reply to this task must be only valid JSON with exactly two keys: "pass" (boolean) and "reason" (string).',
+  'Never use keys named "answer", "source", "explanation", or "result" for your verdict—only "pass" and "reason".',
   'Do not wrap your verdict in markdown fences and do not add any text outside that single JSON object.',
   'Use "pass": true only when the behavior clearly satisfies the rubric.',
   'Be strict about contradictions, wrong entities, premature actions, and missing clarifications.',
@@ -313,20 +314,83 @@ function safeJsonParse(value) {
   }
 }
 
+/**
+ * Maps common small-model judge shapes to { pass, reason }.
+ * Only accepts unambiguous boolean + non-empty string pairs.
+ */
+function normalizeJudgeVerdict(parsed) {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return null
+  }
+
+  if (typeof parsed.pass === 'boolean' && typeof parsed.reason === 'string') {
+    return { pass: parsed.pass, reason: parsed.reason }
+  }
+
+  const reasonKeyCandidates = [
+    'reason',
+    'source',
+    'explanation',
+    'rationale',
+    'detail',
+    'message',
+    'justification',
+  ]
+
+  let resolvedPass = null
+  if (typeof parsed.pass === 'boolean') {
+    resolvedPass = parsed.pass
+  } else if (typeof parsed.answer === 'boolean') {
+    resolvedPass = parsed.answer
+  } else if (typeof parsed.passed === 'boolean') {
+    resolvedPass = parsed.passed
+  } else if (typeof parsed.ok === 'boolean') {
+    resolvedPass = parsed.ok
+  } else if (typeof parsed.success === 'boolean') {
+    resolvedPass = parsed.success
+  } else if (typeof parsed.result === 'boolean') {
+    resolvedPass = parsed.result
+  } else if (typeof parsed.answer === 'string') {
+    const normalizedAnswer = parsed.answer.toLowerCase().trim()
+    if (normalizedAnswer === 'true' || normalizedAnswer === 'pass' || normalizedAnswer === 'yes') {
+      resolvedPass = true
+    } else if (normalizedAnswer === 'false' || normalizedAnswer === 'fail' || normalizedAnswer === 'no') {
+      resolvedPass = false
+    }
+  }
+
+  let resolvedReason = null
+  for (const key of reasonKeyCandidates) {
+    const candidate = parsed[key]
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      resolvedReason = candidate
+      break
+    }
+  }
+
+  if (resolvedPass !== null && resolvedReason !== null) {
+    return { pass: resolvedPass, reason: resolvedReason }
+  }
+
+  return null
+}
+
 function parseJudgeResponse(content) {
   const raw = String(content || '').trim()
   const normalizedContent = stripMarkdownCodeFences(raw)
   const directParse = safeJsonParse(normalizedContent)
-  if (directParse && typeof directParse.pass === 'boolean' && typeof directParse.reason === 'string') {
-    return directParse
+  const directVerdict = normalizeJudgeVerdict(directParse)
+  if (directVerdict) {
+    return directVerdict
   }
 
   const fenceBodies = extractMarkdownJsonFenceBodies(raw)
   for (const body of fenceBodies) {
     const slice = extractBalancedJsonObject(body) || body
     const parsed = safeJsonParse(slice)
-    if (parsed && typeof parsed.pass === 'boolean' && typeof parsed.reason === 'string') {
-      return parsed
+    const verdict = normalizeJudgeVerdict(parsed)
+    if (verdict) {
+      return verdict
     }
   }
 
@@ -336,12 +400,9 @@ function parseJudgeResponse(content) {
   }
 
   const extractedParse = safeJsonParse(extractedJson)
-  if (
-    extractedParse
-    && typeof extractedParse.pass === 'boolean'
-    && typeof extractedParse.reason === 'string'
-  ) {
-    return extractedParse
+  const extractedVerdict = normalizeJudgeVerdict(extractedParse)
+  if (extractedVerdict) {
+    return extractedVerdict
   }
 
   return null
@@ -614,6 +675,7 @@ async function evaluateSimulatedUserFollowUp({
 async function judgeRubric({ judgeModel, ollamaHost, rubric, actualState }) {
   const initialUserContent = [
     'You are the judge. Your entire reply must be one JSON object: {"pass":boolean,"reason":"string"}.',
+    'Use only those two key names. Do not use "answer", "source", "explanation", or "result" as key names.',
     'The Lore assistant\'s message in actual state (e.g. "response") may be plain language, numbered lists, or markdown — that is correct for Lore and is not a format error.',
     'Do not fail Lore for "not outputting JSON"; only you output JSON.',
     'If your reason would mention JSON, pass/reason keys, or code fences in connection with the assistant\'s message, you are mixing up roles: stop and grade only the rubric against that natural-language response.',
@@ -630,7 +692,9 @@ async function judgeRubric({ judgeModel, ollamaHost, rubric, actualState }) {
 
   let lastRawContent = ''
 
-  for (let attemptIndex = 0; attemptIndex < 4; attemptIndex += 1) {
+  const maxJudgeAttempts = 5
+
+  for (let attemptIndex = 0; attemptIndex < maxJudgeAttempts; attemptIndex += 1) {
     const schemaPayload = {
       model: judgeModel,
       stream: false,
@@ -667,13 +731,11 @@ async function judgeRubric({ judgeModel, ollamaHost, rubric, actualState }) {
       return parsed
     }
 
-    if (attemptIndex === 0) {
-      messages = [
-        ...messages,
-        { role: 'assistant', content: lastRawContent },
-        { role: 'user', content: judgeRepairUserMessage },
-      ]
-    }
+    messages = [
+      ...messages,
+      { role: 'assistant', content: lastRawContent },
+      { role: 'user', content: judgeRepairUserMessage },
+    ]
   }
 
   return {

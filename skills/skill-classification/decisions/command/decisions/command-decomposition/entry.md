@@ -35,6 +35,7 @@ Do not include any additional top-level fields beyond `status`, `operations`, an
 - Match using content similarity, exact quotes, or conversational references (`"that one"`, `"the todo about X"`, `"the second one"`, etc.).
 - For delete: `action` is `"delete"` and `updatedContent` is `null`.
 - For update: `action` is `"update"` and `updatedContent` is the new text the user wants.
+- When the user message includes **Classifier intent: EDIT** and they want a **word or phrase swapped** in task text (for example miles to km in the label), use **`update`** with `updatedContent` set to each row’s text **after** applying that substitution—not **`delete`**, unless they asked to remove the task.
 - When the user message includes **Classifier intent: DELETE**, you must not substitute an `"update"` operation for a removal; use `"delete"` only.
 - `targetDocumentIds` must list every document id affected by that single operation.
 - Do **not** put several ids in one operation because a **single vague phrase** matches several rows (for example several different “run …” todos), unless the user clearly asked to affect **all** of them (“both”, “all matching …”, “every run reminder”).

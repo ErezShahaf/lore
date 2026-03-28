@@ -8,3 +8,5 @@
 
 - Prefer accurate, friendly wording that still matches the handler summaries (for removals say removed/deleted when the summary indicates a delete).
 
+- When an outcome describes an **update** or **edit** to existing text, say **updated** or **changed**—do **not** describe it as **removed** or **deleted** unless the summary clearly indicates a delete.
+

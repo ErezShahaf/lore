@@ -228,7 +228,32 @@ function buildPromptfooConfig({
   }
 }
 
+function printUsageAndExit() {
+  console.log(`Usage: node scripts/run-promptfoo.mjs [options]
+
+Options:
+  --models <names>     Comma-separated Ollama model names (or repeat --model).
+  --suite smoke|full   Scenario suite (default: full).
+  --repeat <n>         Repeats per scenario (default: 3).
+  --embedding-model    Ollama embedding model (default: auto-pick).
+  --ollama-host <url>  Ollama base URL (default: http://127.0.0.1:11434).
+  --judge-model <name> Model for eval judges (responseJudge, dataJudge, requiresClarification).
+                       Stronger instruction-following models yield stabler {"pass","reason"} JSON.
+                       If omitted, each scenario is judged with the same model as that scenario.
+  --scenario <id>      Filter to one or more scenario ids (comma-separated, repeat flag ok).
+  --topic <name>       Filter by topic (comma-separated).
+  --skip-build         Skip npm run build:app before eval.
+  --html-report        Also write an HTML report alongside JSON.
+  --help               Show this message.
+`)
+  process.exit(0)
+}
+
 async function main() {
+  if (hasFlag('--help') || hasFlag('-h')) {
+    printUsageAndExit()
+  }
+
   const selectedModels = parseModels()
   if (selectedModels.length === 0) {
     throw new Error('Provide at least one model with --models qwen3.5:4b,qwen3.5:9b or repeated --model flags.')
@@ -302,6 +327,13 @@ async function main() {
 
   console.log(`Running ${selectedScenarios.length} scenarios x ${repeatCount} repeats for models: ${selectedModels.join(', ')}`)
   console.log(`Using embedding model: ${embeddingModel}`)
+  if (judgeModel.trim().length > 0) {
+    console.log(`Judge model: ${judgeModel}`)
+  } else {
+    console.log(
+      'Judge model: (not set — each scenario is judged with the same Ollama model as that scenario; pass --judge-model <name> for a dedicated judge)',
+    )
+  }
   if (requestedTopics.length > 0) {
     console.log(`Selected topics: ${requestedTopics.join(', ')}`)
   }

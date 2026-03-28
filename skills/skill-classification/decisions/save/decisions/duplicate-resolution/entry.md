@@ -26,3 +26,7 @@ You reply with a single JSON object. It has one field:
 **Duplicate** means same fact or same task, not “sounds related.” Different numbers or units for the same kind of task are **not** duplicates—pick `add_new`.
 
 If the new content is essentially the **same** note they already stored and they only said “save” / “save this” / “store it,” prefer **`ask`** so Lore can confirm before creating another row. Prefer **`add_new`** only when they clearly want both copies or the text is genuinely a different item.
+
+## Identical todos added again
+
+If the duplicate candidate is a **todo** and the user repeats the **same add-to-list phrasing** with the **same task text** (for example a second “add to my todo list: call the plumber” right after the first), choose **`add_new`** so two separate rows are allowed. Use **`ask`** only when it is unclear whether they meant a second row or a mistake.
