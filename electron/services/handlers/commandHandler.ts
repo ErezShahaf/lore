@@ -1,7 +1,10 @@
 import { retrieveRelevantDocuments, retrieveTodoCandidatesForCommand } from '../documentPipeline'
 import { hardDeleteDocument, getDocumentById, updateDocument } from '../lanceService'
 import { embedText } from '../embeddingService'
-import { resolveCommandTargets } from '../commandDecompositionService'
+import {
+  findUniquePendingCommandTargetFromText,
+  resolveCommandTargets,
+} from '../commandDecompositionService'
 import { streamAssistantUserReplyWithFallback } from '../assistantReplyComposer'
 import {
   clearPendingCommandClarification,
@@ -19,6 +22,10 @@ import type {
   CommandOperation,
   RetrievalOptions,
 } from '../../../shared/types'
+
+/** Emitted as `turn_step_summary` when delete/edit needs the user to pick among multiple matching documents. */
+export const COMMAND_AMBIGUOUS_TARGETS_TURN_STEP_SUMMARY =
+  'Command: targets were ambiguous; user was sent a clarification question. No edits or deletes ran.' as const
 
 interface ExecutionResult {
   action: CommandOperation['action']
@@ -132,27 +139,60 @@ export async function* handleCommand(
       }
     }
   } else {
-    try {
-      resolution = await resolveCommandTargets(
-        userInput,
+    let resolutionFromPendingText: CommandResolution | null = null
+    if (
+      pending !== null
+      && commandIntentForPending !== null
+      && pending.commandIntent === commandIntentForPending
+      && numericSelection === null
+      && userInput.trim().length > 0
+    ) {
+      const pendingDocuments = await loadPendingCandidateDocuments(
+        pending.candidateDocumentIds,
         documents,
-        conversationHistory,
-        userInstructionsBlock,
-        classification.intent === 'delete' || classification.intent === 'edit'
-          ? classification.intent
-          : undefined,
       )
-    } catch {
-      yield {
-        type: 'turn_step_summary',
-        summary: 'Command: decomposition failed; no documents were changed.',
+      const uniqueTarget = findUniquePendingCommandTargetFromText(userInput, pendingDocuments)
+      if (uniqueTarget !== null) {
+        clearPendingCommandClarification()
+        resolutionFromPendingText = {
+          status: 'execute',
+          operations: [{
+            targetDocumentIds: [uniqueTarget.id],
+            action: commandIntentForPending === 'delete' ? 'delete' : 'update',
+            updatedContent: null,
+            confidence: 0.99,
+            description: 'User matched one item from the clarification list by wording.',
+          }],
+          clarificationMessage: null,
+        }
       }
-      yield {
-        type: 'error',
-        message: 'Failed to understand which documents to modify. Please try being more specific.',
+    }
+
+    if (resolutionFromPendingText !== null) {
+      resolution = resolutionFromPendingText
+    } else {
+      try {
+        resolution = await resolveCommandTargets(
+          userInput,
+          documents,
+          conversationHistory,
+          userInstructionsBlock,
+          classification.intent === 'delete' || classification.intent === 'edit'
+            ? classification.intent
+            : undefined,
+        )
+      } catch {
+        yield {
+          type: 'turn_step_summary',
+          summary: 'Command: decomposition failed; no documents were changed.',
+        }
+        yield {
+          type: 'error',
+          message: 'Failed to understand which documents to modify. Please try being more specific.',
+        }
+        yield { type: 'done' }
+        return
       }
-      yield { type: 'done' }
-      return
     }
   }
 
@@ -169,7 +209,7 @@ export async function* handleCommand(
     }
     yield {
       type: 'turn_step_summary',
-      summary: 'Command: targets were ambiguous; user was sent a clarification question. No edits or deletes ran.',
+      summary: COMMAND_AMBIGUOUS_TARGETS_TURN_STEP_SUMMARY,
     }
     yield {
       type: 'chunk',
@@ -296,4 +336,24 @@ function buildCommandExecutedFacts(results: ExecutionResult[]): AssistantReplyFa
 function truncateContent(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text
   return text.slice(0, maxLength) + '...'
+}
+
+async function loadPendingCandidateDocuments(
+  ids: readonly string[],
+  batch: readonly LoreDocument[],
+): Promise<LoreDocument[]> {
+  const batchById = new Map(batch.map((document) => [document.id, document]))
+  const result: LoreDocument[] = []
+  for (const id of ids) {
+    const fromBatch = batchById.get(id)
+    if (fromBatch !== undefined) {
+      result.push(fromBatch)
+      continue
+    }
+    const fetched = await getDocumentById(id)
+    if (fetched !== null) {
+      result.push(fetched)
+    }
+  }
+  return result
 }

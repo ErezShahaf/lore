@@ -36,6 +36,8 @@ Here are the explanations:
 
 Use the chat message and the conversation history to infer what the user wants to do with the content they provided.
 
+Sometimes an extra user-role message appears **immediately before** the current one, listing notes **retrieved on the prior turn** (supplemental context only). Treat the **current** user message as authoritative. Use that list to disambiguate follow-ups that clearly refer to those rows; ignore it when the current message is unrelated.
+
 If the user writes casually or the request is ambiguous, choose `speak` so Lore can ask a clarification question.
 
 If the user asks a general question about the world (not about Lore itself), classify as `read`.
@@ -105,7 +107,7 @@ If the user says `save X` and `X` is raw data (or a JSON blob) with no clear mea
 
 # Stored webhook and API payloads
 
-When the user asks to **show**, **give**, **display**, or **return** a **saved** JSON blob, webhook **payload**, or webhook **URL** from their library (for example Stripe, Adyen, or “the checkout webhook JSON”), classify **`read`**, not **`speak`**, so retrieval can run. Use **`speak`** only when they clearly want general product help or world knowledge with no implied stored record.
+When the user asks to **show**, **give**, **display**, **return**, **paste**, read back, or get the **full text** of **saved** material—including **long prose**, an **article**, or a **note** they stored, as well as a saved **JSON** blob, webhook **payload**, or webhook **URL** (for example Stripe, Adyen, or “the checkout webhook JSON”)—classify **`read`**, not **`speak`**, so retrieval can run. Use **`speak`** only when they clearly want general product help or world knowledge with no implied stored record.
 
 # General knowledge questions
 
@@ -175,6 +177,8 @@ Examples:
 
 - Even if you remove the command label from the user message, do not change the underlying content unless the user explicitly asked for an edit.
 - If `intent` is `speak`, set `data` to an empty string. Otherwise, fill it.
+
+Downstream read agents infer from the user’s wording whether to return **full stored bodies** (show/give/article/full text) versus a **short synthesized answer**; you do not output a separate presentation field.
 
 ## saveDocumentType
 

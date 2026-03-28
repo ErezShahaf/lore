@@ -111,7 +111,7 @@ async function* dispatchIntentHandlers(
         )) {
           if (event.type === 'chunk') turn.assistantResponse += event.content
           if (event.type === 'stored') turn.lastDocumentIds.push(event.documentId)
-          if (event.type !== 'turn_step_summary') {
+          if (event.type !== 'turn_step_summary' && event.type !== 'read_retrieval_context') {
             yield event
           }
         }
@@ -133,7 +133,7 @@ async function* dispatchIntentHandlers(
         )) {
           if (event.type === 'chunk') turn.assistantResponse += event.content
           if (event.type === 'retrieved') turn.lastDocumentIds = [...event.documentIds]
-          if (event.type !== 'turn_step_summary') {
+          if (event.type !== 'turn_step_summary' && event.type !== 'read_retrieval_context') {
             yield event
           }
         }
@@ -146,7 +146,7 @@ async function* dispatchIntentHandlers(
         for await (const event of handleCommand(userInput, classification, priorHistory, undefined, turn.userInstructionsBlock)) {
           if (event.type === 'chunk') turn.assistantResponse += event.content
           if (event.type === 'retrieved') turn.lastDocumentIds = [...event.documentIds]
-          if (event.type !== 'turn_step_summary') {
+          if (event.type !== 'turn_step_summary' && event.type !== 'read_retrieval_context') {
             yield event
           }
         }
@@ -176,7 +176,7 @@ async function* dispatchIntentHandlers(
           )) {
             if (event.type === 'chunk') turn.assistantResponse += event.content
             if (event.type === 'retrieved') turn.lastDocumentIds = [...event.documentIds]
-            if (event.type !== 'turn_step_summary') {
+            if (event.type !== 'turn_step_summary' && event.type !== 'read_retrieval_context') {
               yield event
             }
           }
@@ -185,7 +185,7 @@ async function* dispatchIntentHandlers(
           recordDispatcher(turn, 'ConversationalHandler')
           for await (const event of handleConversational(userInput, classification, priorHistory, turn.userInstructionsBlock)) {
             if (event.type === 'chunk') turn.assistantResponse += event.content
-            if (event.type !== 'turn_step_summary') {
+            if (event.type !== 'turn_step_summary' && event.type !== 'read_retrieval_context') {
               yield event
             }
           }

@@ -1,4 +1,4 @@
-import type { DocumentType } from '../../shared/types'
+import type { DocumentType, RetrievalContextDocument } from '../../shared/types'
 
 /**
  * Serializable facts for {@link streamAssistantUserReply}. The model may phrase the reply freely
@@ -48,6 +48,8 @@ export type AssistantReplyFacts =
   }
   | {
       readonly kind: 'multi_action_summary'
+      /** Exact user message for this turn (composer uses this to judge full-text vs summary intent). */
+      readonly turnUserMessage: string
       readonly outcomes: readonly {
         readonly intent: string
         readonly saveDocumentType: DocumentType | null
@@ -56,8 +58,10 @@ export type AssistantReplyFacts =
         readonly message: string
         readonly handlerResultSummary: string
         readonly duplicateSaveClarificationPending: boolean
+        readonly commandTargetClarificationPending: boolean
         readonly storedDocumentIds: readonly string[]
         readonly retrievedDocumentIds: readonly string[]
         readonly deletedDocumentCount: number
+        readonly retrievedDocumentsForComposer: readonly RetrievalContextDocument[]
       }[]
     }

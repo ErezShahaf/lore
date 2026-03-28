@@ -4,12 +4,13 @@ import { getSettings } from './settingsService'
 import { FIRST_TURN_SKILL_ID, loadSkill } from './skillLoader'
 import { logger } from '../logger'
 import { appendUserInstructionsToSystemPrompt } from './userInstructionsContext'
-import type {
-  ClassificationResult,
-  ClassificationAction,
-  ConversationEntry,
-  DecomposedDocumentType,
-  InputClassification,
+import { PRIOR_TURN_RETRIEVED_CONTEXT_HEADER } from './priorTurnContextService'
+import {
+  type ClassificationResult,
+  type ClassificationAction,
+  type ConversationEntry,
+  type DecomposedDocumentType,
+  type InputClassification,
 } from '../../shared/types'
 
 const ACTION_ITEM_SCHEMA = {
@@ -170,6 +171,7 @@ export async function classifyInputUnified(
   userInput: string,
   conversationHistory: readonly ConversationEntry[] = [],
   userInstructionsBlock: string = '',
+  priorTurnRetrievedContextBlock: string | null = null,
 ): Promise<ClassificationResult> {
   const settings = getSettings()
   const now = new Date()
@@ -184,6 +186,14 @@ export async function classifyInputUnified(
 
   for (const entry of conversationHistory) {
     messages.push({ role: entry.role, content: entry.content })
+  }
+
+  const priorBlockTrimmed = priorTurnRetrievedContextBlock?.trim() ?? ''
+  if (priorBlockTrimmed.length > 0) {
+    messages.push({
+      role: 'user',
+      content: `${PRIOR_TURN_RETRIEVED_CONTEXT_HEADER}\n\n${priorBlockTrimmed}`,
+    })
   }
 
   messages.push({ role: 'user', content: userInput })

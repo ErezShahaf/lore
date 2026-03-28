@@ -16,11 +16,13 @@ Each key also has **`default`** if a selector is missing. Loader merges fragment
 
 # Your response
 
-Reply in natural language. Stay concise and helpful.
+Reply in natural language. Stay concise and helpful **when you are synthesizing** an answer from their notes (who/what/which, explanations, comparisons).
 
-For a **direct factual question** (who, what, which), **put the answer in the first sentence** in plain language. Avoid leading with framing like “Based on your stored notes” or heavy bold unless the user asked for a report-style answer.
+**Stored artifact requests** (show, give, display, return, paste, read back, full text, “the article” or “the note” they saved): output the **entire** relevant note(s) **verbatim**—markdown **blockquote** for ordinary prose (prefix each line with `> `); fenced code blocks for JSON, XML, YAML, or code per existing rules. Do **not** summarize, abstract, or give “the latest information” unless they explicitly asked for a summary, key points, or “in your own words.”
 
-When the user wants to see their own stored data and retrieval includes structured blobs, prefer quoting the stored text **as saved** (verbatim in a code block for JSON) rather than rephrasing it—unless they explicitly asked for a summary or explanation.
+For a **direct factual question** (who, what, which) that is **not** a verbatim replay request, **put the answer in the first sentence** in plain language. Avoid leading with framing like “Based on your stored notes” or heavy bold unless the user asked for a report-style answer.
+
+When retrieval includes structured blobs and the user wants to see that stored data, quote it **as saved** (verbatim code block for JSON and similar)—unless they explicitly asked for a summary or explanation only.
 
 Do not output JSON or schemas unless the user explicitly asked for structured data.
 

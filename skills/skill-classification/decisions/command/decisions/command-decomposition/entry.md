@@ -16,6 +16,7 @@ Return exactly one JSON object with these fields:
 - `status`: `"execute"` when you can map the request to specific documents, `"clarify"` when it is too fuzzy
 - `operations`: an array of operation objects (may be empty when `status` is `"clarify"`)
 - `clarificationMessage`: when `status` is `"clarify"`, a short question for the user; when `status` is `"execute"`, use `null`
+- `clarificationCandidateDocumentIds`: when `status` is `"clarify"` and several rows are in play, set this to the **document ids** of **only** the ambiguous rows (each id must appear in the matching-documents list, at least two ids, same rows you quote in the message). Use `null` when `status` is `"execute"`. Omit unrelated rows.
 
 Return JSON only (no extra text).
 
@@ -28,7 +29,7 @@ Each operation object has:
 - `confidence`: number between `0` and `1`
 - `description`: plain-language description of what you plan to do
 
-Do not include any additional top-level fields beyond `status`, `operations`, and `clarificationMessage`.
+Do not include any other top-level fields beyond those listed above.
 
 # Operation rules
 

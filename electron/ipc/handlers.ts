@@ -102,6 +102,7 @@ export function registerIpcHandlers(): void {
             case 'deleted':
             case 'duplicate':
             case 'retrieved':
+            case 'read_retrieval_context':
               break
             case 'done':
               sender.send('chat:response-end')

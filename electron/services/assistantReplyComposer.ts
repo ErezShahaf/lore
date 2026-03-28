@@ -84,8 +84,19 @@ export async function* streamAssistantUserReply(input: {
     input.userInstructionsBlock,
   )
 
+  const multiActionLead =
+    input.facts.kind === 'multi_action_summary'
+      ? [
+          `The user’s exact message this turn: ${input.facts.turnUserMessage}`,
+          'Your job: produce the reply they should see. For any read outcome with a non-empty `retrievedDocumentsForComposer`, those `content` fields are the full stored notes—include that text in full (blockquote prose with `> ` per line; fenced code blocks for JSON/XML/YAML/code) when they asked for the note, article, full text, or read-back—unless they clearly asked only for a summary or gist. Do not replace that with a meta line like “here is what the article is about” without the actual body.',
+          'FACTS_JSON also includes a `turnUserMessage` field; it duplicates the line above for parsers.',
+          '',
+        ].join('\n')
+      : ''
+
   const userMessage = [
-    'Lore has finished an action. Below is FACTS_JSON — the only ground truth about what happened.',
+    multiActionLead
+      + 'Lore has finished an action. Below is FACTS_JSON — the only ground truth about what happened.',
     'Write the message the user should see. Do not contradict FACTS_JSON.',
     '',
     'FACTS_JSON:',

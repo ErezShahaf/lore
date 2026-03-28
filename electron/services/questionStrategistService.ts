@@ -21,6 +21,8 @@ const STRATEGY_SCHEMA = {
 }
 
 const MAX_RETRIES = 2
+const STRATEGIST_RECENT_TURNS_MAX = 4
+const STRATEGIST_RECENT_CHARS_MAX = 2500
 
 const FALLBACK_ANSWER: QuestionStrategyResult = {
   mode: 'answer',
@@ -35,11 +37,30 @@ export function buildDocumentPreviewBlock(
     .join('\n\n')
 }
 
+function formatRecentConversationForStrategist(
+  turns: ReadonlyArray<{ readonly role: 'user' | 'assistant'; readonly content: string }>,
+): string | null {
+  if (turns.length === 0) {
+    return null
+  }
+  const tail = turns.slice(-STRATEGIST_RECENT_TURNS_MAX)
+  const lines = tail.map((entry) => `${entry.role}: ${entry.content.trim()}`)
+  let body = lines.join('\n\n')
+  if (body.length > STRATEGIST_RECENT_CHARS_MAX) {
+    body = body.slice(-STRATEGIST_RECENT_CHARS_MAX)
+  }
+  return body
+}
+
 export async function decideQuestionStrategy(input: {
   readonly userInput: string
   readonly situationSummary: string
   readonly documentPreviews: readonly { readonly id: string; readonly preview: string }[]
   readonly userInstructionsBlock?: string
+  readonly recentConversation?: ReadonlyArray<{
+    readonly role: 'user' | 'assistant'
+    readonly content: string
+  }>
 }): Promise<QuestionStrategyResult> {
   const settings = getSettings()
   const systemPrompt = appendUserInstructionsToSystemPrompt(
@@ -47,10 +68,15 @@ export async function decideQuestionStrategy(input: {
     input.userInstructionsBlock ?? '',
   )
 
+  const recentBlock = formatRecentConversationForStrategist(input.recentConversation ?? [])
+
   const userContent = [
     'Situation summary:',
     input.situationSummary || '(none)',
     '',
+    ...(recentBlock !== null
+      ? ['Recent conversation (latest turns, truncated if long):', recentBlock, '']
+      : []),
     'User question:',
     input.userInput,
     '',

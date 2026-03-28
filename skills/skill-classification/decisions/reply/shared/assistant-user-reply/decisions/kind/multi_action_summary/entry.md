@@ -1,13 +1,10 @@
-- Combine results across multiple steps into one short user-facing message.
-  - `outcomes` is an array.
-  - For each outcome, trust `handlerResultSummary` for facts (what was stored, retrieved, deleted, whether a save completed), but **do not** treat it as text the user has already seen. The user only sees **your** reply now.
-  - When `duplicateSaveClarificationPending` is true on an outcome, that outcome’s `message` is the full clarification the user must see (show the choice in **present** tense: ask now, e.g. whether to keep both or update). Never say you already asked or already prompted—the clarification was not shown until this reply.
-  - For other outcomes, you may reuse or rephrase the draft text in `message` as long as you do not contradict `handlerResultSummary` or the id fields.
-  - You may also receive extra fields such as `intent`, `status`, `situationSummary`, and id arrays (`storedDocumentIds`, `retrievedDocumentIds`, `deletedDocumentCount`).
+- Combine `outcomes` into one user-facing message. `turnUserMessage` in FACTS_JSON is the user’s exact text—use it with each outcome’s `situationSummary` to judge intent.
+  - Trust `handlerResultSummary` for facts; the user has **not** seen prior step text unless your reply shows it.
+  - `duplicateSaveClarificationPending`: show that outcome’s `message` as the live clarification (present tense).
+  - `commandTargetClarificationPending`: include that outcome’s `message` **verbatim** (numbered list).
+  - **`read` + non-empty `retrievedDocumentsForComposer`**: those entries are **full stored bodies**. Unless `turnUserMessage` clearly asks only for a summary/gist/tldr, include the **full** `content` (blockquote prose, `> ` per line; fenced blocks for JSON/XML/YAML/code). Do **not** answer with only “I retrieved…” or a topic blurb—show the actual stored text.
+  - Other outcomes: you may reuse or rephrase `message` if consistent with summaries and ids.
 
-- When every successful save in this summary is a **todo** (`intent` `save` with todo items), your reply must include **saved**, a **number or word count**, and the word **todo** or **todos** (for example **saved 3 todos** or **saved three todos**). Do not use only **tasks** or **items** for those cases.
+- All successful saves are todos: reply must say **saved**, a count, and **todo/todos** (not only “tasks”).
 
-- Prefer accurate, friendly wording that still matches the handler summaries (for removals say removed/deleted when the summary indicates a delete).
-
-- When an outcome describes an **update** or **edit** to existing text, say **updated** or **changed**—do **not** describe it as **removed** or **deleted** unless the summary clearly indicates a delete.
-
+- Match handler summaries for deletes vs edits (updated/changed vs removed/deleted).

@@ -99,6 +99,7 @@ export async function* runMultiActionTurn(
   userInput: string,
   priorHistory: readonly ConversationEntry[],
   traceSink: MutablePipelineTraceSink | null = null,
+  priorTurnRetrievedContextBlock: string | null = null,
 ): AsyncGenerator<AgentEvent> {
   yield { type: 'status', message: 'Working on your message…' }
 
@@ -109,7 +110,12 @@ export async function* runMultiActionTurn(
 
   let classification
   try {
-    classification = await classifyInputUnified(userInput, priorHistory, userInstructionsBlock)
+    classification = await classifyInputUnified(
+      userInput,
+      priorHistory,
+      userInstructionsBlock,
+      priorTurnRetrievedContextBlock,
+    )
   } catch (err) {
     logger.error({ err }, '[MultiActionOrchestrator] Classification failed')
     yield { type: 'error', message: toErrorMessage(err) }
@@ -139,9 +145,11 @@ export async function* runMultiActionTurn(
         message: replay.message,
         handlerResultSummary: replay.summary,
         duplicateSaveClarificationPending: false,
+        commandTargetClarificationPending: false,
         storedDocumentIds: [],
         retrievedDocumentIds: [...replay.retrievedIds],
         deletedDocumentCount: 0,
+        retrievedDocumentsForComposer: [],
       }
       if (traceSink) {
         traceSink.stages.push({
@@ -245,6 +253,7 @@ export async function* runMultiActionTurn(
       userInstructionsBlock,
       originalUserMessage: userInput,
       totalActionsInTurn: actions.length,
+      priorTurnRetrievedContextBlock,
     })
 
     let step = await executor.next()
@@ -293,7 +302,43 @@ export async function* runMultiActionTurn(
   if (isSingleDuplicateSaveClarification) {
     const passthroughMessage = singleOutcome.message
     if (traceSink) {
-      const multiActionFacts = { kind: 'multi_action_summary' as const, outcomes }
+      const multiActionFacts = {
+        kind: 'multi_action_summary' as const,
+        turnUserMessage: userInput,
+        outcomes,
+      }
+      traceSink.stages.push({
+        stageId: 'assistant_reply_composer',
+        ordinal: traceSink.stages.length,
+        timestamp: new Date().toISOString(),
+        output: {
+          factsKind: multiActionFacts.kind,
+          facts: multiActionFacts,
+          composedReplyPreview: truncateForPipelineTrace(
+            passthroughMessage,
+            PIPELINE_COMPOSED_REPLY_PREVIEW_MAX_CHARS,
+          ),
+          modelLabel: null,
+        },
+      })
+    }
+    yield { type: 'chunk', content: passthroughMessage }
+    yield { type: 'done' }
+    return
+  }
+
+  const isSingleCommandTargetClarification =
+    singleOutcome !== undefined
+    && singleOutcome.commandTargetClarificationPending
+    && singleOutcome.message.trim().length > 0
+  if (isSingleCommandTargetClarification) {
+    const passthroughMessage = singleOutcome.message
+    if (traceSink) {
+      const multiActionFacts = {
+        kind: 'multi_action_summary' as const,
+        turnUserMessage: userInput,
+        outcomes,
+      }
       traceSink.stages.push({
         stageId: 'assistant_reply_composer',
         ordinal: traceSink.stages.length,
@@ -316,7 +361,11 @@ export async function* runMultiActionTurn(
 
   yield { type: 'status', message: 'Summarizing everything for you…' }
 
-  const multiActionFacts = { kind: 'multi_action_summary' as const, outcomes }
+  const multiActionFacts = {
+    kind: 'multi_action_summary' as const,
+    turnUserMessage: userInput,
+    outcomes,
+  }
   let composedReplyAccumulated = ''
 
   for await (const chunk of streamAssistantUserReplyWithFallback({

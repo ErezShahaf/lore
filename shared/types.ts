@@ -40,6 +40,15 @@ export interface ScoredDocument extends LoreDocument {
   score: number
 }
 
+/** Full note bodies passed to the turn-level reply composer after a read retrieval (not shown in chat). */
+export interface RetrievalContextDocument {
+  readonly id: string
+  readonly content: string
+  readonly type: DocumentType
+  readonly date: string
+  readonly tags: string
+}
+
 export interface RetrievedDocumentSet {
   documents: ScoredDocument[]
   totalCandidates: number
@@ -264,7 +273,12 @@ export function primaryClassificationAction(result: ClassificationResult): Class
 /** Shape passed to handlers; satisfied by ClassificationAction. */
 export type HandlerClassification = Pick<
   ClassificationAction,
-  'intent' | 'extractedDate' | 'extractedTags' | 'situationSummary' | 'data' | 'saveDocumentType'
+  | 'intent'
+  | 'extractedDate'
+  | 'extractedTags'
+  | 'situationSummary'
+  | 'data'
+  | 'saveDocumentType'
 >
 
 /** Single action as handler input; backwards compatible with old ClassificationResult. */
@@ -281,7 +295,8 @@ export interface ActionOutcome {
   /**
    * Short ground-truth description of what the sub-handler did (duplicate prompt, stored id, zero hits, …).
    * The reply composer should treat this plus structured ids as authoritative for **facts**, not as text the user
-   * has already read; user-visible wording often comes from `message` (see `duplicateSaveClarificationPending`).
+   * has already read; user-visible wording often comes from `message` (see `duplicateSaveClarificationPending`,
+   * `commandTargetClarificationPending`).
    */
   readonly handlerResultSummary: string
   /**
@@ -289,9 +304,19 @@ export interface ActionOutcome {
    * streamed during execution; the orchestrator should show `message` verbatim instead of rephrasing via the reply composer.
    */
   readonly duplicateSaveClarificationPending: boolean
+  /**
+   * When true, the command handler chose target clarification (`message` holds the numbered candidate list) and did not
+   * stream it during execution; the orchestrator should show `message` verbatim instead of rephrasing via the reply composer.
+   */
+  readonly commandTargetClarificationPending: boolean
   readonly storedDocumentIds: readonly string[]
   readonly retrievedDocumentIds: readonly string[]
   readonly deletedDocumentCount: number
+  /**
+   * When `intent` is `read`, full text of notes that were retrieved for the answer step (for the reply composer).
+   * Empty for other intents or when retrieval did not run.
+   */
+  readonly retrievedDocumentsForComposer: readonly RetrievalContextDocument[]
 }
 
 /** Bump when pipeline stage record shapes change (summarizer heuristics may depend on version). */
@@ -424,6 +449,10 @@ export type AgentEvent =
    * Used when the turn ends with a multi-action summary so the composer knows what each sub-step did.
    */
   | { type: 'turn_step_summary'; summary: string }
+  /**
+   * Full retrieved note bodies for the read handler (not shown in chat). Consumed by the action executor for the reply composer.
+   */
+  | { type: 'read_retrieval_context'; documents: readonly RetrievalContextDocument[] }
   | { type: 'done' }
 
 // ── System info & hardware detection ─────────────────────────

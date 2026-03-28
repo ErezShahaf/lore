@@ -44,6 +44,9 @@ const COMMAND_RESOLUTION_SCHEMA = {
     clarificationMessage: {
       anyOf: [{ type: 'string' }, { type: 'null' }],
     },
+    clarificationCandidateDocumentIds: {
+      anyOf: [{ type: 'array', items: { type: 'string' } }, { type: 'null' }],
+    },
   },
   required: ['status', 'operations', 'clarificationMessage'],
   additionalProperties: false,
@@ -133,7 +136,14 @@ export async function resolveCommandTargets(
 
   messages.push({
     role: 'user',
-    content: `User wants to: ${userInput}${classifiedIntentLine}\n\nMatching documents from database:\n${docsForPrompt}`,
+    content: [
+      `User wants to: ${userInput}${classifiedIntentLine}`,
+      '',
+      'Matching documents from database:',
+      docsForPrompt,
+      '',
+      'When status is "clarify" because several rows could match, set clarificationCandidateDocumentIds to the document id of each row you are asking the user to choose among (only ids from the list above, at least two ids, no extras). If you omit it or it is invalid, every row may be treated as in play.',
+    ].join('\n'),
   })
 
   try {
@@ -193,18 +203,20 @@ function validateResolution(
   documents: readonly LoreDocument[],
   classifiedCommandIntent: 'edit' | 'delete' | undefined,
 ): CommandResolution {
+  const validIds = new Set(documents.map((document) => document.id))
+
   if (parsed.status === 'clarify') {
+    const candidateIds = parseModelClarificationCandidateDocumentIds(parsed, validIds)
     return {
       status: 'clarify',
       operations: [],
       clarificationMessage: typeof parsed.clarificationMessage === 'string'
         ? parsed.clarificationMessage
         : "I'm not sure which documents you're referring to. Could you be more specific?",
-      clarificationCandidateDocumentIds: documents.map((document) => document.id),
+      clarificationCandidateDocumentIds:
+        candidateIds ?? documents.map((document) => document.id),
     }
   }
-
-  const validIds = new Set(documents.map((document) => document.id))
   const rawOperations = Array.isArray(parsed.operations) ? parsed.operations : []
   const operations: CommandOperation[] = []
 
@@ -279,11 +291,110 @@ function validateResolution(
   }
 }
 
+function parseModelClarificationCandidateDocumentIds(
+  parsed: Record<string, unknown>,
+  validIds: ReadonlySet<string>,
+): readonly string[] | null {
+  const raw = parsed.clarificationCandidateDocumentIds
+  if (!Array.isArray(raw)) {
+    return null
+  }
+  const ordered: string[] = []
+  const seen = new Set<string>()
+  for (const item of raw) {
+    if (typeof item !== 'string' || !validIds.has(item) || seen.has(item)) {
+      continue
+    }
+    seen.add(item)
+    ordered.push(item)
+  }
+  return ordered.length >= 2 ? ordered : null
+}
+
+function documentsMatchingUserTodoMeasures(
+  userInput: string,
+  documents: readonly LoreDocument[],
+): readonly LoreDocument[] | null {
+  const userMeasures = extractTodoMeasureMap(userInput)
+  if (userMeasures.size === 0) {
+    return null
+  }
+  const matched = documents.filter((document) => {
+    const documentMeasures = extractTodoMeasureMap(document.content)
+    for (const [unitKey, userValue] of userMeasures) {
+      if (!documentMeasures.has(unitKey)) {
+        return false
+      }
+      const documentValue = documentMeasures.get(unitKey)!
+      if (Math.abs(userValue - documentValue) > 1e-6) {
+        return false
+      }
+    }
+    return true
+  })
+  return matched.length >= 1 ? matched : null
+}
+
+function documentsForLiteralMismatchClarificationList(
+  userInput: string,
+  documents: readonly LoreDocument[],
+): readonly LoreDocument[] {
+  const measureMatched = documentsMatchingUserTodoMeasures(userInput, documents)
+  if (measureMatched !== null) {
+    return measureMatched
+  }
+  return documents
+}
+
 function validateAction(value: unknown): CommandOperation['action'] {
   const validActions: CommandOperation['action'][] = ['delete', 'update']
   return validActions.includes(value as CommandOperation['action'])
     ? (value as CommandOperation['action'])
     : 'delete'
+}
+
+/**
+ * When the user replies to a numbered clarification with exact text (or measure-bearing text),
+ * returns the single matching document among pending candidates, or null if ambiguous or none.
+ */
+export function findUniquePendingCommandTargetFromText(
+  userInput: string,
+  candidates: readonly LoreDocument[],
+): LoreDocument | null {
+  const trimmed = userInput.trim()
+  if (trimmed.length < 2 || candidates.length === 0) {
+    return null
+  }
+
+  const userMeasures = extractTodoMeasureMap(trimmed)
+  if (userMeasures.size > 0) {
+    const matches = candidates.filter((document) => {
+      const documentMeasures = extractTodoMeasureMap(document.content)
+      for (const [unitKey, userValue] of userMeasures) {
+        if (!documentMeasures.has(unitKey)) {
+          return false
+        }
+        if (Math.abs(documentMeasures.get(unitKey)! - userValue) > 1e-6) {
+          return false
+        }
+      }
+      return true
+    })
+    return matches.length === 1 ? matches[0]! : null
+  }
+
+  const quotedOnly = trimmed.match(/^"([^"]+)"$/)
+  const normalizedUser = normalizeContentForMatching(
+    quotedOnly ? quotedOnly[1]!.trim() : trimmed,
+  )
+  if (normalizedUser.length < 2) {
+    return null
+  }
+
+  const matches = candidates.filter(
+    (document) => normalizeContentForMatching(document.content) === normalizedUser,
+  )
+  return matches.length === 1 ? matches[0]! : null
 }
 
 interface CandidateMatch {
@@ -315,7 +426,7 @@ export function buildClarificationCandidateListMessage(
   const verb = action === 'delete' ? 'remove' : 'change'
   const blocks = orderedDocuments.map((document, index) => {
     const quotedBody = formatDocumentContentAsBlockquoteLines(document.content)
-    return `${index + 1}.\n${quotedBody}`
+    return `Option ${index + 1}:\n${quotedBody}`
   })
   return [
     `More than one saved item matches; I am not sure which one you want to ${verb}:`,
@@ -334,18 +445,36 @@ function finalizeCommandResolutionWithMandatoryCandidateListing(
   if (resolution.status !== 'clarify') {
     return resolution
   }
-  if (documents.length < 2) {
-    return resolution
-  }
   if (resolution.preserveClarificationWording === true) {
     return resolution
   }
+
+  const documentById = new Map(documents.map((document) => [document.id, document]))
+  const subsetIds = resolution.clarificationCandidateDocumentIds
+  const orderedFromSubset =
+    subsetIds !== undefined && subsetIds.length >= 2
+      ? subsetIds
+          .map((id) => documentById.get(id))
+          .filter((document): document is LoreDocument => document !== undefined)
+      : []
+
+  const orderedDocuments =
+    orderedFromSubset.length >= 2
+      ? orderedFromSubset
+      : documents.length >= 2
+        ? [...documents]
+        : []
+
+  if (orderedDocuments.length < 2) {
+    return resolution
+  }
+
   const commandAction: CommandOperation['action'] =
     classifiedCommandIntent === 'edit' ? 'update' : 'delete'
   return {
     ...resolution,
-    clarificationMessage: buildClarificationCandidateListMessage(commandAction, documents),
-    clarificationCandidateDocumentIds: documents.map((document) => document.id),
+    clarificationMessage: buildClarificationCandidateListMessage(commandAction, orderedDocuments),
+    clarificationCandidateDocumentIds: orderedDocuments.map((document) => document.id),
   }
 }
 
@@ -356,7 +485,7 @@ function buildLiteralMismatchClarification(
   const verb = action === 'delete' ? 'remove' : 'change'
   const blocks = documents.map((document, index) => {
     const quotedBody = formatDocumentContentAsBlockquoteLines(document.content)
-    return `${index + 1}.\n${quotedBody}`
+    return `Option ${index + 1}:\n${quotedBody}`
   })
   return {
     status: 'clarify',
@@ -383,6 +512,7 @@ function clarifyIfDeleteLiteralsMismatchTargets(
   const quotedPhrases = [...userInput.matchAll(/"([^"]+)"/g)]
     .map((match) => normalizeContentForMatching(match[1]))
     .filter((phrase) => phrase.length >= 2)
+  const listDocuments = documentsForLiteralMismatchClarificationList(userInput, documents)
 
   for (const operation of operations) {
     if (operation.action !== 'delete') continue
@@ -394,11 +524,11 @@ function clarifyIfDeleteLiteralsMismatchTargets(
         const documentMeasures = extractTodoMeasureMap(targetDocument.content)
         for (const [unitKey, userValue] of userMeasures) {
           if (!documentMeasures.has(unitKey)) {
-            return buildLiteralMismatchClarification('delete', documents)
+            return buildLiteralMismatchClarification('delete', listDocuments)
           }
           const documentValue = documentMeasures.get(unitKey)!
           if (Math.abs(userValue - documentValue) > 1e-6) {
-            return buildLiteralMismatchClarification('delete', documents)
+            return buildLiteralMismatchClarification('delete', listDocuments)
           }
         }
       }
@@ -406,7 +536,7 @@ function clarifyIfDeleteLiteralsMismatchTargets(
       const normalizedContent = normalizeContentForMatching(targetDocument.content)
       for (const phrase of quotedPhrases) {
         if (!normalizedContent.includes(phrase)) {
-          return buildLiteralMismatchClarification('delete', documents)
+          return buildLiteralMismatchClarification('delete', listDocuments)
         }
       }
     }

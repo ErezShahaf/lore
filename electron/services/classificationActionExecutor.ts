@@ -1,7 +1,11 @@
 import { logger } from '../logger'
+import { augmentConversationHistoryWithPriorTurnContext } from './priorTurnContextService'
 import { handleThought } from './handlers/thoughtHandler'
 import { handleQuestion } from './handlers/questionHandler'
-import { handleCommand } from './handlers/commandHandler'
+import {
+  COMMAND_AMBIGUOUS_TARGETS_TURN_STEP_SUMMARY,
+  handleCommand,
+} from './handlers/commandHandler'
 import { handleConversational } from './handlers/conversationalHandler'
 import type {
   ActionOutcome,
@@ -10,6 +14,7 @@ import type {
   ConversationEntry,
   InputClassification,
   LoreDocument,
+  RetrievalContextDocument,
 } from '../../shared/types'
 
 function inferStatusFromMessage(message: string): 'succeeded' | 'failed' {
@@ -176,6 +181,8 @@ export interface ExecuteClassificationActionParams {
   readonly originalUserMessage: string
   /** When greater than 1, each save uses only {@link actionInput} as the stored body. */
   readonly totalActionsInTurn?: number
+  /** Hydrated previews from the previous turn’s retrieval; not persisted in chat history. */
+  readonly priorTurnRetrievedContextBlock?: string | null
 }
 
 /**
@@ -194,7 +201,13 @@ export async function* executeClassificationAction(
     userInstructionsBlock,
     originalUserMessage,
     totalActionsInTurn = 1,
+    priorTurnRetrievedContextBlock = null,
   } = params
+
+  const historyForLanguageModel = augmentConversationHistoryWithPriorTurnContext(
+    conversationHistory,
+    priorTurnRetrievedContextBlock,
+  )
 
   let chunkContent = ''
   let hadError = false
@@ -206,19 +219,25 @@ export async function* executeClassificationAction(
   let deletedDocumentCount = 0
   let sawDuplicateEvent = false
   let explicitHandlerSummary = ''
+  let retrievedDocumentsForComposer: readonly RetrievalContextDocument[] = []
 
   try {
     const handler = selectHandler(action, totalActionsInTurn)
     for await (const event of handler(
       actionInput,
       action,
-      [...conversationHistory],
+      historyForLanguageModel,
       userInstructionDocuments,
       userInstructionsBlock,
       originalUserMessage,
     )) {
       if (event.type === 'turn_step_summary') {
         explicitHandlerSummary = event.summary
+        continue
+      }
+
+      if (event.type === 'read_retrieval_context') {
+        retrievedDocumentsForComposer = event.documents
         continue
       }
 
@@ -283,6 +302,11 @@ export async function* executeClassificationAction(
   const duplicateSaveClarificationPending =
     action.intent === 'save' && sawDuplicateEvent && !hadStored && !hadError
 
+  const commandTargetClarificationPending =
+    (action.intent === 'delete' || action.intent === 'edit')
+    && !hadError
+    && explicitHandlerSummary.trim() === COMMAND_AMBIGUOUS_TARGETS_TURN_STEP_SUMMARY
+
   return {
     intent: action.intent,
     saveDocumentType: action.intent === 'save' ? action.saveDocumentType : null,
@@ -291,8 +315,10 @@ export async function* executeClassificationAction(
     message,
     handlerResultSummary,
     duplicateSaveClarificationPending,
+    commandTargetClarificationPending,
     storedDocumentIds,
     retrievedDocumentIds,
     deletedDocumentCount,
+    retrievedDocumentsForComposer,
   }
 }

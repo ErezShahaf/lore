@@ -1,6 +1,10 @@
 import { logger } from '../logger'
 import { clearPendingCommandClarification } from './commandClarificationState'
 import { clearPendingDuplicateSaveClarification } from './duplicateSaveClarificationState'
+import {
+  buildPriorTurnRetrievedContextBlock,
+  dedupeDocumentIdsPreservingOrder,
+} from './priorTurnContextService'
 import { runMultiActionTurn } from './multiActionOrchestrator'
 import {
   PIPELINE_TRACE_SCHEMA_VERSION,
@@ -13,12 +17,15 @@ import {
 interface SessionContext {
   history: ConversationEntry[]
   lastDocumentIds: string[]
+  /** Document ids from `retrieved` events in the last completed turn; used to hydrate prior-turn LLM context. */
+  lastTurnRetrievedDocumentIds: string[]
   lastPipelineTrace: PipelineTracePayload | null
 }
 
 let session: SessionContext = {
   history: [],
   lastDocumentIds: [],
+  lastTurnRetrievedDocumentIds: [],
   lastPipelineTrace: null,
 }
 
@@ -28,6 +35,7 @@ export function clearConversation(): void {
   session = {
     history: [],
     lastDocumentIds: [],
+    lastTurnRetrievedDocumentIds: [],
     lastPipelineTrace: null,
   }
 }
@@ -44,6 +52,10 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
   const priorHistory = session.history.slice()
   session.history.push({ role: 'user', content: userInput })
 
+  const priorTurnRetrievedContextBlock = await buildPriorTurnRetrievedContextBlock(
+    session.lastTurnRetrievedDocumentIds,
+  )
+
   const traceSink: MutablePipelineTraceSink = {
     traceSchemaVersion: PIPELINE_TRACE_SCHEMA_VERSION,
     stages: [],
@@ -52,14 +64,21 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
 
   let assistantResponse = ''
   const documentIds: string[] = []
+  const retrievedDocumentIdsThisTurn: string[] = []
 
   try {
-    for await (const event of runMultiActionTurn(userInput, priorHistory, traceSink)) {
+    for await (const event of runMultiActionTurn(
+      userInput,
+      priorHistory,
+      traceSink,
+      priorTurnRetrievedContextBlock,
+    )) {
       if (event.type === 'chunk') {
         assistantResponse += event.content
       }
       if (event.type === 'retrieved') {
         documentIds.push(...event.documentIds)
+        retrievedDocumentIdsThisTurn.push(...event.documentIds)
       }
       if (event.type === 'stored') {
         documentIds.push(event.documentId)
@@ -90,4 +109,5 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
   }
 
   session.lastDocumentIds = documentIds
+  session.lastTurnRetrievedDocumentIds = dedupeDocumentIdsPreservingOrder(retrievedDocumentIdsThisTurn)
 }

@@ -30,6 +30,7 @@ import type {
   ClassificationForHandler,
   AgentEvent,
   LoreDocument,
+  RetrievalContextDocument,
   RetrievalOptions,
   ScoredDocument,
 } from '../../../shared/types'
@@ -41,6 +42,18 @@ const MAX_TODO_DOCUMENTS_FOR_CONVERSATIONAL_INSTRUCTIONS = 6
 
 const RECENT_CONVERSATION_QUERY_TAIL_MAX_CHARS = 2500
 const RECENT_CONVERSATION_TURNS_FOR_RETRIEVAL_QUERY = 4
+
+function mapScoredDocumentsToRetrievalContext(
+  documents: readonly ScoredDocument[],
+): readonly RetrievalContextDocument[] {
+  return documents.map((document) => ({
+    id: document.id,
+    content: document.content,
+    type: document.type,
+    date: document.date,
+    tags: document.tags,
+  }))
+}
 
 function narrowDocumentsForQuestionFollowUp(
   followUpInput: string,
@@ -126,6 +139,11 @@ async function* answerQuestionFromRetrievedCandidateNotes(
     cutoffScore: documents.length > 0 ? documents[documents.length - 1].score : 1,
   }
 
+  yield {
+    type: 'read_retrieval_context',
+    documents: mapScoredDocumentsToRetrievalContext(documents),
+  }
+
   const directStructuredResolution = resolveDirectStructuredReply(
     userInput,
     documents,
@@ -175,6 +193,7 @@ async function* answerQuestionFromRetrievedCandidateNotes(
         preview: document.content.slice(0, 220),
       })),
       userInstructionsBlock,
+      recentConversation: conversationContext,
     })
 
     if (strategy.mode === 'ask_clarification' && strategy.clarificationMessage) {
@@ -212,6 +231,7 @@ async function* answerQuestionFromRetrievedCandidateNotes(
     context: contextBlock,
     instructions: '(none)',
     userInput,
+    situationSummary: classification.situationSummary,
     shouldMentionDates,
     shouldMentionTags,
     documents,
@@ -395,6 +415,18 @@ export async function* handleQuestion(
       const response = `${greetingPrefix}Here are your todos from newest to oldest:\n\n${formattedTodos.join('\n')}`
 
       yield {
+        type: 'retrieved',
+        documentIds: sortedTodos.map((document) => document.id),
+        totalRetrieved: sortedTodos.length,
+        totalCandidates: todoResult.totalCandidates,
+        cutoffScore: sortedTodos.length > 0 ? sortedTodos[sortedTodos.length - 1].score : 1,
+      }
+      yield {
+        type: 'read_retrieval_context',
+        documents: mapScoredDocumentsToRetrievalContext(sortedTodos),
+      }
+
+      yield {
         type: 'turn_step_summary',
         summary: `Read: listed ${sortedTodos.length} todo(s) deterministically from storage (instruction-driven shortcut).`,
       }
@@ -487,6 +519,11 @@ export async function* handleQuestion(
     cutoffScore: documents.length > 0 ? documents[documents.length - 1].score : fallbackResult.cutoffScore,
   }
 
+  yield {
+    type: 'read_retrieval_context',
+    documents: mapScoredDocumentsToRetrievalContext(documents),
+  }
+
   const directStructuredResolution = resolveDirectStructuredReply(
     userInput,
     sortedFallbackDocuments,
@@ -534,6 +571,7 @@ export async function* handleQuestion(
       preview: document.content.slice(0, 220),
     })),
     userInstructionsBlock,
+    recentConversation: conversationContext,
   })
 
   if (strategy.mode === 'ask_clarification' && strategy.clarificationMessage) {
@@ -570,6 +608,7 @@ export async function* handleQuestion(
     context: contextBlock,
     instructions: '(none)',
     userInput,
+    situationSummary: classification.situationSummary,
     shouldMentionDates,
     shouldMentionTags,
     documents,
@@ -890,6 +929,7 @@ interface RagPromptInput {
   readonly context: string
   readonly instructions: string
   readonly userInput: string
+  readonly situationSummary: string
   readonly shouldMentionDates: boolean
   readonly shouldMentionTags: boolean
   readonly documents: readonly ScoredDocument[]
@@ -903,6 +943,7 @@ function buildRagPrompt({
   context,
   instructions,
   userInput,
+  situationSummary,
   shouldMentionDates,
   shouldMentionTags,
   documents,
@@ -917,6 +958,13 @@ function buildRagPrompt({
     `Tag policy: ${shouldMentionTags ? 'Mention relevant tags if they are needed to answer the question.' : 'Do not mention tags unless the user explicitly asked for them or a preference requires it.'}`,
     'Relevance: Several notes may appear below. Use only material from notes that genuinely answer the user’s question. Completely omit unrelated notes—do not quote them, summarize them, name them, or say that extra unrelated notes were retrieved.',
   ]
+
+  const trimmedSituationSummary = situationSummary.trim()
+  if (trimmedSituationSummary !== '') {
+    parts.push(
+      `Classifier situation summary (use only to judge presentation and user goal; every factual claim must still come from retrieved notes): ${trimmedSituationSummary}`,
+    )
+  }
 
   if (hasStructuredContent) {
     parts.push(
