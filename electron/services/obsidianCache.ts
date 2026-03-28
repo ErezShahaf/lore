@@ -20,6 +20,10 @@ function getCacheFilePath(): string {
   return join(app.getPath('userData'), 'obsidian-cache.json')
 }
 
+function ensureCacheLoaded(): void {
+  if (!cacheLoaded) loadCache()
+}
+
 export function loadCache(): void {
   if (cacheLoaded) return
 
@@ -27,7 +31,8 @@ export function loadCache(): void {
   if (existsSync(path)) {
     try {
       const data = readFileSync(path, 'utf-8')
-      cacheState = JSON.parse(data)
+      const parsed = JSON.parse(data)
+      cacheState = parsed && typeof parsed === 'object' ? parsed as Record<string, VaultCache> : {}
     } catch (err) {
       logger.error({ err, path }, '[ObsidianCache] Failed to load cache from disk')
       cacheState = {}
@@ -39,6 +44,7 @@ export function loadCache(): void {
 }
 
 export function saveCache(): void {
+  ensureCacheLoaded()
   const path = getCacheFilePath()
   try {
     writeFileSync(path, JSON.stringify(cacheState, null, 2), 'utf-8')
@@ -48,11 +54,15 @@ export function saveCache(): void {
 }
 
 export function getVaultCache(vaultId: string): VaultCache {
-  if (!cacheLoaded) loadCache()
-  return cacheState[vaultId] || {}
+  ensureCacheLoaded()
+  if (!cacheState[vaultId]) {
+    cacheState[vaultId] = {}
+  }
+  return cacheState[vaultId]
 }
 
 export function updateFileCache(vaultId: string, filePath: string, entry: CacheEntry): void {
+  ensureCacheLoaded()
   if (!cacheState[vaultId]) {
     cacheState[vaultId] = {}
   }
@@ -60,12 +70,14 @@ export function updateFileCache(vaultId: string, filePath: string, entry: CacheE
 }
 
 export function removeFileCache(vaultId: string, filePath: string): void {
+  ensureCacheLoaded()
   if (cacheState[vaultId]) {
     delete cacheState[vaultId][filePath]
   }
 }
 
 export function removeVaultCache(vaultId: string): void {
+  ensureCacheLoaded()
   delete cacheState[vaultId]
   saveCache()
 }

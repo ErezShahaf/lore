@@ -20,8 +20,19 @@ const MAX_CONTEXT_DOCS = 25
 const DUPLICATE_THRESHOLD = 0.92
 const MAX_SCORE_DEGRADATION_RATIO = 0.15 // If score decays more than 15% from the top score, drop it
 const MINIMUM_RELEVANCE_SCORE = 0.3
+const MIN_VECTOR_CANDIDATES = MAX_CONTEXT_DOCS * 4
+const DEFAULT_VECTOR_CANDIDATES = 300
 
 const TAG_BOOST_FACTOR = 0.2
+
+function resolveVectorCandidateLimit(options?: RetrievalOptions): number {
+  const requested = options?.maxResults
+  if (typeof requested === 'number' && Number.isFinite(requested) && requested > 0) {
+    return Math.max(Math.floor(requested), MIN_VECTOR_CANDIDATES)
+  }
+
+  return DEFAULT_VECTOR_CANDIDATES
+}
 
 function buildFilter(options?: RetrievalOptions): string | undefined {
   const parts: string[] = []
@@ -80,8 +91,8 @@ export async function storeThought(input: StoreThoughtInput): Promise<LoreDocume
     updatedAt: now,
     date: input.date,
     tags: input.tags.join(','),
-    source: input.originalInput,
-    metadata: '{}',
+    source: 'lore',
+    metadata: JSON.stringify({ originalInput: input.originalInput }),
     isDeleted: false,
   }
 
@@ -106,8 +117,8 @@ export async function storeThoughtWithMetadata(
     updatedAt: now,
     date: input.date,
     tags: input.tags.join(','),
-    source: input.originalInput,
-    metadata: JSON.stringify(metadata),
+    source: 'lore',
+    metadata: JSON.stringify({ ...metadata, originalInput: input.originalInput }),
     isDeleted: false,
   }
 
@@ -172,8 +183,9 @@ export async function retrieveWithAdaptiveThreshold(
 ): Promise<RetrievedDocumentSet> {
   const queryVector = await embedText(query)
   const filter = buildFilter(options)
+  const candidateLimit = resolveVectorCandidateLimit(options)
 
-  const rawResults = await searchSimilar(queryVector, 1000, filter)
+  const rawResults = await searchSimilar(queryVector, candidateLimit, filter)
 
   const scored: ScoredDocument[] = rawResults.map((doc) => {
     const distance = '_distance' in doc
@@ -187,7 +199,7 @@ export async function retrieveWithAdaptiveThreshold(
 
   if (boosted.length > 0) {
     logger.debug(
-      { scores: boosted.map((d) => `${d.score.toFixed(3)}${d.tags ? ` [${d.tags}]` : ''}`) },
+      { scores: boosted.slice(0, 10).map((d) => `${d.score.toFixed(3)}${d.tags ? ` [${d.tags}]` : ''}`) },
       '[retrieval] top scores',
     )
   }
@@ -263,11 +275,12 @@ export async function multiQueryRetrieve(
   options?: RetrievalOptions,
 ): Promise<RetrievedDocumentSet> {
   const filter = buildFilter(options)
+  const candidateLimit = resolveVectorCandidateLimit(options)
 
   const queryVectors = await Promise.all(queries.map((q) => embedText(q)))
 
   const allResults = await Promise.all(
-    queryVectors.map((vec) => searchSimilar(vec, 1000, filter)),
+    queryVectors.map((vec) => searchSimilar(vec, candidateLimit, filter)),
   )
 
   const bestById = new Map<string, ScoredDocument>()
@@ -290,7 +303,7 @@ export async function multiQueryRetrieve(
 
   if (scored.length > 0) {
     logger.debug(
-      { queryCount: queries.length, uniqueDocs: scored.length, scores: scored.map((d) => d.score.toFixed(3)) },
+      { queryCount: queries.length, uniqueDocs: scored.length, scores: scored.slice(0, 10).map((d) => d.score.toFixed(3)) },
       '[multi-query] unique docs',
     )
   }

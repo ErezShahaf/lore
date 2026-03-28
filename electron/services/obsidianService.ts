@@ -25,13 +25,48 @@ import type {
 
 const CHUNK_TOKEN_LIMIT = 500
 const CHUNK_OVERLAP_TOKENS = 100
-const FRONTMATTER_REGEX = /^---\n([\s\S]*?)\n---/
+const FRONTMATTER_REGEX = /^---\r?\n([\s\S]*?)\r?\n---/
 const TEMPLATE_FIELD_REGEX = /\{\{([^}]+)\}\}/g
 
 // ── Watcher state ─────────────────────────────────────────────
 
 const watchers = new Map<string, ReturnType<typeof watch>>()
 const syncStatuses = new Map<string, ObsidianSyncStatus>()
+const vaultTaskChain = new Map<string, Promise<unknown>>()
+const activeSyncs = new Map<string, Promise<ObsidianSyncStatus>>()
+
+function normalizeVaultRelativePath(path: string): string {
+  return path.replace(/\\/g, '/')
+}
+
+function isMarkdownFilePath(path: string): boolean {
+  return extname(path).toLowerCase() === '.md'
+}
+
+function isInsideVaultFolder(relativePath: string, folderPath: string): boolean {
+  const normalizedFolder = normalizeVaultRelativePath(folderPath).replace(/\/+$/, '')
+  if (!normalizedFolder) return false
+
+  const normalizedRelative = normalizeVaultRelativePath(relativePath)
+  return normalizedRelative === normalizedFolder || normalizedRelative.startsWith(`${normalizedFolder}/`)
+}
+
+function enqueueVaultTask<T>(vaultId: string, task: () => Promise<T>): Promise<T> {
+  const previous = vaultTaskChain.get(vaultId) ?? Promise.resolve()
+
+  const run = previous
+    .catch(() => undefined)
+    .then(task)
+
+  const tracked = run.finally(() => {
+    if (vaultTaskChain.get(vaultId) === tracked) {
+      vaultTaskChain.delete(vaultId)
+    }
+  })
+
+  vaultTaskChain.set(vaultId, tracked)
+  return run
+}
 
 // ── Public status API ─────────────────────────────────────────
 
@@ -178,12 +213,12 @@ function discoverMarkdownFiles(
           // Skip template folder during indexing
           if (templateFolder) {
             const rel = relative(directory, fullPath)
-            if (rel === templateFolder || rel.startsWith(templateFolder + '/')) {
+            if (isInsideVaultFolder(rel, templateFolder)) {
               continue
             }
           }
           walk(fullPath)
-        } else if (extname(entry) === '.md') {
+        } else if (isMarkdownFilePath(entry)) {
           results.push(fullPath)
         }
       } catch {
@@ -315,7 +350,7 @@ async function indexFile(
 
 // ── Sync a single vault ───────────────────────────────────────
 
-export async function syncVault(
+async function syncVaultInternal(
   config: ObsidianVaultConfig,
   onProgress?: (status: ObsidianSyncStatus) => void,
 ): Promise<ObsidianSyncStatus> {
@@ -414,7 +449,7 @@ export async function syncVault(
     for (const relPath of knownFilePaths) {
       if (!seenFiles.has(relPath)) {
         await deleteFileDocuments(config.id, relPath)
-        delete vaultCache[relPath]
+        removeFileCache(config.id, relPath)
         deletedCount++
       }
     }
@@ -447,6 +482,27 @@ export async function syncVault(
   return status
 }
 
+export async function syncVault(
+  config: ObsidianVaultConfig,
+  onProgress?: (status: ObsidianSyncStatus) => void,
+): Promise<ObsidianSyncStatus> {
+  const active = activeSyncs.get(config.id)
+  if (active) {
+    const currentStatus = syncStatuses.get(config.id)
+    if (currentStatus) onProgress?.(currentStatus)
+    return active
+  }
+
+  const run = enqueueVaultTask(config.id, () => syncVaultInternal(config, onProgress))
+  const tracked = run.finally(() => {
+    if (activeSyncs.get(config.id) === tracked) {
+      activeSyncs.delete(config.id)
+    }
+  })
+  activeSyncs.set(config.id, tracked)
+  return tracked
+}
+
 // ── Sync all vaults ───────────────────────────────────────────
 
 export async function syncAllVaults(
@@ -465,14 +521,18 @@ export async function syncAllVaults(
 
 // ── Upsert a single file (incremental) ───────────────────────
 
-export async function upsertVaultFile(
+async function upsertVaultFileInternal(
   config: ObsidianVaultConfig,
   filePath: string,
 ): Promise<void> {
+  if (!isMarkdownFilePath(filePath)) {
+    return
+  }
+
   const relPath = relative(config.vaultPath, filePath)
 
   // Skip template folder files
-  if (config.templateFolder && relPath.startsWith(config.templateFolder)) {
+  if (config.templateFolder && isInsideVaultFolder(relPath, config.templateFolder)) {
     return
   }
 
@@ -490,14 +550,23 @@ export async function upsertVaultFile(
       
       const result = await indexFile(config, filePath, rawContent, stat)
       updateFileCache(config.id, relPath, { mtimeMs: stat.mtimeMs, size: stat.size, hash: fileHash })
+      saveCache()
       logger.debug({ filePath: relPath, chunks: result.chunksCreated }, '[Obsidian] Upserted file')
     } catch (err) {
       logger.error({ err, filePath }, '[Obsidian] Failed to upsert file')
     }
   } else {
     removeFileCache(config.id, relPath)
+    saveCache()
     logger.debug({ filePath: relPath }, '[Obsidian] Removed deleted file from index')
   }
+}
+
+export async function upsertVaultFile(
+  config: ObsidianVaultConfig,
+  filePath: string,
+): Promise<void> {
+  await enqueueVaultTask(config.id, () => upsertVaultFileInternal(config, filePath))
 }
 
 // ── File watchers ─────────────────────────────────────────────
@@ -515,7 +584,7 @@ export function startWatcher(config: ObsidianVaultConfig): void {
     const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
     const watcher = watch(config.vaultPath, { recursive: true }, (eventType: string, filename: string | null) => {
-      if (!filename || !filename.endsWith('.md')) return
+      if (!filename || !isMarkdownFilePath(filename)) return
 
       const fullPath = join(config.vaultPath, filename)
 
@@ -576,7 +645,7 @@ export function listTemplates(config: ObsidianVaultConfig): ObsidianTemplate[] {
   }
 
   for (const entry of entries) {
-    if (!entry.endsWith('.md')) continue
+    if (!isMarkdownFilePath(entry)) continue
 
     const fullPath = join(templateDir, entry)
     try {
@@ -613,10 +682,12 @@ export function listTemplates(config: ObsidianVaultConfig): ObsidianTemplate[] {
 // ── Remove all data for a vault ───────────────────────────────
 
 export async function removeVaultData(vaultId: string): Promise<void> {
-  stopWatcher(vaultId)
-  syncStatuses.delete(vaultId)
-  const deleted = await deleteVaultDocuments(vaultId)
-  removeVaultCache(vaultId)
-  invalidateTagRegistry()
-  logger.info({ vaultId, deletedDocs: deleted }, '[Obsidian] Removed vault data')
+  await enqueueVaultTask(vaultId, async () => {
+    stopWatcher(vaultId)
+    syncStatuses.delete(vaultId)
+    const deleted = await deleteVaultDocuments(vaultId)
+    removeVaultCache(vaultId)
+    invalidateTagRegistry()
+    logger.info({ vaultId, deletedDocs: deleted }, '[Obsidian] Removed vault data')
+  })
 }

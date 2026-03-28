@@ -3,6 +3,7 @@ import { join, basename } from 'path'
 import { logger } from '../logger'
 import { generateStructuredResponse } from './ollamaService'
 import { getSettings } from './settingsService'
+import { loadSkill } from './skillLoader'
 import { getTagsForContext, addTags } from './tagRegistry'
 import { parseFrontmatter, listTemplates } from './obsidianService'
 import type {
@@ -70,6 +71,24 @@ const NOTE_GENERATION_SCHEMA = {
   additionalProperties: false,
 }
 
+const OBSIDIAN_NOTE_GENERATION_SKILL = 'obsidian-note-generation'
+
+const DEFAULT_NOTE_CREATION_SYSTEM_PROMPT = [
+  'You are a note-creation assistant for an Obsidian vault.',
+  'Your job is to generate well-structured Obsidian markdown notes.',
+  '',
+  'Rules:',
+  '- Produce a JSON object with "title", "frontmatter", and "body" fields.',
+  '- The "title" should be a clear, descriptive file name (no file extension).',
+  '- The "frontmatter" must be a flat object with string values or string arrays.',
+  '- The "body" should be proper Obsidian-flavored markdown.',
+  '- When tags are provided in the existing tag pool, REUSE them wherever appropriate.',
+  '- Only introduce a NEW tag if no existing tag adequately describes the concept.',
+  '- Fill ALL template fields with sensible content based on the user\'s intent.',
+  '- Do NOT leave any {{placeholder}} tokens unfilled.',
+  '- Use markdown headers, bullet points, and formatting as appropriate.',
+].join('\n')
+
 export async function generateNoteContent(
   userIntent: string,
   template: ObsidianTemplate | null,
@@ -95,21 +114,16 @@ export async function generateNoteContent(
 }
 
 function buildNoteCreationSystemPrompt(): string {
-  return [
-    'You are a note-creation assistant for an Obsidian vault.',
-    'Your job is to generate well-structured Obsidian markdown notes.',
-    '',
-    'Rules:',
-    '- Produce a JSON object with "title", "frontmatter", and "body" fields.',
-    '- The "title" should be a clear, descriptive file name (no file extension).',
-    '- The "frontmatter" must be a flat object with string values or string arrays.',
-    '- The "body" should be proper Obsidian-flavored markdown.',
-    '- When tags are provided in the existing tag pool, REUSE them wherever appropriate.',
-    '- Only introduce a NEW tag if no existing tag adequately describes the concept.',
-    '- Fill ALL template fields with sensible content based on the user\'s intent.',
-    '- Do NOT leave any {{placeholder}} tokens unfilled.',
-    '- Use markdown headers, bullet points, and formatting as appropriate.',
-  ].join('\n')
+  try {
+    const loaded = loadSkill(OBSIDIAN_NOTE_GENERATION_SKILL).trim()
+    if (loaded.length > 0) {
+      return loaded
+    }
+  } catch (err) {
+    logger.warn({ err }, '[Obsidian] Failed to load obsidian note generation skill, using fallback prompt')
+  }
+
+  return DEFAULT_NOTE_CREATION_SYSTEM_PROMPT
 }
 
 function buildNoteCreationUserPrompt(

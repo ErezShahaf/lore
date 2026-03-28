@@ -561,6 +561,7 @@ export function registerIpcHandlers(): void {
       logger.error({ err, vaultId }, '[Obsidian] Sync failed')
     })
 
+    return { success: true }
   })
 
   ipcMain.handle('obsidian:wipe-and-resync', async (_event, args: unknown) => {

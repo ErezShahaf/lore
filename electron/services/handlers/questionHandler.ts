@@ -23,6 +23,8 @@ import type {
 } from '../../../shared/types'
 
 const EMPTY_RESULT_RESPONSE = "I don't have any data about that topic."
+const DEFAULT_QUESTION_SKILL = 'question'
+const OBSIDIAN_QUESTION_SKILL = 'question-obsidian'
 
 export async function* handleQuestion(
   userInput: string,
@@ -37,6 +39,7 @@ export async function* handleQuestion(
   const retrievalOpts = buildRetrievalOptions(userInput, classification, retrievalOverrides)
   const shouldUseMetadataOnlyRetrieval = looksLikeStructuralRetrievalQuery(userInput)
     && (retrievalOpts.type !== undefined
+      || retrievalOpts.sources !== undefined
       || retrievalOpts.createdAtFrom !== undefined
       || retrievalOpts.dateFrom !== undefined)
 
@@ -72,7 +75,7 @@ export async function* handleQuestion(
     shouldMentionTags,
     documents,
   })
-  const ragSystemPrompt = loadSkill('question')
+  const ragSystemPrompt = resolveQuestionSystemPrompt(retrievalOpts, documents)
 
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     { role: 'system', content: ragSystemPrompt },
@@ -145,6 +148,7 @@ function buildRetrievalOptions(
   retrievalOverrides?: RetrievalOptions,
 ): RetrievalOptions {
   const retrievalOptions: RetrievalOptions = { ...retrievalOverrides }
+  const lowerInput = userInput.toLowerCase()
   const dateRange = resolveDateRange(userInput, classification)
 
   if (dateRange) {
@@ -164,7 +168,42 @@ function buildRetrievalOptions(
     retrievalOptions.tags = classification.extractedTags
   }
 
+  if (!retrievalOptions.sources || retrievalOptions.sources.length === 0) {
+    if (/\b(obsidian|vault)\b/.test(lowerInput)) {
+      retrievalOptions.sources = ['obsidian']
+    } else if (/\b(lore|local database|saved here|in this app)\b/.test(lowerInput)) {
+      retrievalOptions.sources = ['lore']
+    }
+  }
+
+  if (retrievalOptions.sources?.length === 1
+    && retrievalOptions.sources[0] === 'obsidian'
+    && retrievalOptions.type === undefined) {
+    retrievalOptions.type = 'obsidian-note'
+  }
+
   return retrievalOptions
+}
+
+function resolveQuestionSystemPrompt(
+  retrievalOptions: RetrievalOptions,
+  documents: readonly ScoredDocument[],
+): string {
+  const filteredToObsidian = retrievalOptions.sources?.length === 1
+    && retrievalOptions.sources[0] === 'obsidian'
+  const allDocsFromObsidian = documents.length > 0
+    && documents.every((doc) => doc.source === 'obsidian')
+
+  if (!filteredToObsidian && !allDocsFromObsidian) {
+    return loadSkill(DEFAULT_QUESTION_SKILL)
+  }
+
+  try {
+    return loadSkill(OBSIDIAN_QUESTION_SKILL)
+  } catch (err) {
+    logger.warn({ err }, '[question] Obsidian skill missing, falling back to default question skill')
+    return loadSkill(DEFAULT_QUESTION_SKILL)
+  }
 }
 
 function formatRetrievedDocuments(docs: ScoredDocument[]): string {
