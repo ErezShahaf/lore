@@ -10,8 +10,8 @@ export interface ThoughtDocument {
 
 // ── Vector database types ─────────────────────────────────────
 
-export type DocumentType = 'thought' | 'todo' | 'instruction' | 'meeting' | 'note'
-export type DecomposedDocumentType = Exclude<DocumentType, 'instruction'>
+export type DocumentType = 'thought' | 'todo' | 'instruction' | 'meeting' | 'note' | 'obsidian-note'
+export type DecomposedDocumentType = Exclude<DocumentType, 'instruction' | 'obsidian-note'>
 
 export interface LoreDocument {
   id: string
@@ -45,6 +45,8 @@ export interface RetrievedDocumentSet {
   cutoffScore: number
 }
 
+export type DocumentSource = 'lore' | 'obsidian'
+
 export interface RetrievalOptions {
   ids?: string[]
   type?: DocumentType
@@ -53,6 +55,7 @@ export interface RetrievalOptions {
   createdAtFrom?: string
   createdAtTo?: string
   tags?: string[]
+  sources?: DocumentSource[]
   maxResults?: number
   similarityThreshold?: number
 }
@@ -87,6 +90,10 @@ export interface AppSettings {
   ollamaPath: string
   ollamaModelsPath: string
   ollamaSetupComplete: boolean
+  // ── Obsidian integration ───────────────────────────────────
+  obsidianVaults: ObsidianVaultConfig[]
+  obsidianAutoSync: boolean
+  obsidianSyncIntervalMinutes: number
 }
 
 export interface DisplayInfo {
@@ -159,7 +166,7 @@ export interface SaveDecompositionResult {
 
 // ── Agent classification & routing ───────────────────────────
 
-export type ThoughtSubtype = 'general'
+export type ThoughtSubtype = 'general' | 'obsidian-create'
 export type QuestionSubtype = 'general'
 export type CommandSubtype = 'delete' | 'update' | 'reorder'
 export type InstructionSubtype = 'general'
@@ -253,4 +260,50 @@ export interface RecommendedModel {
   description: string
   gpuRecommended: boolean
   variants: ModelVariant[]
+}
+
+// ── Obsidian integration types ────────────────────────────────
+
+export interface ObsidianVaultConfig {
+  id: string
+  name: string
+  vaultPath: string
+  templateFolder: string
+  noteDestination: string
+  enabled: boolean
+  lastSyncedAt: string | null
+}
+
+export interface ObsidianSyncStatus {
+  vaultId: string
+  vaultName: string
+  phase: 'idle' | 'scanning' | 'embedding' | 'done' | 'error'
+  filesProcessed: number
+  totalFiles: number
+  notesIndexed: number
+  lastError: string | null
+}
+
+export interface ObsidianTemplate {
+  vaultId: string
+  name: string
+  fileName: string
+  rawContent: string
+  fields: string[]
+  frontmatterKeys: string[]
+}
+
+export interface ObsidianNoteCreationRequest {
+  vaultId: string
+  templateName?: string
+  userIntent: string
+  suggestedTitle?: string
+}
+
+export interface ObsidianNoteCreationResult {
+  filePath: string
+  title: string
+  vaultName: string
+  templateUsed: string | null
+  tagsApplied: string[]
 }

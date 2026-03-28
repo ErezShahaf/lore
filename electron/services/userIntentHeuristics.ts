@@ -132,3 +132,9 @@ export function looksLikeAmbiguousDocumentReference(userInput: string): boolean 
   const hasDisambiguatingLanguage = /\b(all|both|either|any|first|second|third|last|previous)\b/i.test(userInput)
   return !hasDisambiguatingLanguage
 }
+
+const OBSIDIAN_CREATE_PATTERN = /\b(create|write|save|add|make)\s+(?:an?\s+)?(?:obsidian|vault)\s*(?:note|file|document|page)?|(?:note|file|page)\s+(?:in|to)\s+(?:my\s+)?(?:obsidian|vault)|(?:save|write|add)\s+(?:this|that|it)?\s*(?:to|in)\s+(?:my\s+)?(?:obsidian|vault)/i
+
+export function looksLikeObsidianCreateRequest(userInput: string): boolean {
+  return OBSIDIAN_CREATE_PATTERN.test(userInput)
+}

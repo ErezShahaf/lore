@@ -12,6 +12,8 @@ import { startHealthCheck, stopHealthCheck, preloadModels } from './services/oll
 import { bootstrapOllama, stopOllama, isOllamaSetupNeeded } from './services/ollamaBootstrap'
 import { initialize as initLanceDB, cleanupOldDeleted, compactTable } from './services/lanceService'
 import { applyAutoStart } from './services/autoStartService'
+import { syncAllVaults, startWatcher, stopAllWatchers } from './services/obsidianService'
+import { buildRegistry as buildTagRegistry } from './services/tagRegistry'
 
 function logErrorToFile(label: string, err: unknown): void {
   try {
@@ -114,6 +116,34 @@ if (!gotLock) {
         .catch((err) => {
           logger.error({ err }, '[Lore] Ollama bootstrap error')
         })
+
+      // ── Obsidian integration bootstrap ──────────────────────────
+      const obsidianVaults = settings.obsidianVaults ?? []
+      const enabledVaults = obsidianVaults.filter(v => v.enabled)
+
+      if (enabledVaults.length > 0) {
+        // Build tag registry from existing data
+        buildTagRegistry().catch((err) => {
+          logger.error({ err }, '[Lore] Failed to build tag registry')
+        })
+
+        // Start file watchers for enabled vaults
+        for (const vault of enabledVaults) {
+          startWatcher(vault)
+        }
+
+        // Run initial sync if auto-sync is enabled
+        if (settings.obsidianAutoSync) {
+          syncAllVaults(enabledVaults).catch((err) => {
+            logger.error({ err }, '[Lore] Obsidian auto-sync failed')
+          })
+        }
+
+        logger.info({ vaultCount: enabledVaults.length }, '[Lore] Obsidian integration started')
+      } else {
+        // Still build tag registry for Lore-native tags
+        buildTagRegistry().catch(() => {})
+      }
     }
   })
 
@@ -137,6 +167,7 @@ if (!gotLock) {
     unregisterShortcuts()
     destroyTray()
     stopHealthCheck()
+    stopAllWatchers()
     stopOllama()
       .then(() => app.quit())
       .catch((err) => {

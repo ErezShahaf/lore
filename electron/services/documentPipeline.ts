@@ -16,8 +16,9 @@ import type {
 } from '../../shared/types'
 
 const DEFAULT_MAX_RESULTS = 1000
+const MAX_CONTEXT_DOCS = 25
 const DUPLICATE_THRESHOLD = 0.92
-const RELEVANCE_CLIFF_RATIO = 0.3
+const MAX_SCORE_DEGRADATION_RATIO = 0.15 // If score decays more than 15% from the top score, drop it
 const MINIMUM_RELEVANCE_SCORE = 0.3
 
 const TAG_BOOST_FACTOR = 0.2
@@ -42,6 +43,10 @@ function buildFilter(options?: RetrievalOptions): string | undefined {
   }
   if (options?.createdAtTo) {
     parts.push(`createdAt < '${escapeFilterValue(options.createdAtTo)}'`)
+  }
+  if (options?.sources && options.sources.length > 0) {
+    const sourceConditions = options.sources.map((s) => `source = '${escapeFilterValue(s)}'`)
+    parts.push(`(${sourceConditions.join(' OR ')})`)
   }
   return parts.length > 0 ? parts.join(' AND ') : undefined
 }
@@ -232,16 +237,18 @@ function applyRelevanceCliff(results: ScoredDocument[]): ScoredDocument[] {
   if (results[0].score < MINIMUM_RELEVANCE_SCORE) return []
 
   const kept: ScoredDocument[] = [results[0]]
+  const topScore = results[0].score
 
   for (let i = 1; i < results.length; i++) {
+    if (kept.length >= MAX_CONTEXT_DOCS) break
     if (results[i].score < MINIMUM_RELEVANCE_SCORE) break
 
-    const gap = results[i - 1].score - results[i].score
-    const relativeGap = results[i - 1].score > 0
-      ? gap / results[i - 1].score
-      : gap
+    // Calculate how much the score has degraded from the BEST match
+    const degradation = topScore - results[i].score
+    const relativeDegradation = topScore > 0 ? degradation / topScore : degradation
 
-    if (relativeGap > RELEVANCE_CLIFF_RATIO) break
+    // If it degraded by more than the allowed ratio compared to the top match, cut off here
+    if (relativeDegradation > MAX_SCORE_DEGRADATION_RATIO) break
 
     kept.push(results[i])
   }

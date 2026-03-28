@@ -178,8 +178,24 @@ function formatRetrievedDocuments(docs: ScoredDocument[]): string {
       `tags: ${document.tags || '(none)'}`,
     ]
 
+    // Add Obsidian source attribution if the document came from a vault
+    let sourceLabel = ''
+    if (document.source === 'obsidian') {
+      try {
+        const meta = JSON.parse(document.metadata)
+        const vaultName = meta?.vaultName || 'Vault'
+        const fileName = meta?.fileName || 'Unknown'
+        sourceLabel = ` [\ud83d\udcd3 Obsidian \u2014 "${fileName}" (${vaultName})]`
+        metadataLines.push(`source: obsidian`)
+        metadataLines.push(`vault: ${vaultName}`)
+        metadataLines.push(`file: ${fileName}`)
+      } catch {
+        sourceLabel = ' [\ud83d\udcd3 Obsidian]'
+      }
+    }
+
     return [
-      `=== DOCUMENT ${index + 1} ===`,
+      `=== DOCUMENT ${index + 1}${sourceLabel} ===`,
       ...metadataLines,
       'content:',
       document.content,
