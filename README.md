@@ -120,6 +120,15 @@ Join the [Lore Discord server](https://discord.gg/hsrsertbdb) to share feedback,
  </picture>
 </a>
 
+## Roadmap
+
+- [x] Proof of Concept
+- [ ] Improve agent and software reliability
+- [ ] Add knowledge exploration UI (note viewer + editor + semantic browser)
+- [ ] Add MCPs
+- [ ] Semantic reasoning over your data
+- [ ] Multi-device data sync
+      
 ## Development
 
 ### Setup
