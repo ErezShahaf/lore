@@ -35,6 +35,7 @@ Think of it as your private second memory — a place to store anything you migh
 - **AI classification** — input is automatically classified as a thought, question, command, or instruction
 - **Todo management** — add, list, complete, and organize todos with priority and categories
 - **RAG pipeline** — retrieval-augmented generation finds relevant context from your notes before answering
+- **Obsidian integration** — sync your Obsidian vault and query your markdown notes alongside your thoughts
 - **Fully local** — all data and AI processing stays on your machine
 
 ## Installation
@@ -90,9 +91,18 @@ Lore searches your stored thoughts and generates an answer with relevant context
  - *"Always end a response by listing the original content & dates of the rows in the database which helped you give me this information."
  - *"Start each conversation by calling me ."
 
-  ### Getting help
+   ### Getting help
  - *What can you do?"
  - *"Wassup my brotha Lore, tell me what u can do or I uninstall"
+
+### Obsidian integration
+
+Lore allows you to sync your Obsidian vault. It efficiently tracks file changes, only syncing what has been modified to save time and compute.
+
+ - *"Summarize my Obsidian notes on the new marketing campaign"*
+ - *"What did I write in my daily note yesterday?"*
+ - *"Find all the links related to machine learning in my vault"*
+ - *"Force a wipe and re-sync of my entire Obsidian vault"*
 
 ### Settings
 
