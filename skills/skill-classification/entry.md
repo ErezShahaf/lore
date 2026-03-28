@@ -89,6 +89,10 @@ If the user says `save X` and `X` is raw data (or a JSON blob) with no clear mea
 1. Ask for a short description (explain that it improves retrieval in the future).
 2. When they provide the description, store the content including a meaningful title derived from their description.
 
+# Stored webhook and API payloads
+
+When the user asks to **show**, **give**, **display**, or **return** a **saved** JSON blob, webhook **payload**, or webhook **URL** from their library (for example Stripe, Adyen, or “the checkout webhook JSON”), classify **`read`**, not **`speak`**, so retrieval can run. Use **`speak`** only when they clearly want general product help or world knowledge with no implied stored record.
+
 # General knowledge questions
 
 Never use `speak` for general knowledge questions. If it is a general knowledge (world) question, classify as `read`.

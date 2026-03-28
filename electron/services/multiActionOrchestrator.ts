@@ -23,6 +23,7 @@ import { getSettings } from './settingsService'
 import type {
   AgentEvent,
   ActionOutcome,
+  ClassificationAction,
   ConversationEntry,
   MutablePipelineTraceSink,
   PipelineActionExecutionTraceOutput,
@@ -56,6 +57,42 @@ function outcomeToTraceOutput(
 
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'An unexpected error occurred'
+}
+
+function mergeMultipleDeleteActionsForSingleCommandPass(
+  actions: readonly ClassificationAction[],
+  userInput: string,
+): ClassificationAction[] {
+  if (actions.length <= 1) {
+    return [...actions]
+  }
+  if (!actions.every((action) => action.intent === 'delete')) {
+    return [...actions]
+  }
+  const tagSet = new Set<string>()
+  let extractedDate: string | null = null
+  for (const action of actions) {
+    for (const tag of action.extractedTags) {
+      tagSet.add(tag)
+    }
+    if (extractedDate === null && action.extractedDate !== null) {
+      extractedDate = action.extractedDate
+    }
+  }
+  const first = actions[0]
+  if (first === undefined) {
+    return [...actions]
+  }
+  return [
+    {
+      intent: 'delete',
+      data: userInput.trim(),
+      extractedDate,
+      extractedTags: [...tagSet],
+      situationSummary: first.situationSummary,
+      saveDocumentType: null,
+    },
+  ]
 }
 
 export async function* runMultiActionTurn(
@@ -172,6 +209,8 @@ export async function* runMultiActionTurn(
       },
     ]
   }
+
+  actions = mergeMultipleDeleteActionsForSingleCommandPass(actions, userInput)
 
   logger.debug(
     { actionCount: actions.length, intents: actions.map((action) => action.intent) },

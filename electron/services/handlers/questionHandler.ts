@@ -123,14 +123,34 @@ async function* answerQuestionFromRetrievedCandidateNotes(
     cutoffScore: documents.length > 0 ? documents[documents.length - 1].score : 1,
   }
 
-  const directStructuredResponse = buildDirectStructuredResponse(userInput, documents, classification)
-  if (directStructuredResponse) {
+  const directStructuredResolution = resolveDirectStructuredReply(userInput, documents, classification)
+  if (directStructuredResolution.kind === 'reply') {
     yield {
       type: 'turn_step_summary',
       summary:
         'Read: returned structured content from a single retrieved document without the full answer model.',
     }
-    yield { type: 'chunk', content: directStructuredResponse }
+    yield { type: 'chunk', content: directStructuredResolution.text }
+    yield { type: 'done' }
+    return
+  }
+  if (directStructuredResolution.kind === 'clarify') {
+    setPendingQuestionClarification({
+      priorUserInput: userInput,
+      candidateDocumentIds: directStructuredResolution.candidateDocumentIds,
+      classificationSnapshot: {
+        extractedTags: classification.extractedTags,
+        extractedDate: classification.extractedDate,
+        situationSummary: classification.situationSummary,
+        data: classification.data,
+      },
+    })
+    yield {
+      type: 'turn_step_summary',
+      summary:
+        'Read: several structured notes matched; user was asked which webhook or JSON payload they mean.',
+    }
+    yield { type: 'chunk', content: directStructuredResolution.message }
     yield { type: 'done' }
     return
   }
@@ -447,13 +467,37 @@ export async function* handleQuestion(
     cutoffScore: documents.length > 0 ? documents[documents.length - 1].score : fallbackResult.cutoffScore,
   }
 
-  const directStructuredResponse = buildDirectStructuredResponse(userInput, documents, classification)
-  if (directStructuredResponse) {
+  const directStructuredResolution = resolveDirectStructuredReply(
+    userInput,
+    sortedFallbackDocuments,
+    classification,
+  )
+  if (directStructuredResolution.kind === 'reply') {
     yield {
       type: 'turn_step_summary',
       summary: 'Read: returned structured content from a single retrieved document without the full answer model.',
     }
-    yield { type: 'chunk', content: directStructuredResponse }
+    yield { type: 'chunk', content: directStructuredResolution.text }
+    yield { type: 'done' }
+    return
+  }
+  if (directStructuredResolution.kind === 'clarify') {
+    setPendingQuestionClarification({
+      priorUserInput: userInput,
+      candidateDocumentIds: directStructuredResolution.candidateDocumentIds,
+      classificationSnapshot: {
+        extractedTags: classification.extractedTags,
+        extractedDate: classification.extractedDate,
+        situationSummary: classification.situationSummary,
+        data: classification.data,
+      },
+    })
+    yield {
+      type: 'turn_step_summary',
+      summary:
+        'Read: several structured notes matched; user was asked which webhook or JSON payload they mean.',
+    }
+    yield { type: 'chunk', content: directStructuredResolution.message }
     yield { type: 'done' }
     return
   }
@@ -612,22 +656,6 @@ function buildQuestionFallbackQueries(
   return [...new Set(fallbackQueries.map((query) => query.trim()).filter((query) => query.length > 0))]
 }
 
-function pickJsonDocumentByLexicalOverlap(
-  referenceText: string,
-  candidates: readonly ScoredDocument[],
-): ScoredDocument {
-  let best = candidates[0]
-  let bestRatio = -1
-  for (const document of candidates) {
-    const ratio = lexicalMatchRatio(referenceText, document.content)
-    if (ratio > bestRatio) {
-      bestRatio = ratio
-      best = document
-    }
-  }
-  return best
-}
-
 function extractFirstHttpUrl(text: string): string | null {
   const match = text.match(/https?:\/\/[^\s"'<>)\]]+/)
   return match !== null ? match[0] : null
@@ -641,40 +669,108 @@ function looksLikeWebhookUrlQuestion(userInput: string): boolean {
   )
 }
 
-function buildDirectStructuredResponse(
-  userInput: string,
+const MIN_LEXICAL_MARGIN_FOR_MULTI_JSON_PICK = 0.12
+
+function isJsonLikeStoredDocument(document: ScoredDocument): boolean {
+  const trimmed = document.content.trim()
+  return trimmed.startsWith('{') || trimmed.startsWith('[') || noteContainsStructuredPayload(document.content)
+}
+
+function collectDocumentsWithExtractableHttpUrl(
   documents: readonly ScoredDocument[],
+): ScoredDocument[] {
+  return documents.filter((document) => extractFirstHttpUrl(document.content) !== null)
+}
+
+function buildAmbiguousStructuredPayloadClarificationMessage(
+  candidates: readonly ScoredDocument[],
+): string {
+  const lines = candidates.map((document, index) => {
+    const preview = document.content.replace(/\s+/g, ' ').trim().slice(0, 100)
+    const suffix = preview.length >= 100 ? '…' : ''
+    return `${index + 1}. ${preview}${suffix}`
+  })
+  return [
+    'You have several saved notes that could match (different webhook URLs or JSON payloads).',
+    'Which one should I use? Reply with a number from the list or name the specific provider or event.',
+    '',
+    ...lines,
+  ].join('\n')
+}
+
+type DirectStructuredResolution =
+  | { readonly kind: 'reply'; readonly text: string }
+  | {
+      readonly kind: 'clarify'
+      readonly message: string
+      readonly candidateDocumentIds: readonly string[]
+    }
+  | { readonly kind: 'none' }
+
+function resolveDirectStructuredReply(
+  userInput: string,
+  allRelevantDocuments: readonly ScoredDocument[],
   classification: ClassificationForHandler,
-): string | null {
+): DirectStructuredResolution {
   if (looksLikeWebhookUrlQuestion(userInput)) {
-    for (const document of documents) {
-      const url = extractFirstHttpUrl(document.content)
+    const urlDocuments = collectDocumentsWithExtractableHttpUrl(allRelevantDocuments)
+    if (urlDocuments.length === 1) {
+      const url = extractFirstHttpUrl(urlDocuments[0]!.content)
       if (url !== null) {
-        return `Based on your stored notes, here is the webhook URL:\n\n${url}`
+        return {
+          kind: 'reply',
+          text: `Based on your stored notes, here is the webhook URL:\n\n${url}`,
+        }
+      }
+    }
+    if (urlDocuments.length > 1) {
+      return {
+        kind: 'clarify',
+        message: buildAmbiguousStructuredPayloadClarificationMessage(urlDocuments),
+        candidateDocumentIds: urlDocuments.map((document) => document.id),
       }
     }
   }
 
   if (!/\b(json|payload)\b/i.test(userInput)) {
-    return null
+    return { kind: 'none' }
   }
 
-  const jsonCandidates = documents.filter((document) => {
-    const trimmed = document.content.trim()
-    return trimmed.startsWith('{') || trimmed.startsWith('[')
-  })
+  const jsonCandidates = allRelevantDocuments.filter((document) => isJsonLikeStoredDocument(document))
   if (jsonCandidates.length === 0) {
-    return null
+    return { kind: 'none' }
+  }
+
+  if (jsonCandidates.length === 1) {
+    const content = jsonCandidates[0]!.content.trim()
+    return { kind: 'reply', text: `\`\`\`json\n${content}\n\`\`\`` }
   }
 
   const referenceText = buildRetrievalQueryText(userInput, classification)
-  const selected =
-    jsonCandidates.length === 1
-      ? jsonCandidates[0]
-      : pickJsonDocumentByLexicalOverlap(referenceText, jsonCandidates)
+  const scored = jsonCandidates.map((document) => ({
+    document,
+    ratio: lexicalMatchRatio(referenceText, document.content),
+  }))
+  scored.sort((left, right) => right.ratio - left.ratio)
+  const first = scored[0]
+  const second = scored[1]
+  if (first === undefined) {
+    return { kind: 'none' }
+  }
+  if (second === undefined) {
+    const content = first.document.content.trim()
+    return { kind: 'reply', text: `\`\`\`json\n${content}\n\`\`\`` }
+  }
+  if (first.ratio - second.ratio >= MIN_LEXICAL_MARGIN_FOR_MULTI_JSON_PICK) {
+    const content = first.document.content.trim()
+    return { kind: 'reply', text: `\`\`\`json\n${content}\n\`\`\`` }
+  }
 
-  const content = selected.content.trim()
-  return `\`\`\`json\n${content}\n\`\`\``
+  return {
+    kind: 'clarify',
+    message: buildAmbiguousStructuredPayloadClarificationMessage(jsonCandidates),
+    candidateDocumentIds: jsonCandidates.map((document) => document.id),
+  }
 }
 
 // ── Date range resolution ─────────────────────────────────────
