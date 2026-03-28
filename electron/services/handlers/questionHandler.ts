@@ -39,6 +39,9 @@ import type {
 const MAX_FOCUSED_ANSWER_DOCUMENTS = 8
 const MAX_TODO_DOCUMENTS_FOR_CONVERSATIONAL_INSTRUCTIONS = 6
 
+const RECENT_CONVERSATION_QUERY_TAIL_MAX_CHARS = 2500
+const RECENT_CONVERSATION_TURNS_FOR_RETRIEVAL_QUERY = 4
+
 function narrowDocumentsForQuestionFollowUp(
   followUpInput: string,
   priorUserInput: string,
@@ -123,7 +126,12 @@ async function* answerQuestionFromRetrievedCandidateNotes(
     cutoffScore: documents.length > 0 ? documents[documents.length - 1].score : 1,
   }
 
-  const directStructuredResolution = resolveDirectStructuredReply(userInput, documents, classification)
+  const directStructuredResolution = resolveDirectStructuredReply(
+    userInput,
+    documents,
+    classification,
+    buildEmbeddingRichQueryText(userInput, classification, conversationContext),
+  )
   if (directStructuredResolution.kind === 'reply') {
     yield {
       type: 'turn_step_summary',
@@ -300,8 +308,18 @@ export async function* handleQuestion(
 
   const retrievalOpts = buildRetrievalOptions(userInput, classification, retrievalOverrides)
   const retrievalQueryText = buildRetrievalQueryText(userInput, classification)
+  const embeddingRichQueryText = buildEmbeddingRichQueryText(
+    userInput,
+    classification,
+    conversationContext,
+  )
   logger.debug(
-    { userInput, retrievalQueryText, tags: classification.extractedTags },
+    {
+      userInput,
+      retrievalQueryText,
+      embeddingRichQueryText,
+      tags: classification.extractedTags,
+    },
     '[question] searching',
   )
 
@@ -317,11 +335,11 @@ export async function* handleQuestion(
       // The prompt-context limiter will further trim it.
       maxResults: 50,
     })
-    : await retrieveWithAdaptiveThreshold(retrievalQueryText, retrievalOpts)
+    : await retrieveWithAdaptiveThreshold(embeddingRichQueryText, retrievalOpts)
 
   const fallbackResult = !isTodoQuery && result.documents.length === 0
     ? await multiQueryRetrieve(
-      buildQuestionFallbackQueries(retrievalQueryText, classification),
+      buildQuestionFallbackQueries(embeddingRichQueryText, classification),
       retrievalOpts,
     )
     : result
@@ -334,6 +352,7 @@ export async function* handleQuestion(
     classification,
     sortedFallbackDocuments,
     maxFocusedDocumentsForAnswer,
+    embeddingRichQueryText,
   )
 
   const instructionRequestsTodoListing = instructionDocumentsRequestTodoListing(userInstructionDocuments)
@@ -407,6 +426,7 @@ export async function* handleQuestion(
       classification,
       [...mergedById.values()],
       maxFocusedDocuments,
+      embeddingRichQueryText,
     )
   }
 
@@ -471,6 +491,7 @@ export async function* handleQuestion(
     userInput,
     sortedFallbackDocuments,
     classification,
+    embeddingRichQueryText,
   )
   if (directStructuredResolution.kind === 'reply') {
     yield {
@@ -597,12 +618,13 @@ function selectDocumentsForAnswer(
   classification: ClassificationForHandler,
   documents: readonly ScoredDocument[],
   maxFocusedDocuments: number,
+  lexicalReferenceText?: string,
 ): ScoredDocument[] {
   if (documents.length <= 1) {
     return documents.slice(0, maxFocusedDocuments)
   }
 
-  const referenceText = buildRetrievalQueryText(userInput, classification)
+  const referenceText = lexicalReferenceText ?? buildRetrievalQueryText(userInput, classification)
   const lexicalRatios = documents.map((document) =>
     lexicalMatchRatio(referenceText, document.content),
   )
@@ -642,6 +664,28 @@ function buildRetrievalQueryText(
   if (trimmedData.length === 0) return trimmedInput
   if (trimmedData === trimmedInput) return trimmedInput
   return `${trimmedInput}\n${trimmedData}`
+}
+
+/**
+ * Embeds recent chat into the retrieval string so short or deictic questions
+ * (e.g. "what about this topic?") align vector search and lexical narrowing with prior turns.
+ */
+function buildEmbeddingRichQueryText(
+  userInput: string,
+  classification: ClassificationForHandler,
+  conversationContext?: ReadonlyArray<{ readonly role: 'user' | 'assistant'; readonly content: string }>,
+): string {
+  const base = buildRetrievalQueryText(userInput, classification)
+  if (conversationContext === undefined || conversationContext.length === 0) {
+    return base
+  }
+  const tail = conversationContext.slice(-RECENT_CONVERSATION_TURNS_FOR_RETRIEVAL_QUERY)
+  const block = tail.map((entry) => `${entry.role}: ${entry.content}`).join('\n')
+  const clipped =
+    block.length > RECENT_CONVERSATION_QUERY_TAIL_MAX_CHARS
+      ? block.slice(-RECENT_CONVERSATION_QUERY_TAIL_MAX_CHARS)
+      : block
+  return `${base}\n\nRecent conversation (use only to interpret deictic references such as "this topic" or "that note"):\n${clipped}`
 }
 
 function buildQuestionFallbackQueries(
@@ -711,6 +755,7 @@ function resolveDirectStructuredReply(
   userInput: string,
   allRelevantDocuments: readonly ScoredDocument[],
   classification: ClassificationForHandler,
+  lexicalReferenceText?: string,
 ): DirectStructuredResolution {
   if (looksLikeWebhookUrlQuestion(userInput)) {
     const urlDocuments = collectDocumentsWithExtractableHttpUrl(allRelevantDocuments)
@@ -746,7 +791,7 @@ function resolveDirectStructuredReply(
     return { kind: 'reply', text: `\`\`\`json\n${content}\n\`\`\`` }
   }
 
-  const referenceText = buildRetrievalQueryText(userInput, classification)
+  const referenceText = lexicalReferenceText ?? buildRetrievalQueryText(userInput, classification)
   const scored = jsonCandidates.map((document) => ({
     document,
     ratio: lexicalMatchRatio(referenceText, document.content),
@@ -870,11 +915,12 @@ function buildRagPrompt({
     `The user asked this question about their stored data: ${userInput}`,
     `Default answer policy: ${shouldMentionDates ? 'Mention relevant dates when they help answer the question.' : 'Do not mention dates unless the user asked for them or a preference requires it.'}`,
     `Tag policy: ${shouldMentionTags ? 'Mention relevant tags if they are needed to answer the question.' : 'Do not mention tags unless the user explicitly asked for them or a preference requires it.'}`,
+    'Relevance: Several notes may appear below. Use only material from notes that genuinely answer the user’s question. Completely omit unrelated notes—do not quote them, summarize them, name them, or say that extra unrelated notes were retrieved.',
   ]
 
   if (hasStructuredContent) {
     parts.push(
-      'IMPORTANT: One or more retrieved notes contain raw structured data (JSON, XML, YAML, or code). You MUST return that content verbatim inside a code block. Do NOT summarize, describe, or extract individual fields from it. Return it exactly as stored.',
+      'Structured data: If (and only if) a note that is **relevant** to the answer contains JSON, XML, YAML, or code as stored, include that payload verbatim in a markdown code block when the user should see what they saved. Do **not** dump verbatim structured payloads from notes that are irrelevant to the question—ignore those notes entirely.',
     )
   }
 

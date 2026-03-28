@@ -52,6 +52,7 @@ export const QUESTION_ANSWER_FORK_OUTCOMES: Readonly<Record<string, readonly str
 /** Matches `AssistantReplyFacts['kind']` plus `default` fallback; see `assistantReplyComposer`. */
 export const ASSISTANT_REPLY_KIND_OUTCOMES: readonly string[] = [
   'thought_saved_single',
+  'duplicate_save_clarification_pending',
   'thought_saved_many',
   'instruction_stored',
   'command_no_documents',

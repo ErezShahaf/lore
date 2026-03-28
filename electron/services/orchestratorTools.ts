@@ -147,6 +147,14 @@ async function handleComposeReply(
           : [],
       }
       break
+    case 'duplicate_save_clarification_pending':
+      facts = {
+        kind: 'duplicate_save_clarification_pending',
+        documentType: (payloadRaw.documentType as DocumentType) ?? 'thought',
+        existingNoteContent: String(payloadRaw.existingNoteContent ?? ''),
+        pendingNewContent: String(payloadRaw.pendingNewContent ?? ''),
+      }
+      break
     default:
       facts = { kind: 'command_executed', operations: [] }
   }
@@ -309,7 +317,7 @@ const COMPOSE_REPLY_TOOL: OllamaTool = {
   function: {
     name: 'compose_reply',
     description:
-      'Compose a confirmation or response message. Input: factKind (thought_saved_single, thought_saved_many, instruction_stored, command_no_documents, command_no_match, command_executed), payload (object with fields for that kind).',
+      'Compose a confirmation or response message. Input: factKind (thought_saved_single, duplicate_save_clarification_pending, thought_saved_many, instruction_stored, command_no_documents, command_no_match, command_executed), payload (object with fields for that kind).',
     parameters: {
       type: 'object',
       required: ['factKind', 'payload'],

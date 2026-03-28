@@ -43,7 +43,7 @@ function synthesizeHandlerResultSummary(params: {
 
   if (params.action.intent === 'save') {
     if (params.sawDuplicateEvent && !params.hadStored) {
-      return 'Save: very similar content already exists; user was prompted to choose add new or update. No new row was stored in this step.'
+      return 'Save: duplicate check found similar content; waiting for user to choose add new or update. No document stored in this step.'
     }
     if (params.hadStored) {
       return `Save: stored ${params.storedDocumentIds.length} document(s).`
@@ -280,6 +280,9 @@ export async function* executeClassificationAction(
           chunkContent,
         })
 
+  const duplicateSaveClarificationPending =
+    action.intent === 'save' && sawDuplicateEvent && !hadStored && !hadError
+
   return {
     intent: action.intent,
     saveDocumentType: action.intent === 'save' ? action.saveDocumentType : null,
@@ -287,6 +290,7 @@ export async function* executeClassificationAction(
     status,
     message,
     handlerResultSummary,
+    duplicateSaveClarificationPending,
     storedDocumentIds,
     retrievedDocumentIds,
     deletedDocumentCount,

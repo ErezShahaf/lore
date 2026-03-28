@@ -275,17 +275,18 @@ async function* storeSingleItem(
         yield {
           type: 'turn_step_summary',
           summary:
-            'Save: duplicate check found a likely duplicate; user was asked to reply with add new or update. No new document was written.',
+            'Save: duplicate check found a likely duplicate; waiting for user to choose add new or update. No new document was written.',
         }
-        yield {
-          type: 'chunk',
-          content: [
-            'You may already have the same (or almost the same) note. Here is what is on file:',
-            '',
-            formatDuplicateExistingNoteBlock(duplicate.content),
-            '',
-            'Tell me if you want to keep a second copy alongside the existing note, or replace the existing one.',
-          ].join('\n'),
+        for await (const chunk of streamAssistantUserReplyWithFallback({
+          userInstructionsBlock,
+          facts: {
+            kind: 'duplicate_save_clarification_pending',
+            documentType: docType,
+            existingNoteContent: duplicate.content,
+            pendingNewContent: content,
+          },
+        })) {
+          yield { type: 'chunk', content: chunk }
         }
         return
       }
@@ -338,7 +339,6 @@ async function* storeSingleItem(
 }
 
 const STORED_CONTENT_PREVIEW_MAX_CHARS = 480
-const DUPLICATE_EXISTING_NOTE_BLOCK_MAX_CHARS = 800
 
 function buildStoredContentPreviewForReply(rawContent: string): string | null {
   const trimmed = rawContent.trim()
@@ -349,21 +349,6 @@ function buildStoredContentPreviewForReply(rawContent: string): string | null {
     return trimmed
   }
   return `${trimmed.slice(0, STORED_CONTENT_PREVIEW_MAX_CHARS)}…`
-}
-
-function formatDuplicateExistingNoteBlock(existingContent: string): string {
-  const trimmed = existingContent.trim()
-  const body =
-    trimmed.length > DUPLICATE_EXISTING_NOTE_BLOCK_MAX_CHARS
-      ? `${trimmed.slice(0, DUPLICATE_EXISTING_NOTE_BLOCK_MAX_CHARS)}…`
-      : trimmed
-  if (body.length === 0) {
-    return '> (empty)'
-  }
-  return body
-    .split('\n')
-    .map((line) => `> ${line}`)
-    .join('\n')
 }
 
 function summarizeTopic(input: string): string {

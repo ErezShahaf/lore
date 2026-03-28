@@ -280,9 +280,15 @@ export interface ActionOutcome {
   readonly message: string
   /**
    * Short ground-truth description of what the sub-handler did (duplicate prompt, stored id, zero hits, …).
-   * The final composer should treat this plus structured ids as authoritative over `message` when they conflict.
+   * The reply composer should treat this plus structured ids as authoritative for **facts**, not as text the user
+   * has already read; user-visible wording often comes from `message` (see `duplicateSaveClarificationPending`).
    */
   readonly handlerResultSummary: string
+  /**
+   * When true, the save handler produced duplicate-clarification text in `message` that was not
+   * streamed during execution; the orchestrator should show `message` verbatim instead of rephrasing via the reply composer.
+   */
+  readonly duplicateSaveClarificationPending: boolean
   readonly storedDocumentIds: readonly string[]
   readonly retrievedDocumentIds: readonly string[]
   readonly deletedDocumentCount: number

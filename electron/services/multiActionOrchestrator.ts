@@ -138,6 +138,7 @@ export async function* runMultiActionTurn(
         status: 'succeeded',
         message: replay.message,
         handlerResultSummary: replay.summary,
+        duplicateSaveClarificationPending: false,
         storedDocumentIds: [],
         retrievedDocumentIds: [...replay.retrievedIds],
         deletedDocumentCount: 0,
@@ -280,6 +281,35 @@ export async function* runMultiActionTurn(
     if (!streamedSpeakChunksForLastAction) {
       yield { type: 'chunk', content: outcomes[0].message }
     }
+    yield { type: 'done' }
+    return
+  }
+
+  const singleOutcome = outcomes.length === 1 ? outcomes[0] : undefined
+  const isSingleDuplicateSaveClarification =
+    singleOutcome !== undefined
+    && singleOutcome.duplicateSaveClarificationPending
+    && singleOutcome.message.trim().length > 0
+  if (isSingleDuplicateSaveClarification) {
+    const passthroughMessage = singleOutcome.message
+    if (traceSink) {
+      const multiActionFacts = { kind: 'multi_action_summary' as const, outcomes }
+      traceSink.stages.push({
+        stageId: 'assistant_reply_composer',
+        ordinal: traceSink.stages.length,
+        timestamp: new Date().toISOString(),
+        output: {
+          factsKind: multiActionFacts.kind,
+          facts: multiActionFacts,
+          composedReplyPreview: truncateForPipelineTrace(
+            passthroughMessage,
+            PIPELINE_COMPOSED_REPLY_PREVIEW_MAX_CHARS,
+          ),
+          modelLabel: null,
+        },
+      })
+    }
+    yield { type: 'chunk', content: passthroughMessage }
     yield { type: 'done' }
     return
   }

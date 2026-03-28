@@ -4,15 +4,31 @@ import { getSettings } from './settingsService'
 import { appendUserInstructionsToSystemPrompt } from './userInstructionsContext'
 import { streamQuestionLlmChunks } from './questionAnswerComposition'
 import type { AssistantReplyFacts } from './assistantReplyTypes'
-import type { ActionOutcome } from '../../shared/types'
 
-type OutcomeSliceForTodoSaveCheck = Pick<
-  ActionOutcome,
-  'intent' | 'saveDocumentType' | 'status' | 'storedDocumentIds'
->
+const DUPLICATE_FALLBACK_EXISTING_NOTE_MAX_CHARS = 50_000
+
+function formatDuplicateExistingNoteBlockForFallback(existingContent: string): string {
+  const trimmed = existingContent.trim()
+  const body =
+    trimmed.length > DUPLICATE_FALLBACK_EXISTING_NOTE_MAX_CHARS
+      ? `${trimmed.slice(0, DUPLICATE_FALLBACK_EXISTING_NOTE_MAX_CHARS)}…`
+      : trimmed
+  if (body.length === 0) {
+    return '> (empty)'
+  }
+  return body
+    .split('\n')
+    .map((line) => `> ${line}`)
+    .join('\n')
+}
+
+type MultiActionSummaryOutcome = Extract<
+  AssistantReplyFacts,
+  { readonly kind: 'multi_action_summary' }
+>['outcomes'][number]
 
 function tryBuildDeterministicAllSuccessfulTodoSavesReply(
-  outcomes: readonly OutcomeSliceForTodoSaveCheck[],
+  outcomes: readonly MultiActionSummaryOutcome[],
 ): string | null {
   if (outcomes.length === 0) {
     return null
@@ -34,11 +50,6 @@ function tryBuildDeterministicAllSuccessfulTodoSavesReply(
   const todoWord = count === 1 ? 'todo' : 'todos'
   return `Saved ${count} ${todoWord}.`
 }
-
-type MultiActionSummaryOutcome = Extract<
-  AssistantReplyFacts,
-  { readonly kind: 'multi_action_summary' }
->['outcomes'][number]
 
 function tryBuildPassThroughStructuredReadReply(
   outcomes: readonly MultiActionSummaryOutcome[],
@@ -135,6 +146,16 @@ export function buildFallbackAssistantReply(facts: AssistantReplyFacts): string 
           ? ` Content stored (excerpt): ${facts.storedContentPreview.slice(0, 200)}${facts.storedContentPreview.length > 200 ? '…' : ''}`
           : ''
       return `Saved your ${facts.documentType}${dup}.${preview}`
+    }
+    case 'duplicate_save_clarification_pending': {
+      const existing = formatDuplicateExistingNoteBlockForFallback(facts.existingNoteContent)
+      return [
+        'You may already have the same (or almost the same) note. Here is what is on file:',
+        '',
+        existing,
+        '',
+        'Tell me if you want to keep a second copy alongside the existing note, or replace the existing one.',
+      ].join('\n')
     }
     case 'thought_saved_many': {
       const label =

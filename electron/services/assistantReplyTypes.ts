@@ -15,6 +15,14 @@ export type AssistantReplyFacts =
     readonly storedContentPreview: string | null
   }
   | {
+      readonly kind: 'duplicate_save_clarification_pending'
+      readonly documentType: DocumentType
+      /** Exact text of the note already in the library (must appear verbatim in the user-facing message). */
+      readonly existingNoteContent: string
+      /** Content the user is trying to store (may be shown or summarized; nothing was written yet). */
+      readonly pendingNewContent: string
+    }
+  | {
       readonly kind: 'thought_saved_many'
       readonly itemCount: number
       readonly todoItemCount: number
@@ -47,6 +55,7 @@ export type AssistantReplyFacts =
         readonly status: 'succeeded' | 'failed'
         readonly message: string
         readonly handlerResultSummary: string
+        readonly duplicateSaveClarificationPending: boolean
         readonly storedDocumentIds: readonly string[]
         readonly retrievedDocumentIds: readonly string[]
         readonly deletedDocumentCount: number

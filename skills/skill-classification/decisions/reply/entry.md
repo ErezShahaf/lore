@@ -13,6 +13,7 @@ Not a classifier **`intent`** — runs **after** handlers to compose the user-vi
 `decisions/kind/<value>/entry.md` where **`<value>`** matches **`facts.kind`** from code (`AssistantReplyFacts`), plus **`default`**:
 
 - `thought_saved_single`
+- `duplicate_save_clarification_pending`
 - `thought_saved_many`
 - `instruction_stored`
 - `command_no_documents`
