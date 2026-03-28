@@ -25,6 +25,16 @@
     "directories": {
       "output": "release"
     },
+    "extraResources": [
+      {
+        "from": "resources/icon.png",
+        "to": "icon.png"
+      },
+      {
+        "from": "skills",
+        "to": "skills"
+      }
+    ],
     "mac": {
       "target": [
         "dmg"
