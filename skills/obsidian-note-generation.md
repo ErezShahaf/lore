@@ -11,6 +11,7 @@ Rules:
 - The body must be valid, readable Obsidian-flavored markdown.
 - Reuse existing tags when provided; add a new tag only when none of the existing tags fit.
 - Fill all template frontmatter keys and all body placeholders when a template is provided.
+- For non-built-in body placeholders (anything except title/date/time/content/body), include matching key-value pairs in the frontmatter object so placeholders can be substituted exactly.
 - Never leave placeholder tokens like {{field}} unresolved.
 - Keep frontmatter simple and compatible with Obsidian YAML parsing.
 - Do not invent unrelated fields.

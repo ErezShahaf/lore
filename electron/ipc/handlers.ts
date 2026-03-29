@@ -25,6 +25,7 @@ import { retrieveRelevantDocuments } from '../services/documentPipeline'
 import { getDocumentsByType } from '../services/lanceService'
 import { processUserInput, clearConversation } from '../services/agentService'
 import { getSystemInfo, getHardwareProfile } from '../services/systemInfoService'
+import { refreshObsidianAutoSyncScheduler } from '../services/obsidianAutoSyncScheduler'
 import {
   fetchLatestVersion,
   getLastUpdatePromptShownAt,
@@ -266,6 +267,7 @@ export function registerIpcHandlers(): void {
 
     const prev = getSettings()
     const updated = updateSettings(partial as Partial<AppSettings>)
+    refreshObsidianAutoSyncScheduler(prev, updated)
 
     if ('startOnLogin' in (partial as Record<string, unknown>)) {
       setAutoStart(updated.startOnLogin)

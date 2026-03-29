@@ -3,7 +3,7 @@ import { join, relative, extname, basename } from 'path'
 import { logger } from '../logger'
 import { embedText } from './embeddingService'
 import { insertDocuments, getDocumentsByFilter, hardDeleteDocument } from './lanceService'
-import { addTags, invalidate as invalidateTagRegistry } from './tagRegistry'
+import { addTags, buildRegistry as buildTagRegistry } from './tagRegistry'
 import {
   loadCache,
   getVaultCache,
@@ -31,6 +31,7 @@ const TEMPLATE_FIELD_REGEX = /\{\{([^}]+)\}\}/g
 // ── Watcher state ─────────────────────────────────────────────
 
 const watchers = new Map<string, ReturnType<typeof watch>>()
+const watcherDebounceTimers = new Map<string, Map<string, ReturnType<typeof setTimeout>>>()
 const syncStatuses = new Map<string, ObsidianSyncStatus>()
 const vaultTaskChain = new Map<string, Promise<unknown>>()
 const activeSyncs = new Map<string, Promise<ObsidianSyncStatus>>()
@@ -461,7 +462,7 @@ async function syncVaultInternal(
     saveCache()
 
     status.phase = 'done'
-    invalidateTagRegistry()
+    await buildTagRegistry()
 
     logger.info(
       {
@@ -582,6 +583,7 @@ export function startWatcher(config: ObsidianVaultConfig): void {
   try {
     // Debounce map to avoid re-indexing on rapid saves
     const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>()
+    watcherDebounceTimers.set(config.id, debounceTimers)
 
     const watcher = watch(config.vaultPath, { recursive: true }, (eventType: string, filename: string | null) => {
       if (!filename || !isMarkdownFilePath(filename)) return
@@ -606,11 +608,27 @@ export function startWatcher(config: ObsidianVaultConfig): void {
     watchers.set(config.id, watcher)
     logger.info({ vaultName: config.name }, '[Obsidian] File watcher started')
   } catch (err) {
+    const timers = watcherDebounceTimers.get(config.id)
+    if (timers) {
+      for (const timeout of timers.values()) {
+        clearTimeout(timeout)
+      }
+      watcherDebounceTimers.delete(config.id)
+    }
     logger.error({ err, vaultId: config.id }, '[Obsidian] Failed to start file watcher')
   }
 }
 
 export function stopWatcher(vaultId: string): void {
+  const timers = watcherDebounceTimers.get(vaultId)
+  if (timers) {
+    for (const timeout of timers.values()) {
+      clearTimeout(timeout)
+    }
+    timers.clear()
+    watcherDebounceTimers.delete(vaultId)
+  }
+
   const existing = watchers.get(vaultId)
   if (existing) {
     existing.close()
@@ -620,11 +638,16 @@ export function stopWatcher(vaultId: string): void {
 }
 
 export function stopAllWatchers(): void {
-  for (const [id, watcher] of watchers) {
-    watcher.close()
-    logger.debug({ vaultId: id }, '[Obsidian] File watcher stopped')
+  for (const id of [...watchers.keys()]) {
+    stopWatcher(id)
   }
-  watchers.clear()
+
+  for (const [id, timers] of watcherDebounceTimers) {
+    for (const timeout of timers.values()) {
+      clearTimeout(timeout)
+    }
+    watcherDebounceTimers.delete(id)
+  }
 }
 
 // ── Template discovery ────────────────────────────────────────
@@ -687,7 +710,7 @@ export async function removeVaultData(vaultId: string): Promise<void> {
     syncStatuses.delete(vaultId)
     const deleted = await deleteVaultDocuments(vaultId)
     removeVaultCache(vaultId)
-    invalidateTagRegistry()
+    await buildTagRegistry()
     logger.info({ vaultId, deletedDocs: deleted }, '[Obsidian] Removed vault data')
   })
 }

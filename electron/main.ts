@@ -13,6 +13,10 @@ import { bootstrapOllama, stopOllama, isOllamaSetupNeeded } from './services/oll
 import { initialize as initLanceDB, cleanupOldDeleted, compactTable } from './services/lanceService'
 import { applyAutoStart } from './services/autoStartService'
 import { syncAllVaults, startWatcher, stopAllWatchers } from './services/obsidianService'
+import {
+  startObsidianAutoSyncScheduler,
+  stopObsidianAutoSyncScheduler,
+} from './services/obsidianAutoSyncScheduler'
 import { buildRegistry as buildTagRegistry } from './services/tagRegistry'
 
 function logErrorToFile(label: string, err: unknown): void {
@@ -139,10 +143,16 @@ if (!gotLock) {
           })
         }
 
+        // Start periodic auto-sync scheduler (respects obsidianAutoSync + interval settings)
+        startObsidianAutoSyncScheduler(settings)
+
         logger.info({ vaultCount: enabledVaults.length }, '[Lore] Obsidian integration started')
       } else {
         // Still build tag registry for Lore-native tags
         buildTagRegistry().catch(() => {})
+
+        // Scheduler is still started so it can react if vaults/settings change later
+        startObsidianAutoSyncScheduler(settings)
       }
     }
   })
@@ -167,6 +177,7 @@ if (!gotLock) {
     unregisterShortcuts()
     destroyTray()
     stopHealthCheck()
+    stopObsidianAutoSyncScheduler()
     stopAllWatchers()
     stopOllama()
       .then(() => app.quit())

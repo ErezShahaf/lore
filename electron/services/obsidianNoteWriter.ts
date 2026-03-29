@@ -33,6 +33,31 @@ export function resolveTemplate(
 // ── Template schema parsing ───────────────────────────────────
 
 const TEMPLATE_FIELD_REGEX = /\{\{([^}]+)\}\}/g
+const FRONTMATTER_BLOCK_REGEX = /^---\r?\n([\s\S]*?)\r?\n---/
+const BUILT_IN_TEMPLATE_FIELDS = new Set(['title', 'date', 'time', 'content', 'body'])
+
+function normalizeTemplateKey(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+function getCaseInsensitiveValue<T>(record: Record<string, T>, key: string): T | undefined {
+  if (Object.prototype.hasOwnProperty.call(record, key)) {
+    return record[key]
+  }
+
+  const normalizedTarget = normalizeTemplateKey(key)
+  for (const [candidateKey, candidateValue] of Object.entries(record)) {
+    if (normalizeTemplateKey(candidateKey) === normalizedTarget) {
+      return candidateValue as T
+    }
+  }
+
+  return undefined
+}
+
+function stringifyTemplateValue(value: string | string[] | unknown): string {
+  return Array.isArray(value) ? value.join(', ') : String(value)
+}
 
 export function parseTemplateSchema(template: ObsidianTemplate): {
   fields: string[]
@@ -85,6 +110,7 @@ const DEFAULT_NOTE_CREATION_SYSTEM_PROMPT = [
   '- When tags are provided in the existing tag pool, REUSE them wherever appropriate.',
   '- Only introduce a NEW tag if no existing tag adequately describes the concept.',
   '- Fill ALL template fields with sensible content based on the user\'s intent.',
+  '- For non-built-in body placeholders (anything except title/date/time/content/body), include matching key-value pairs in frontmatter for exact substitution.',
   '- Do NOT leave any {{placeholder}} tokens unfilled.',
   '- Use markdown headers, bullet points, and formatting as appropriate.',
 ].join('\n')
@@ -106,7 +132,7 @@ export async function generateNoteContent(
       { role: 'user', content: userPrompt },
     ],
     schema: NOTE_GENERATION_SCHEMA,
-    validate: validateGeneratedNote,
+    validate: (parsed) => validateGeneratedNote(parsed, template),
     maxAttempts: 3,
   })
 
@@ -155,6 +181,7 @@ function buildNoteCreationUserPrompt(
     parts.push('```')
     parts.push('')
     parts.push('You MUST produce values for every frontmatter key and body placeholder listed above.')
+    parts.push('For non-built-in body placeholders (anything except title/date/time/content/body), provide matching key-value pairs in the frontmatter object for substitution.')
   } else {
     parts.push('')
     parts.push('No template specified. Create a general note with appropriate frontmatter (at minimum: tags, date).')
@@ -172,13 +199,37 @@ function buildNoteCreationUserPrompt(
   return parts.join('\n')
 }
 
-function validateGeneratedNote(parsed: Record<string, unknown>): GeneratedNote {
+function validateGeneratedNote(
+  parsed: Record<string, unknown>,
+  template: ObsidianTemplate | null,
+): GeneratedNote {
   const title = typeof parsed.title === 'string' ? parsed.title.trim() : 'Untitled Note'
   const body = typeof parsed.body === 'string' ? parsed.body : ''
 
   let frontmatter: Record<string, string | string[]> = {}
   if (parsed.frontmatter && typeof parsed.frontmatter === 'object' && !Array.isArray(parsed.frontmatter)) {
     frontmatter = parsed.frontmatter as Record<string, string | string[]>
+  }
+
+  if (template) {
+    const schema = parseTemplateSchema(template)
+    const providedKeys = new Set(Object.keys(frontmatter).map(normalizeTemplateKey))
+    const templateFrontmatterKeys = new Set(schema.frontmatterKeys.map(normalizeTemplateKey))
+
+    const missingPlaceholderFields = schema.fields.filter((field) => {
+      const normalized = normalizeTemplateKey(field)
+      if (!normalized || BUILT_IN_TEMPLATE_FIELDS.has(normalized)) {
+        return false
+      }
+
+      return !providedKeys.has(normalized) && !templateFrontmatterKeys.has(normalized)
+    })
+
+    if (missingPlaceholderFields.length > 0) {
+      throw new Error(
+        `Missing template placeholder values: ${missingPlaceholderFields.join(', ')}`,
+      )
+    }
   }
 
   return { title, frontmatter, body }
@@ -197,8 +248,12 @@ export function renderTemplate(
 
   // Build new frontmatter block
   const newFrontmatter = { ...templateFm }
-  for (const [key, value] of Object.entries(generated.frontmatter)) {
-    newFrontmatter[key] = value
+
+  for (const templateKey of Object.keys(templateFm)) {
+    const generatedValue = getCaseInsensitiveValue(generated.frontmatter, templateKey)
+    if (generatedValue !== undefined) {
+      newFrontmatter[templateKey] = generatedValue
+    }
   }
 
   // Replace built-in variables
@@ -208,27 +263,34 @@ export function renderTemplate(
 
   // Replace {{field}} tokens in body
   content = content.replace(TEMPLATE_FIELD_REGEX, (match, field) => {
-    const trimmedField = field.trim().toLowerCase()
-    if (trimmedField === 'title') return generated.title
-    if (trimmedField === 'date') return dateStr
-    if (trimmedField === 'time') return timeStr
+    const trimmedField = field.trim()
+    const normalizedField = normalizeTemplateKey(trimmedField)
+    if (normalizedField === 'title') return generated.title
+    if (normalizedField === 'date') return dateStr
+    if (normalizedField === 'time') return timeStr
 
     // Check frontmatter for matching value
-    const fmValue = generated.frontmatter[field.trim()]
+    const fmValue = getCaseInsensitiveValue(generated.frontmatter, trimmedField)
     if (fmValue !== undefined) {
-      return Array.isArray(fmValue) ? fmValue.join(', ') : String(fmValue)
+      return stringifyTemplateValue(fmValue)
+    }
+
+    // Fallback to template frontmatter value if present
+    const templateFmValue = getCaseInsensitiveValue(templateFm, trimmedField)
+    if (templateFmValue !== undefined) {
+      return stringifyTemplateValue(templateFmValue)
     }
 
     // If it's a body-section placeholder, use the generated body
-    if (trimmedField === 'content' || trimmedField === 'body') {
+    if (normalizedField === 'content' || normalizedField === 'body') {
       return generated.body
     }
 
-    return match // Leave unrecognized placeholders as-is
+    throw new Error(`Template placeholder "{{${trimmedField}}}" could not be resolved`)
   })
 
   // Rebuild frontmatter section
-  const fmMatch = content.match(/^---\n([\s\S]*?)\n---/)
+  const fmMatch = content.match(FRONTMATTER_BLOCK_REGEX)
   if (fmMatch) {
     const newFmLines: string[] = []
     for (const [key, value] of Object.entries(newFrontmatter)) {
@@ -244,6 +306,13 @@ export function renderTemplate(
     const newFmBlock = `---\n${newFmLines.join('\n')}\n---`
     content = content.replace(fmMatch[0], newFmBlock)
   }
+
+  TEMPLATE_FIELD_REGEX.lastIndex = 0
+  if (TEMPLATE_FIELD_REGEX.test(content)) {
+    TEMPLATE_FIELD_REGEX.lastIndex = 0
+    throw new Error('Rendered template still contains unresolved placeholders')
+  }
+  TEMPLATE_FIELD_REGEX.lastIndex = 0
 
   return content
 }
@@ -327,6 +396,9 @@ export async function createObsidianNote(
 ): Promise<ObsidianNoteCreationResult> {
   // Resolve template
   const template = templateName ? resolveTemplate(config, templateName) : null
+  if (templateName && !template) {
+    throw new Error(`Template "${templateName}" was not found in vault "${config.name}"`)
+  }
 
   // Get tag pool for consistency
   const existingTags = getTagsForContext(200)
