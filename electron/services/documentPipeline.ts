@@ -183,7 +183,7 @@ export function extractTodoMeasureMap(text: string): ReadonlyMap<string, number>
   return map
 }
 
-function todoMeasuresConflict(incomingContent: string, existingContent: string): boolean {
+export function todoMeasuresConflict(incomingContent: string, existingContent: string): boolean {
   const incomingMeasures = extractTodoMeasureMap(incomingContent)
   const existingMeasures = extractTodoMeasureMap(existingContent)
   if (incomingMeasures.size === 0 || existingMeasures.size === 0) {

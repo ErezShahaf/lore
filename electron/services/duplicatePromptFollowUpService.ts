@@ -1,8 +1,9 @@
 import { generateStructuredResponse } from './ollamaService'
+import { todoMeasuresConflict } from './documentPipeline'
 import { getSettings } from './settingsService'
 import { loadSkill } from './skillLoader'
 import { appendUserInstructionsToSystemPrompt } from './userInstructionsContext'
-import type { ConversationEntry } from '../../shared/types'
+import type { ConversationEntry, DocumentType } from '../../shared/types'
 
 export type DuplicatePromptFollowUpResolution =
   | 'add_second_copy'
@@ -26,7 +27,15 @@ export async function resolveDuplicatePromptFollowUp(params: {
   readonly conversationHistory: readonly ConversationEntry[]
   readonly userInstructionsBlock: string
   readonly pendingContentPreview: string
+  readonly pendingDocumentType: DocumentType
 }): Promise<DuplicatePromptFollowUpResolution> {
+  if (
+    params.pendingDocumentType === 'todo'
+    && todoMeasuresConflict(params.userMessage, params.pendingContentPreview)
+  ) {
+    return 'not_about_duplicate'
+  }
+
   const settings = getSettings()
   const systemPrompt = appendUserInstructionsToSystemPrompt(
     loadSkill('duplicate-prompt-follow-up'),

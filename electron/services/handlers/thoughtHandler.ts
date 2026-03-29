@@ -86,6 +86,7 @@ export async function* handleThought(
       conversationHistory,
       userInstructionsBlock,
       pendingContentPreview: pendingDuplicate.contentToStore,
+      pendingDocumentType: pendingDuplicate.documentType,
     })
     if (followUp === 'add_second_copy') {
       clearPendingDuplicateSaveClarification()

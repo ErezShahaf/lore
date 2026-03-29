@@ -279,7 +279,9 @@ export async function* executeClassificationAction(
     ? 'failed'
     : (action.intent === 'save' && hadStored) || (action.intent === 'delete' && hadDeleted)
       ? 'succeeded'
-      : inferStatusFromMessage(chunkContent)
+      : action.intent === 'save' && !hadStored
+        ? 'failed'
+        : inferStatusFromMessage(chunkContent)
 
   const message = hadError ? errorMessage : (chunkContent.trim() || 'Done.')
 
