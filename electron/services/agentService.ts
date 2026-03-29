@@ -1,6 +1,7 @@
 import { logger } from '../logger'
 import { clearPendingCommandClarification } from './commandClarificationState'
 import { clearPendingDuplicateSaveClarification } from './duplicateSaveClarificationState'
+import { clearAllQuestionClarificationState } from './questionClarificationState'
 import {
   buildPriorTurnRetrievedContextBlock,
   dedupeDocumentIdsPreservingOrder,
@@ -29,9 +30,13 @@ let session: SessionContext = {
   lastPipelineTrace: null,
 }
 
+let sessionResetEpoch = 0
+
 export function clearConversation(): void {
   clearPendingCommandClarification()
   clearPendingDuplicateSaveClarification()
+  clearAllQuestionClarificationState()
+  sessionResetEpoch += 1
   session = {
     history: [],
     lastDocumentIds: [],
@@ -49,6 +54,9 @@ export function getLastPipelineTrace(): PipelineTracePayload | null {
 }
 
 export async function* processUserInput(userInput: string): AsyncGenerator<AgentEvent> {
+  const epochAtTurnStart = sessionResetEpoch
+  const isSessionStillOwnedByThisTurn = (): boolean => epochAtTurnStart === sessionResetEpoch
+
   const priorHistory = session.history.slice()
   session.history.push({ role: 'user', content: userInput })
 
@@ -87,14 +95,21 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
     }
   } catch (err) {
     logger.error({ err }, '[Agent] Orchestrator failed')
-    session.lastPipelineTrace = {
-      traceSchemaVersion: PIPELINE_TRACE_SCHEMA_VERSION,
-      stages: traceSink.stages.slice(),
+    if (isSessionStillOwnedByThisTurn()) {
+      session.lastPipelineTrace = {
+        traceSchemaVersion: PIPELINE_TRACE_SCHEMA_VERSION,
+        stages: traceSink.stages.slice(),
+      }
     }
     yield {
       type: 'error',
       message: err instanceof Error ? err.message : 'An unexpected error occurred',
     }
+    yield { type: 'done' }
+    return
+  }
+
+  if (!isSessionStillOwnedByThisTurn()) {
     yield { type: 'done' }
     return
   }

@@ -150,6 +150,41 @@ export async function preloadModels(): Promise<void> {
 
 const activeAbortControllers = new Map<string, AbortController>()
 
+const inFlightChatAbortControllers = new Set<AbortController>()
+
+const CHAT_REQUEST_TIMEOUT_MS = 120_000
+
+function registerInFlightChatAbortController(controller: AbortController): void {
+  inFlightChatAbortControllers.add(controller)
+}
+
+function unregisterInFlightChatAbortController(controller: AbortController): void {
+  inFlightChatAbortControllers.delete(controller)
+}
+
+export function abortAllInFlightChatRequests(): void {
+  for (const controller of inFlightChatAbortControllers) {
+    controller.abort()
+  }
+  inFlightChatAbortControllers.clear()
+}
+
+function beginTrackedChatRequest(): {
+  readonly signal: AbortSignal
+  readonly finishTracking: () => void
+} {
+  const controller = new AbortController()
+  registerInFlightChatAbortController(controller)
+  const timeoutId = setTimeout(() => {
+    controller.abort()
+  }, CHAT_REQUEST_TIMEOUT_MS)
+  const finishTracking = (): void => {
+    clearTimeout(timeoutId)
+    unregisterInFlightChatAbortController(controller)
+  }
+  return { signal: controller.signal, finishTracking }
+}
+
 export function abortPull(modelName: string): boolean {
   const controller = activeAbortControllers.get(modelName)
   if (controller) {
@@ -235,54 +270,59 @@ export async function getModelInfo(modelName: string): Promise<Record<string, un
 }
 
 export async function* chat(request: ChatRequest): AsyncGenerator<string> {
-  const payload = {
-    keep_alive: -1,
-    ...request,
-    options: { num_ctx: CHAT_NUM_CTX, ...request.options },
-  }
-  const res = await fetch(`${getHost()}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(120_000),
-  })
+  const { signal, finishTracking } = beginTrackedChatRequest()
+  try {
+    const payload = {
+      keep_alive: -1,
+      ...request,
+      options: { num_ctx: CHAT_NUM_CTX, ...request.options },
+    }
+    const res = await fetch(`${getHost()}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal,
+    })
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText)
-    throw new Error(`Ollama chat failed: ${text}`)
-  }
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText)
+      throw new Error(`Ollama chat failed: ${text}`)
+    }
 
-  if (!request.stream) {
-    const data = await res.json()
-    yield data.message?.content ?? ''
-    return
-  }
+    if (!request.stream) {
+      const data = await res.json()
+      yield data.message?.content ?? ''
+      return
+    }
 
-  if (!res.body) throw new Error('No response body for streaming')
+    if (!res.body) throw new Error('No response body for streaming')
 
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
 
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop() ?? ''
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
 
-    for (const line of lines) {
-      if (!line.trim()) continue
-      try {
-        const json = JSON.parse(line)
-        if (json.message?.content) {
-          yield json.message.content
+      for (const line of lines) {
+        if (!line.trim()) continue
+        try {
+          const json = JSON.parse(line)
+          if (json.message?.content) {
+            yield json.message.content
+          }
+        } catch {
+          // skip malformed lines
         }
-      } catch {
-        // skip malformed lines
       }
     }
+  } finally {
+    finishTracking()
   }
 }
 
@@ -383,65 +423,70 @@ export function splitForTypingEffect(text: string): readonly string[] {
 }
 
 export async function chatWithTools(request: ToolChatRequest): Promise<ToolChatResponse> {
-  const payload = {
-    model: request.model,
-    messages: request.messages,
-    tools: request.tools,
-    stream: false,
-    keep_alive: -1,
-    options: { num_ctx: CHAT_NUM_CTX, ...request.options },
-  }
+  const { signal, finishTracking } = beginTrackedChatRequest()
+  try {
+    const payload = {
+      model: request.model,
+      messages: request.messages,
+      tools: request.tools,
+      stream: false,
+      keep_alive: -1,
+      options: { num_ctx: CHAT_NUM_CTX, ...request.options },
+    }
 
-  const res = await fetch(`${getHost()}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(120_000),
-  })
+    const res = await fetch(`${getHost()}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal,
+    })
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText)
-    throw new Error(`Ollama chat failed: ${text}`)
-  }
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText)
+      throw new Error(`Ollama chat failed: ${text}`)
+    }
 
-  const data = await res.json() as Record<string, unknown>
-  const message = data.message as Record<string, unknown> | undefined
+    const data = await res.json() as Record<string, unknown>
+    const message = data.message as Record<string, unknown> | undefined
 
-  if (!message || typeof message !== 'object') {
-    throw new Error('Ollama response missing message field')
-  }
+    if (!message || typeof message !== 'object') {
+      throw new Error('Ollama response missing message field')
+    }
 
-  const responseMessage = parseToolChatMessage(message)
-  const hasToolCalls = responseMessage.tool_calls && responseMessage.tool_calls.length > 0
-  const hasContent = responseMessage.content.trim().length > 0
+    const responseMessage = parseToolChatMessage(message)
+    const hasToolCalls = responseMessage.tool_calls && responseMessage.tool_calls.length > 0
+    const hasContent = responseMessage.content.trim().length > 0
 
-  logger.debug(
-    {
-      hasContent,
-      contentLength: responseMessage.content.length,
-      contentPreview: responseMessage.content.slice(0, 100),
-      hasToolCalls,
-      toolCallCount: responseMessage.tool_calls?.length ?? 0,
-      rawContentType: typeof message.content,
-      rawContentIsArray: Array.isArray(message.content),
-      rawThinkingPresent: message.thinking !== undefined && message.thinking !== null,
-      rawThinkingLength: typeof message.thinking === 'string' ? message.thinking.length : Array.isArray(message.thinking) ? JSON.stringify(message.thinking).length : 0,
-    },
-    '[Ollama] chatWithTools response',
-  )
-
-  if (!hasContent && !hasToolCalls) {
-    logger.warn(
+    logger.debug(
       {
-        rawMessageKeys: Object.keys(message),
-        rawContent: JSON.stringify(message.content)?.slice(0, 500),
-        rawThinking: typeof message.thinking === 'string' ? message.thinking.slice(0, 300) : JSON.stringify(message.thinking)?.slice(0, 500),
+        hasContent,
+        contentLength: responseMessage.content.length,
+        contentPreview: responseMessage.content.slice(0, 100),
+        hasToolCalls,
+        toolCallCount: responseMessage.tool_calls?.length ?? 0,
+        rawContentType: typeof message.content,
+        rawContentIsArray: Array.isArray(message.content),
+        rawThinkingPresent: message.thinking !== undefined && message.thinking !== null,
+        rawThinkingLength: typeof message.thinking === 'string' ? message.thinking.length : Array.isArray(message.thinking) ? JSON.stringify(message.thinking).length : 0,
       },
-      '[Ollama] Model returned empty content with no tool calls',
+      '[Ollama] chatWithTools response',
     )
-  }
 
-  return { message: responseMessage }
+    if (!hasContent && !hasToolCalls) {
+      logger.warn(
+        {
+          rawMessageKeys: Object.keys(message),
+          rawContent: JSON.stringify(message.content)?.slice(0, 500),
+          rawThinking: typeof message.thinking === 'string' ? message.thinking.slice(0, 300) : JSON.stringify(message.thinking)?.slice(0, 500),
+        },
+        '[Ollama] Model returned empty content with no tool calls',
+      )
+    }
+
+    return { message: responseMessage }
+  } finally {
+    finishTracking()
+  }
 }
 
 /**
@@ -452,59 +497,77 @@ export async function chatWithTools(request: ToolChatRequest): Promise<ToolChatR
 export async function* streamChatWithTools(
   request: ToolChatRequest,
 ): AsyncGenerator<ToolChatStreamEvent> {
-  const payload = {
-    model: request.model,
-    messages: request.messages,
-    tools: request.tools,
-    stream: true,
-    think: false,
-    keep_alive: -1,
-    options: { num_ctx: CHAT_NUM_CTX, ...request.options },
-  }
-
-  const res = await fetch(`${getHost()}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(120_000),
-  })
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText)
-    throw new Error(`Ollama chat failed: ${text}`)
-  }
-
-  if (!res.body) {
-    throw new Error('No response body for streaming')
-  }
-
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
-  let lineBuffer = ''
-  const accumulated = {
-    content: { value: '' },
-    thinking: { value: '' },
-  }
-  let lastDoneMessage: Record<string, unknown> | null = null
-
-  let isStreamDone = false
-  while (!isStreamDone) {
-    const { done, value } = await reader.read()
-    if (done) {
-      isStreamDone = true
-      break
+  const { signal, finishTracking } = beginTrackedChatRequest()
+  try {
+    const payload = {
+      model: request.model,
+      messages: request.messages,
+      tools: request.tools,
+      stream: true,
+      think: false,
+      keep_alive: -1,
+      options: { num_ctx: CHAT_NUM_CTX, ...request.options },
     }
 
-    lineBuffer += decoder.decode(value, { stream: true })
-    const lines = lineBuffer.split('\n')
-    lineBuffer = lines.pop() ?? ''
+    const res = await fetch(`${getHost()}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal,
+    })
 
-    for (const line of lines) {
-      if (!line.trim()) {
-        continue
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText)
+      throw new Error(`Ollama chat failed: ${text}`)
+    }
+
+    if (!res.body) {
+      throw new Error('No response body for streaming')
+    }
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let lineBuffer = ''
+    const accumulated = {
+      content: { value: '' },
+      thinking: { value: '' },
+    }
+    let lastDoneMessage: Record<string, unknown> | null = null
+
+    let isStreamDone = false
+    while (!isStreamDone) {
+      const { done, value } = await reader.read()
+      if (done) {
+        isStreamDone = true
+        break
       }
+
+      lineBuffer += decoder.decode(value, { stream: true })
+      const lines = lineBuffer.split('\n')
+      lineBuffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        if (!line.trim()) {
+          continue
+        }
+        try {
+          const json = JSON.parse(line) as Record<string, unknown>
+          const rawMessage = json.message
+          if (rawMessage && typeof rawMessage === 'object' && !Array.isArray(rawMessage)) {
+            appendStreamAssistantTextDeltas(rawMessage as Record<string, unknown>, accumulated)
+          }
+          if (json.done === true && json.message && typeof json.message === 'object') {
+            lastDoneMessage = json.message as Record<string, unknown>
+          }
+        } catch {
+          // skip malformed lines
+        }
+      }
+    }
+
+    if (lineBuffer.trim()) {
       try {
-        const json = JSON.parse(line) as Record<string, unknown>
+        const json = JSON.parse(lineBuffer) as Record<string, unknown>
         const rawMessage = json.message
         if (rawMessage && typeof rawMessage === 'object' && !Array.isArray(rawMessage)) {
           appendStreamAssistantTextDeltas(rawMessage as Record<string, unknown>, accumulated)
@@ -513,70 +576,57 @@ export async function* streamChatWithTools(
           lastDoneMessage = json.message as Record<string, unknown>
         }
       } catch {
-        // skip malformed lines
+        // ignore trailing garbage
       }
     }
-  }
 
-  if (lineBuffer.trim()) {
-    try {
-      const json = JSON.parse(lineBuffer) as Record<string, unknown>
-      const rawMessage = json.message
-      if (rawMessage && typeof rawMessage === 'object' && !Array.isArray(rawMessage)) {
-        appendStreamAssistantTextDeltas(rawMessage as Record<string, unknown>, accumulated)
-      }
-      if (json.done === true && json.message && typeof json.message === 'object') {
-        lastDoneMessage = json.message as Record<string, unknown>
-      }
-    } catch {
-      // ignore trailing garbage
+    if (!lastDoneMessage) {
+      throw new Error('Ollama streaming response ended without a done message')
     }
-  }
 
-  if (!lastDoneMessage) {
-    throw new Error('Ollama streaming response ended without a done message')
-  }
+    const contentFromDone = normalizeOllamaAssistantTextField(lastDoneMessage.content)
+    const thinkingFromDone = normalizeOllamaAssistantTextField(lastDoneMessage.thinking)
 
-  const contentFromDone = normalizeOllamaAssistantTextField(lastDoneMessage.content)
-  const thinkingFromDone = normalizeOllamaAssistantTextField(lastDoneMessage.thinking)
+    const mergedContent =
+      accumulated.content.value.length > 0 ? accumulated.content.value : contentFromDone
+    const mergedThinking =
+      accumulated.thinking.value.length > 0 ? accumulated.thinking.value : thinkingFromDone
 
-  const mergedContent =
-    accumulated.content.value.length > 0 ? accumulated.content.value : contentFromDone
-  const mergedThinking =
-    accumulated.thinking.value.length > 0 ? accumulated.thinking.value : thinkingFromDone
-
-  const mergedMessage: Record<string, unknown> = {
-    ...lastDoneMessage,
-    content: mergedContent,
-    thinking: mergedThinking,
-  }
-
-  const finalMessage = parseToolChatMessage(mergedMessage)
-  const hasToolCalls = finalMessage.tool_calls && finalMessage.tool_calls.length > 0
-
-  if (hasToolCalls) {
-    yield { type: 'assistant_message', message: finalMessage }
-    return
-  }
-
-  const displayContent = finalMessage.content
-
-  const finalMessageForUi: ToolChatMessage = {
-    ...finalMessage,
-    content: displayContent,
-  }
-
-  const typingPieces = splitForTypingEffect(finalMessageForUi.content)
-  for (let pieceIndex = 0; pieceIndex < typingPieces.length; pieceIndex += 1) {
-    if (pieceIndex > 0) {
-      await new Promise<void>((resolve) => {
-        setTimeout(resolve, 0)
-      })
+    const mergedMessage: Record<string, unknown> = {
+      ...lastDoneMessage,
+      content: mergedContent,
+      thinking: mergedThinking,
     }
-    yield { type: 'content_chunk', text: typingPieces[pieceIndex]! }
-  }
 
-  yield { type: 'assistant_message', message: finalMessageForUi }
+    const finalMessage = parseToolChatMessage(mergedMessage)
+    const hasToolCalls = finalMessage.tool_calls && finalMessage.tool_calls.length > 0
+
+    if (hasToolCalls) {
+      yield { type: 'assistant_message', message: finalMessage }
+      return
+    }
+
+    const displayContent = finalMessage.content
+
+    const finalMessageForUi: ToolChatMessage = {
+      ...finalMessage,
+      content: displayContent,
+    }
+
+    const typingPieces = splitForTypingEffect(finalMessageForUi.content)
+    for (let pieceIndex = 0; pieceIndex < typingPieces.length; pieceIndex += 1) {
+      if (pieceIndex > 0) {
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 0)
+        })
+      }
+      yield { type: 'content_chunk', text: typingPieces[pieceIndex]! }
+    }
+
+    yield { type: 'assistant_message', message: finalMessageForUi }
+  } finally {
+    finishTracking()
+  }
 }
 
 export async function generateStructuredResponse<T>(

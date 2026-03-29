@@ -35,6 +35,11 @@ export function clearPendingQuestionClarification(): void {
   pendingQuestionClarification = null
 }
 
+export function clearAllQuestionClarificationState(): void {
+  pendingQuestionClarification = null
+  consumedQuestionFollowUp = null
+}
+
 export function setConsumedQuestionFollowUp(
   payload: ConsumedQuestionFollowUpPayload | null,
 ): void {

@@ -23,7 +23,7 @@ import { bootstrapOllama, restartOllamaWithNewModelsPath } from '../services/oll
 import { getStats, resetTable } from '../services/lanceService'
 import { retrieveRelevantDocuments } from '../services/documentPipeline'
 import { getDocumentsByType } from '../services/lanceService'
-import { processUserInput, clearConversation } from '../services/agentService'
+import { processUserInput } from '../services/agentService'
 import { getSystemInfo, getHardwareProfile } from '../services/systemInfoService'
 import {
   fetchLatestVersion,
@@ -52,7 +52,6 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.on('chat:hide', () => {
-    clearConversation()
     hideChatWindow()
   })
 

@@ -9,6 +9,7 @@ import {
   SCREEN_MARGIN,
 } from '../../shared/chatWindowConstants'
 import { getPreferredDisplay } from '../services/displayService'
+import { resetChatSessionBeforeHidingWindow } from '../services/chatSessionResetService'
 
 let chatWindow: BrowserWindow | null = null
 
@@ -121,6 +122,8 @@ export function showChatWindow(): void {
 export function hideChatWindow(): void {
   const win = getChatWindow()
   if (!win) return
+
+  resetChatSessionBeforeHidingWindow()
 
   win.hide()
   win.setSize(CHAT_WINDOW_WIDTH, CHAT_WINDOW_DEFAULT_HEIGHT)
