@@ -27,6 +27,7 @@ export const SKILL_MOUNT_SEGMENTS: Readonly<Record<string, readonly string[]>> =
   'intent-route': ['shared', 'auxiliary', 'decisions', 'intent-route'],
   'metadata-extraction': ['shared', 'auxiliary', 'decisions', 'metadata-extraction'],
   'orchestrator-low-confidence': ['shared', 'auxiliary', 'decisions', 'orchestrator-low-confidence'],
+  'ui-status-phrase': ['shared', 'auxiliary', 'decisions', 'ui-status-phrase'],
 } as const
 
 /**
@@ -58,6 +59,16 @@ export const ASSISTANT_REPLY_KIND_OUTCOMES: readonly string[] = [
   'command_no_documents',
   'command_no_match',
   'command_executed',
+  'save_input_empty',
+  'save_duplicate_replace_blocked',
+  'save_body_clarify_structured_intent',
+  'save_body_clarify_short_title',
+  'command_resolution_failed',
+  'command_target_clarify',
+  'command_clarify_uncertain',
+  'command_clarify_model_text',
+  'orchestrator_surface_fallback',
+  'todo_list_present',
   'multi_action_summary',
   'default',
 ] as const

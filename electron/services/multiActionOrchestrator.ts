@@ -1,10 +1,6 @@
 import { logger } from '../logger'
 import { classifyInputUnified } from './unifiedClassifierService'
-import {
-  buildClassificationActionInput,
-  classificationIntentStatusLabel,
-  executeClassificationAction,
-} from './classificationActionExecutor'
+import { buildClassificationActionInput, executeClassificationAction } from './classificationActionExecutor'
 import {
   getPendingCommandClarification,
   isClarificationOptionsReplayRequest,
@@ -20,6 +16,11 @@ import { formatUserInstructionsBlock, loadAllUserInstructionDocuments } from './
 import { producePendingClarificationReplay } from './pendingClarificationReplay'
 import { streamAssistantUserReplyWithFallback } from './assistantReplyComposer'
 import { getSettings } from './settingsService'
+import {
+  resetUiStatusPhraseCacheForNewTurn,
+  resolveUiStatusMessage,
+  UiStatusPhase,
+} from './uiStatusPhraseComposer'
 import type {
   AgentEvent,
   ActionOutcome,
@@ -101,12 +102,26 @@ export async function* runMultiActionTurn(
   traceSink: MutablePipelineTraceSink | null = null,
   priorTurnRetrievedContextBlock: string | null = null,
 ): AsyncGenerator<AgentEvent> {
-  yield { type: 'status', message: 'Working on your message…' }
+  resetUiStatusPhraseCacheForNewTurn()
 
   const userInstructionDocuments = await loadAllUserInstructionDocuments()
   const userInstructionsBlock = formatUserInstructionsBlock(userInstructionDocuments)
 
-  yield { type: 'status', message: 'Figuring out what you need…' }
+  yield {
+    type: 'status',
+    message: await resolveUiStatusMessage({
+      request: { phase: UiStatusPhase.workingOnMessage },
+      userInstructionsBlock,
+    }),
+  }
+
+  yield {
+    type: 'status',
+    message: await resolveUiStatusMessage({
+      request: { phase: UiStatusPhase.figuringOutNeed },
+      userInstructionsBlock,
+    }),
+  }
 
   let classification
   try {
@@ -134,9 +149,15 @@ export async function* runMultiActionTurn(
 
   const pendingGate = getPendingCommandClarification()
   if (pendingGate !== null && isClarificationOptionsReplayRequest(userInput)) {
-    const replay = await producePendingClarificationReplay(pendingGate)
+    const replay = await producePendingClarificationReplay(pendingGate, userInstructionsBlock)
     if (replay !== null) {
-      yield { type: 'status', message: 'Listing your options…' }
+      yield {
+        type: 'status',
+        message: await resolveUiStatusMessage({
+          request: { phase: UiStatusPhase.listingOptions },
+          userInstructionsBlock,
+        }),
+      }
       const replayOutcome: ActionOutcome = {
         intent: 'speak',
         saveDocumentType: null,
@@ -236,9 +257,14 @@ export async function* runMultiActionTurn(
 
     yield {
       type: 'status',
-      message: classificationIntentStatusLabel(action.intent, {
-        actionIndex: index,
-        totalActions: actions.length,
+      message: await resolveUiStatusMessage({
+        request: {
+          phase: UiStatusPhase.multiActionStep,
+          intent: action.intent,
+          stepIndex: index,
+          totalSteps: actions.length,
+        },
+        userInstructionsBlock,
       }),
     }
 
@@ -359,7 +385,13 @@ export async function* runMultiActionTurn(
     return
   }
 
-  yield { type: 'status', message: 'Summarizing everything for you…' }
+  yield {
+    type: 'status',
+    message: await resolveUiStatusMessage({
+      request: { phase: UiStatusPhase.summarizingTurn },
+      userInstructionsBlock,
+    }),
+  }
 
   const multiActionFacts = {
     kind: 'multi_action_summary' as const,

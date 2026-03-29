@@ -1,4 +1,5 @@
-import { buildClarificationCandidateListMessage } from './commandDecompositionService'
+import { composeAssistantUserReplyText } from './assistantReplyComposer'
+import { buildVerbatimNumberedOptionsBlock } from './commandDecompositionService'
 import { getDocumentById } from './lanceService'
 import {
   clearPendingCommandClarification,
@@ -8,6 +9,7 @@ import type { LoreDocument } from '../../shared/types'
 
 export async function producePendingClarificationReplay(
   pending: PendingCommandClarificationState,
+  userInstructionsBlock: string,
 ): Promise<{
   readonly message: string
   readonly summary: string
@@ -25,7 +27,15 @@ export async function producePendingClarificationReplay(
     return null
   }
   const action = pending.commandIntent === 'delete' ? 'delete' : 'update'
-  const message = buildClarificationCandidateListMessage(action, orderedDocuments)
+  const verbatimNumberedOptionsBlock = buildVerbatimNumberedOptionsBlock(action, orderedDocuments)
+  const message = await composeAssistantUserReplyText({
+    userInstructionsBlock,
+    facts: {
+      kind: 'command_target_clarify',
+      commandIntent: pending.commandIntent === 'delete' ? 'delete' : 'edit',
+      verbatimNumberedOptionsBlock,
+    },
+  })
   return {
     message,
     summary: 'Command: replayed numbered clarification list for pending command.',

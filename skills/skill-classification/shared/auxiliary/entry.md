@@ -10,3 +10,4 @@ Supporting models **not** chosen as classifier **`intent`** (there is no `auxili
 | `decisions/intent-route/` | `intent-route` |
 | `decisions/metadata-extraction/` | `metadata-extraction` |
 | `decisions/orchestrator-low-confidence/` | `orchestrator-low-confidence` |
+| `decisions/ui-status-phrase/` | `ui-status-phrase` |

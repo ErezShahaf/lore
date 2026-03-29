@@ -1,0 +1,1 @@
+- `trigger` is `empty_decision_reply` or `max_steps_exhausted`. Apologize briefly and ask them to retry or rephrase. One sentence.

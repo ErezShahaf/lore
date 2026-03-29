@@ -2,6 +2,7 @@ import { storeThought } from '../documentPipeline'
 import { retrieveRelevantDocuments } from '../documentPipeline'
 import { formatLocalDate } from '../localDate'
 import { streamAssistantUserReplyWithFallback } from '../assistantReplyComposer'
+import { resolveUiStatusMessage, UiStatusPhase } from '../uiStatusPhraseComposer'
 import { primaryClassificationAction, type ClassificationResult, type AgentEvent } from '../../../shared/types'
 
 export async function* handleInstruction(
@@ -9,14 +10,26 @@ export async function* handleInstruction(
   classification: ClassificationResult,
   userInstructionsBlock: string = '',
 ): AsyncGenerator<AgentEvent> {
-  yield { type: 'status', message: 'Checking whether you already saved something like this…' }
+  yield {
+    type: 'status',
+    message: await resolveUiStatusMessage({
+      request: { phase: UiStatusPhase.checkingSimilarInstruction },
+      userInstructionsBlock,
+    }),
+  }
 
   const existing = await retrieveRelevantDocuments(userInput, {
     type: 'instruction',
     similarityThreshold: 0.8,
   })
 
-  yield { type: 'status', message: 'Saving this so we can follow it next time…' }
+  yield {
+    type: 'status',
+    message: await resolveUiStatusMessage({
+      request: { phase: UiStatusPhase.savingInstruction },
+      userInstructionsBlock,
+    }),
+  }
 
   const today = formatLocalDate(new Date())
   const action = primaryClassificationAction(classification)

@@ -1,0 +1,1 @@
+- Before saving structured content, ask for a short name or one-line description so it stays findable. One or two sentences.

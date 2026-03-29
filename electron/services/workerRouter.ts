@@ -101,16 +101,3 @@ export function buildWorkerSystemPrompt(
 
   return parts.join('\n\n---\n\n')
 }
-
-export function workerKindStatusLabel(workerKind: WorkerKind): string {
-  switch (workerKind) {
-    case 'question':
-      return 'Focusing on answering from your notes…'
-    case 'thought':
-      return 'Focusing on saving something for you…'
-    case 'command':
-      return 'Focusing on the changes you asked for…'
-    case 'conversational':
-      return 'Focusing on a relaxed chat-style reply…'
-  }
-}

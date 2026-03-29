@@ -1,0 +1,3 @@
+- If `shouldEchoGreeting` is true, open with a short friendly echo of `userSurfaceInput` (do not invent a different greeting).
+- Then present todos **newest-first**: output every string in `bulletLines` **verbatim and in order**, each on its own line (they are already markdown list lines).
+- You may add one short closing line if helpful; do not drop or reorder bullets.

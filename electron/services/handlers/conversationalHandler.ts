@@ -3,6 +3,7 @@ import { getSettings } from '../settingsService'
 import { loadSkill } from '../skillLoader'
 import { logger } from '../../logger'
 import { appendUserInstructionsToSystemPrompt } from '../userInstructionsContext'
+import { resolveUiStatusMessage, UiStatusPhase } from '../uiStatusPhraseComposer'
 import type { ClassificationForHandler, ConversationEntry, AgentEvent } from '../../../shared/types'
 
 let cachedConversationalSkillTemplate: string | null = null
@@ -47,7 +48,13 @@ export async function* handleConversational(
   conversationHistory: readonly ConversationEntry[] = [],
   userInstructionsBlock: string = '',
 ): AsyncGenerator<AgentEvent> {
-  yield { type: 'status', message: 'Drafting a natural reply…' }
+  yield {
+    type: 'status',
+    message: await resolveUiStatusMessage({
+      request: { phase: UiStatusPhase.draftingNaturalReply },
+      userInstructionsBlock,
+    }),
+  }
 
   const settings = getSettings()
   const systemPrompt = appendUserInstructionsToSystemPrompt(

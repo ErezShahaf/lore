@@ -49,7 +49,53 @@ export type AssistantReplyFacts =
     }[]
   }
   | {
-      readonly kind: 'multi_action_summary'
+      readonly kind: 'save_input_empty'
+      /** Why nothing could be stored for this path. */
+      readonly emptyReason: 'empty_turn' | 'empty_multi_action_step' | 'resolved_body_empty'
+    }
+  | {
+      readonly kind: 'save_duplicate_replace_blocked'
+      /** No duplicate target id was available to update in place. */
+    }
+  | {
+      readonly kind: 'save_body_clarify_structured_intent'
+    }
+  | {
+      readonly kind: 'save_body_clarify_short_title'
+    }
+  | {
+      readonly kind: 'command_resolution_failed'
+    }
+  | {
+      readonly kind: 'command_target_clarify'
+      readonly commandIntent: 'edit' | 'delete'
+      /**
+       * Numbered option lines and blockquoted bodies only; must appear verbatim in the user-facing message.
+       */
+      readonly verbatimNumberedOptionsBlock: string
+    }
+  | {
+      readonly kind: 'command_clarify_uncertain'
+      readonly hint: string | null
+    }
+  | {
+      readonly kind: 'command_clarify_model_text'
+      /** Text from the command decomposer model; keep meaning and any numbering. */
+      readonly text: string
+    }
+  | {
+      readonly kind: 'orchestrator_surface_fallback'
+      readonly trigger: 'empty_decision_reply' | 'max_steps_exhausted'
+    }
+  | {
+      readonly kind: 'todo_list_present'
+      /** Preformatted markdown lines (e.g. "- buy milk"); must appear verbatim in order. */
+      readonly bulletLines: readonly string[]
+      readonly userSurfaceInput: string
+      readonly shouldEchoGreeting: boolean
+    }
+  | {
+    readonly kind: 'multi_action_summary'
       /** Exact user message for this turn (composer uses this to judge full-text vs summary intent). */
       readonly turnUserMessage: string
       readonly outcomes: readonly {

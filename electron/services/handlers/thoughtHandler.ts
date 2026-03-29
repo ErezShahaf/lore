@@ -11,6 +11,7 @@ import {
 } from '../duplicateSaveClarificationState'
 import { resolveSaveNoteBody } from '../saveNoteBodyResolutionService'
 import { logger } from '../../logger'
+import { resolveUiStatusMessage, UiStatusPhase } from '../uiStatusPhraseComposer'
 import type {
   ClassificationForHandler,
   AgentEvent,
@@ -73,8 +74,14 @@ export async function* handleThought(
     yield {
       type: 'turn_step_summary',
       summary: 'Save: input was empty; nothing was stored.',
+      reportedOutcomeStatus: 'failed',
     }
-    yield { type: 'chunk', content: 'Nothing to save.' }
+    for await (const chunk of streamAssistantUserReplyWithFallback({
+      userInstructionsBlock,
+      facts: { kind: 'save_input_empty', emptyReason: 'empty_turn' },
+    })) {
+      yield { type: 'chunk', content: chunk }
+    }
     yield { type: 'done' }
     return
   }
@@ -108,7 +115,17 @@ export async function* handleThought(
       clearPendingDuplicateSaveClarification()
       const replaceTargetId = pendingDuplicate.duplicateDocumentIds[0]
       if (replaceTargetId === undefined) {
-        yield { type: 'chunk', content: 'Nothing to update.' }
+        yield {
+          type: 'turn_step_summary',
+          summary: 'Save: replace was chosen but no duplicate target id was available.',
+          reportedOutcomeStatus: 'failed',
+        }
+        for await (const chunk of streamAssistantUserReplyWithFallback({
+          userInstructionsBlock,
+          facts: { kind: 'save_duplicate_replace_blocked' },
+        })) {
+          yield { type: 'chunk', content: chunk }
+        }
         yield { type: 'done' }
         return
       }
@@ -133,8 +150,14 @@ export async function* handleThought(
       yield {
         type: 'turn_step_summary',
         summary: 'Save: multi-action step had empty payload; nothing was stored.',
+        reportedOutcomeStatus: 'failed',
       }
-      yield { type: 'chunk', content: 'Nothing to save for this step.' }
+      for await (const chunk of streamAssistantUserReplyWithFallback({
+        userInstructionsBlock,
+        facts: { kind: 'save_input_empty', emptyReason: 'empty_multi_action_step' },
+      })) {
+        yield { type: 'chunk', content: chunk }
+      }
       yield { type: 'done' }
       return
     }
@@ -152,11 +175,13 @@ export async function* handleThought(
         type: 'turn_step_summary',
         summary:
           'Save: model chose intent clarification; nothing was stored until the user is clearer.',
+        reportedOutcomeStatus: 'succeeded',
       }
-      yield {
-        type: 'chunk',
-        content:
-          'You sent structured data without saying what to do with it. Should I save it as a note, help you find something in your library, or answer a question about it?',
+      for await (const chunk of streamAssistantUserReplyWithFallback({
+        userInstructionsBlock,
+        facts: { kind: 'save_body_clarify_structured_intent' },
+      })) {
+        yield { type: 'chunk', content: chunk }
       }
       yield { type: 'done' }
       return
@@ -167,12 +192,14 @@ export async function* handleThought(
         type: 'turn_step_summary',
         summary:
           'Save: model asked for a short title or description before writing structured data.',
+        reportedOutcomeStatus: 'succeeded',
       }
-    yield {
-      type: 'chunk',
-      content:
-        'Before I save it, what should I call this, or do you want a one-line description? That makes it easier to find later—I can use it in the title or tags.',
-    }
+      for await (const chunk of streamAssistantUserReplyWithFallback({
+        userInstructionsBlock,
+        facts: { kind: 'save_body_clarify_short_title' },
+      })) {
+        yield { type: 'chunk', content: chunk }
+      }
       yield { type: 'done' }
       return
     }
@@ -189,8 +216,14 @@ export async function* handleThought(
     yield {
       type: 'turn_step_summary',
       summary: 'Save: resolved note body was empty; nothing was stored.',
+      reportedOutcomeStatus: 'failed',
     }
-    yield { type: 'chunk', content: 'Nothing to save.' }
+    for await (const chunk of streamAssistantUserReplyWithFallback({
+      userInstructionsBlock,
+      facts: { kind: 'save_input_empty', emptyReason: 'resolved_body_empty' },
+    })) {
+      yield { type: 'chunk', content: chunk }
+    }
     yield { type: 'done' }
     return
   }
@@ -223,7 +256,13 @@ async function* emitThoughtUpdateAfterDuplicateChoice(
   content: string,
   userInstructionsBlock: string,
 ): AsyncGenerator<AgentEvent> {
-  yield { type: 'status', message: 'Updating your existing note…' }
+  yield {
+    type: 'status',
+    message: await resolveUiStatusMessage({
+      request: { phase: UiStatusPhase.updatingExistingNote },
+      userInstructionsBlock,
+    }),
+  }
   const vector = await embedText(content)
   await updateDocument(documentId, { content, vector })
   yield { type: 'stored', documentId }
@@ -231,6 +270,7 @@ async function* emitThoughtUpdateAfterDuplicateChoice(
   yield {
     type: 'turn_step_summary',
     summary: `Save: updated existing similar document in place (id ${documentId}).`,
+    reportedOutcomeStatus: 'succeeded',
   }
   for await (const chunk of streamAssistantUserReplyWithFallback({
     userInstructionsBlock,
@@ -254,10 +294,14 @@ async function* storeSingleItem(
   conversationHistory: readonly ConversationEntry[] = [],
   options: StoreSingleItemOptions = {},
 ): AsyncGenerator<AgentEvent> {
+  void conversationHistory
   if (!options.skipDuplicateCheck) {
     yield {
       type: 'status',
-      message: 'Checking for an existing duplicate…',
+      message: await resolveUiStatusMessage({
+        request: { phase: UiStatusPhase.checkingDuplicateSave },
+        userInstructionsBlock,
+      }),
     }
     const similarDocuments = await findSimilarDocumentsForSave(content, {
       documentType: docType,
@@ -280,6 +324,7 @@ async function* storeSingleItem(
         type: 'turn_step_summary',
         summary:
           'Save: similar items already in the library; waiting for user to confirm a new copy or replace. No new document was written.',
+        reportedOutcomeStatus: 'succeeded',
       }
       for await (const chunk of streamAssistantUserReplyWithFallback({
         userInstructionsBlock,
@@ -296,7 +341,13 @@ async function* storeSingleItem(
     }
   }
 
-  yield { type: 'status', message: 'Saving to your library…' }
+  yield {
+    type: 'status',
+    message: await resolveUiStatusMessage({
+      request: { phase: UiStatusPhase.savingToLibrary },
+      userInstructionsBlock,
+    }),
+  }
   const doc = await storeThought({
     content,
     originalInput,
@@ -311,6 +362,7 @@ async function* storeSingleItem(
     yield {
       type: 'turn_step_summary',
       summary: `Save: stored new ${docType} (id ${doc.id}).`,
+      reportedOutcomeStatus: 'succeeded',
     }
     yield { type: 'chunk', content: customSavedJsonMessage }
     return
@@ -319,6 +371,7 @@ async function* storeSingleItem(
   yield {
     type: 'turn_step_summary',
     summary: `Save: stored new ${docType} (id ${doc.id}).`,
+    reportedOutcomeStatus: 'succeeded',
   }
 
   const topic = summarizeTopic(content)

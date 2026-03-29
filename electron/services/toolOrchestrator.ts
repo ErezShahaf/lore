@@ -1,18 +1,18 @@
 import { logger } from '../logger'
 import { collectChatResponse, parseJsonFromModelResponse } from './ollamaService'
 import { getSettings } from './settingsService'
+import { streamAssistantUserReplyWithFallback } from './assistantReplyComposer'
 import { formatUserInstructionsBlock, loadAllUserInstructionDocuments } from './userInstructionsContext'
+import {
+  resetUiStatusPhraseCacheForNewTurn,
+  resolveUiStatusMessage,
+  UiStatusPhase,
+} from './uiStatusPhraseComposer'
 import {
   executeOrchestratorTool,
   type OrchestratorToolContext,
 } from './orchestratorTools'
-import {
-  buildWorkerSystemPrompt,
-  getToolsForWorker,
-  resolveWorkerForTurn,
-  workerKindStatusLabel,
-  type WorkerKind,
-} from './workerRouter'
+import { buildWorkerSystemPrompt, getToolsForWorker, resolveWorkerForTurn, type WorkerKind } from './workerRouter'
 import {
   ORCHESTRATOR_MAX_STEPS,
   type AgentEvent,
@@ -78,15 +78,29 @@ export async function* runToolOrchestratedTurn(
   userInput: string,
   priorHistory: readonly ConversationEntry[],
 ): AsyncGenerator<AgentEvent> {
-  yield { type: 'status', message: 'Working on your message…' }
+  const userInstructionDocuments = await loadAllUserInstructionDocuments()
+  const userInstructionsBlock = formatUserInstructionsBlock(userInstructionDocuments)
+
+  resetUiStatusPhraseCacheForNewTurn()
+
+  yield {
+    type: 'status',
+    message: await resolveUiStatusMessage({
+      request: { phase: UiStatusPhase.workingOnMessage },
+      userInstructionsBlock,
+    }),
+  }
 
   const settings = getSettings()
   const model = settings.selectedModel
 
-  const userInstructionDocuments = await loadAllUserInstructionDocuments()
-  const userInstructionsBlock = formatUserInstructionsBlock(userInstructionDocuments)
-
-  yield { type: 'status', message: 'Figuring out what you need…' }
+  yield {
+    type: 'status',
+    message: await resolveUiStatusMessage({
+      request: { phase: UiStatusPhase.figuringOutNeed },
+      userInstructionsBlock,
+    }),
+  }
 
   let workerKind: WorkerKind
   let routerClassification: Awaited<ReturnType<typeof resolveWorkerForTurn>>['classification']
@@ -111,7 +125,13 @@ export async function* runToolOrchestratedTurn(
     return
   }
 
-  yield { type: 'status', message: workerKindStatusLabel(workerKind) }
+  yield {
+    type: 'status',
+    message: await resolveUiStatusMessage({
+      request: { phase: workerKindToStatusPhase(workerKind) },
+      userInstructionsBlock,
+    }),
+  }
 
   const systemPrompt = buildWorkerSystemPrompt(workerKind, userInstructionsBlock, routerClassification)
 
@@ -137,7 +157,13 @@ export async function* runToolOrchestratedTurn(
   for (let step = 0; step < ORCHESTRATOR_MAX_STEPS; step += 1) {
     yield {
       type: 'status',
-      message: step === 0 ? 'Deciding what to do next…' : 'Taking another pass at your request…',
+      message: await resolveUiStatusMessage({
+        request: {
+          phase: step === 0 ? UiStatusPhase.orchestratorDecidingNext : UiStatusPhase.orchestratorAnotherPass,
+          orchestratorLoopStep: step,
+        },
+        userInstructionsBlock,
+      }),
     }
 
     let rawResponse: string
@@ -184,9 +210,12 @@ export async function* runToolOrchestratedTurn(
       if (assistantResponse) {
         yield { type: 'chunk', content: assistantResponse }
       } else {
-        const fallback =
-          'I had trouble generating a response. Please try again or rephrase your request.'
-        yield { type: 'chunk', content: fallback }
+        for await (const chunk of streamAssistantUserReplyWithFallback({
+          userInstructionsBlock,
+          facts: { kind: 'orchestrator_surface_fallback', trigger: 'empty_decision_reply' },
+        })) {
+          yield { type: 'chunk', content: chunk }
+        }
       }
       yield { type: 'done' }
       return
@@ -220,7 +249,13 @@ export async function* runToolOrchestratedTurn(
       '[ToolOrchestrator] Worker produced tool-call decision',
     )
 
-    yield { type: 'status', message: toolStatusMessage(parsed.agent) }
+    yield {
+      type: 'status',
+      message: await resolveUiStatusMessage({
+        request: { phase: toolAgentToStatusPhase(parsed.agent), toolAgent: parsed.agent },
+        userInstructionsBlock,
+      }),
+    }
 
     logger.debug(
       { agent: parsed.agent, params: JSON.stringify(parsed.params ?? {}).slice(0, 200), step },
@@ -256,29 +291,45 @@ export async function* runToolOrchestratedTurn(
   }
 
   logger.warn('[ToolOrchestrator] Exhausted max steps without final response')
-  assistantResponse =
-    "I'm having trouble processing your request. Could you try rephrasing it?"
-  yield { type: 'chunk', content: assistantResponse }
+  for await (const chunk of streamAssistantUserReplyWithFallback({
+    userInstructionsBlock,
+    facts: { kind: 'orchestrator_surface_fallback', trigger: 'max_steps_exhausted' },
+  })) {
+    yield { type: 'chunk', content: chunk }
+  }
   yield { type: 'done' }
 }
 
-function toolStatusMessage(agentName: string): string {
+function workerKindToStatusPhase(workerKind: WorkerKind): string {
+  switch (workerKind) {
+    case 'question':
+      return UiStatusPhase.workerFocusQuestion
+    case 'thought':
+      return UiStatusPhase.workerFocusThought
+    case 'command':
+      return UiStatusPhase.workerFocusCommand
+    case 'conversational':
+      return UiStatusPhase.workerFocusConversational
+  }
+}
+
+function toolAgentToStatusPhase(agentName: string): string {
   switch (agentName) {
     case 'search_library':
-      return 'Searching your library…'
+      return UiStatusPhase.toolSearchLibrary
     case 'search_for_question':
-      return 'Searching for your question…'
+      return UiStatusPhase.toolSearchForQuestion
     case 'search_for_command':
-      return 'Searching for command targets…'
+      return UiStatusPhase.toolSearchForCommand
     case 'get_document':
-      return 'Reading a document…'
+      return UiStatusPhase.toolGetDocument
     case 'save_documents':
-      return 'Saving to your library…'
+      return UiStatusPhase.toolSaveDocuments
     case 'modify_documents':
-      return 'Applying changes…'
+      return UiStatusPhase.toolModifyDocuments
     case 'compose_reply':
-      return 'Composing response…'
+      return UiStatusPhase.toolComposeReply
     default:
-      return 'Carrying out a quick task…'
+      return UiStatusPhase.toolRunningUnknown
   }
 }

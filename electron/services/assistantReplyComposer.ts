@@ -22,58 +22,6 @@ function formatDuplicateExistingNoteBlockForFallback(existingContent: string): s
     .join('\n')
 }
 
-type MultiActionSummaryOutcome = Extract<
-  AssistantReplyFacts,
-  { readonly kind: 'multi_action_summary' }
->['outcomes'][number]
-
-function tryBuildDeterministicAllSuccessfulTodoSavesReply(
-  outcomes: readonly MultiActionSummaryOutcome[],
-): string | null {
-  if (outcomes.length === 0) {
-    return null
-  }
-
-  const everyOutcomeIsSuccessfulTodoSave = outcomes.every(
-    (outcome) =>
-      outcome.intent === 'save'
-      && outcome.saveDocumentType === 'todo'
-      && outcome.status === 'succeeded'
-      && outcome.storedDocumentIds.length > 0,
-  )
-
-  if (!everyOutcomeIsSuccessfulTodoSave) {
-    return null
-  }
-
-  const count = outcomes.length
-  const todoWord = count === 1 ? 'todo' : 'todos'
-  return `Saved ${count} ${todoWord}.`
-}
-
-function tryBuildPassThroughStructuredReadReply(
-  outcomes: readonly MultiActionSummaryOutcome[],
-): string | null {
-  if (outcomes.length !== 1) {
-    return null
-  }
-
-  const outcome = outcomes[0]
-  if (outcome.intent !== 'read' || outcome.status !== 'succeeded') {
-    return null
-  }
-
-  const trimmedMessage = outcome.message.trim()
-  if (trimmedMessage.startsWith('```')) {
-    return outcome.message
-  }
-  if (trimmedMessage.includes('```')) {
-    return outcome.message
-  }
-
-  return null
-}
-
 export async function* streamAssistantUserReply(input: {
   readonly facts: AssistantReplyFacts
   readonly userInstructionsBlock: string
@@ -120,20 +68,6 @@ export async function* streamAssistantUserReplyWithFallback(input: {
 }): AsyncGenerator<string> {
   const settings = getSettings()
 
-  if (input.facts.kind === 'multi_action_summary') {
-    const deterministic = tryBuildDeterministicAllSuccessfulTodoSavesReply(input.facts.outcomes)
-    if (deterministic !== null) {
-      yield deterministic
-      return
-    }
-
-    const structuredRead = tryBuildPassThroughStructuredReadReply(input.facts.outcomes)
-    if (structuredRead !== null) {
-      yield structuredRead
-      return
-    }
-  }
-
   try {
     yield* streamAssistantUserReply({
       facts: input.facts,
@@ -144,6 +78,17 @@ export async function* streamAssistantUserReplyWithFallback(input: {
     logger.error({ error }, '[AssistantReplyComposer] Model failed; using fallback text')
     yield buildFallbackAssistantReply(input.facts)
   }
+}
+
+export async function composeAssistantUserReplyText(input: {
+  readonly facts: AssistantReplyFacts
+  readonly userInstructionsBlock: string
+}): Promise<string> {
+  let text = ''
+  for await (const chunk of streamAssistantUserReplyWithFallback(input)) {
+    text += chunk
+  }
+  return text.trim()
 }
 
 export function buildFallbackAssistantReply(facts: AssistantReplyFacts): string {
@@ -213,6 +158,54 @@ export function buildFallbackAssistantReply(facts: AssistantReplyFacts): string 
         return operation.action === 'delete' ? `removed "${preview}"` : `updated "${preview}"`
       })
       return `Done: ${parts.join(', ')}.`
+    }
+    case 'save_input_empty': {
+      if (facts.emptyReason === 'empty_multi_action_step') {
+        return 'Nothing to save for this step.'
+      }
+      return 'Nothing to save.'
+    }
+    case 'save_duplicate_replace_blocked':
+      return 'Nothing to update.'
+    case 'save_body_clarify_structured_intent':
+      return [
+        'You sent structured data without saying what to do with it.',
+        'Should I save it as a note, help you find something in your library, or answer a question about it?',
+      ].join(' ')
+    case 'save_body_clarify_short_title':
+      return [
+        'Before I save it, what should I call this, or do you want a one-line description?',
+        'That makes it easier to find later—I can use it in the title or tags.',
+      ].join(' ')
+    case 'command_resolution_failed':
+      return 'Could not safely match your request to stored notes. Try being more specific.'
+    case 'command_target_clarify': {
+      const verb = facts.commandIntent === 'delete' ? 'remove' : 'change'
+      return [
+        `More than one item could match; say which one you want to ${verb}.`,
+        '',
+        facts.verbatimNumberedOptionsBlock,
+        '',
+        'Reply with the number or paste the exact wording of the item you mean.',
+      ].join('\n')
+    }
+    case 'command_clarify_uncertain': {
+      if (facts.hint && facts.hint.trim().length > 0) {
+        return `I am not confident which document you mean (${facts.hint}). Could you narrow it down?`
+      }
+      return 'I am not sure which documents you mean. Could you be more specific?'
+    }
+    case 'command_clarify_model_text':
+      return facts.text.trim().length > 0 ? facts.text : 'Could you clarify which stored item you mean?'
+    case 'orchestrator_surface_fallback': {
+      if (facts.trigger === 'max_steps_exhausted') {
+        return 'I am having trouble finishing that request. Could you try rephrasing it?'
+      }
+      return 'I had trouble generating a response. Please try again or rephrase your request.'
+    }
+    case 'todo_list_present': {
+      const greeting = facts.shouldEchoGreeting ? `${facts.userSurfaceInput.trim()}\n\n` : ''
+      return `${greeting}${facts.bulletLines.join('\n')}`
     }
     case 'multi_action_summary': {
       const succeeded = facts.outcomes.filter((outcome) => outcome.status === 'succeeded')

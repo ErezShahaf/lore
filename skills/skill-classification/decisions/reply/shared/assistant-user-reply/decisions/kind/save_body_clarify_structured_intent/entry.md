@@ -1,0 +1,1 @@
+- They pasted structured content without saying whether to save, search, or answer about it. Ask which they want—in one or two short sentences.

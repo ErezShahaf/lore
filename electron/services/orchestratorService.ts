@@ -2,7 +2,6 @@
  * @deprecated The main flow now uses toolOrchestrator (orchestratorTools + toolOrchestrator).
  * This classification-based orchestrator is kept for potential rollback or reference.
  */
-import { classificationIntentStatusLabel } from './classificationActionExecutor'
 import { classifyInputWithStatusEvents } from './classifierService'
 import { logger } from '../logger'
 import { handleThought } from './handlers/thoughtHandler'
@@ -11,6 +10,11 @@ import { handleCommand } from './handlers/commandHandler'
 import { handleConversational } from './handlers/conversationalHandler'
 import { retrieveRelevantDocuments } from './documentPipeline'
 import { formatUserInstructionsBlock, loadAllUserInstructionDocuments } from './userInstructionsContext'
+import {
+  resetUiStatusPhraseCacheForNewTurn,
+  resolveUiStatusMessage,
+  UiStatusPhase,
+} from './uiStatusPhraseComposer'
 import {
   ORCHESTRATOR_MAX_STEPS,
   type AgentEvent,
@@ -40,11 +44,19 @@ export async function* runOrchestratedTurn(
 ): AsyncGenerator<AgentEvent> {
   for (let stepIndex = 0; stepIndex < ORCHESTRATOR_MAX_STEPS; stepIndex += 1) {
     if (stepIndex === 0) {
-      yield { type: 'status', message: 'Working on your message…' }
+      resetUiStatusPhraseCacheForNewTurn()
 
       const userInstructionDocuments = await loadAllUserInstructionDocuments()
       turn.userInstructionDocuments = userInstructionDocuments
       turn.userInstructionsBlock = formatUserInstructionsBlock(userInstructionDocuments)
+
+      yield {
+        type: 'status',
+        message: await resolveUiStatusMessage({
+          request: { phase: UiStatusPhase.workingOnMessage },
+          userInstructionsBlock: turn.userInstructionsBlock,
+        }),
+      }
 
       let classification: ClassificationResult
       try {
@@ -76,7 +88,10 @@ export async function* runOrchestratedTurn(
 
       yield {
         type: 'status',
-        message: classificationIntentStatusLabel(primaryAction.intent, null),
+        message: await resolveUiStatusMessage({
+          request: { phase: UiStatusPhase.multiActionStep, intent: primaryAction.intent, stepIndex: 0, totalSteps: 1 },
+          userInstructionsBlock: turn.userInstructionsBlock,
+        }),
       }
 
       yield* dispatchIntentHandlers(userInput, priorHistory, primaryAction, turn)
@@ -99,7 +114,13 @@ async function* dispatchIntentHandlers(
   try {
     switch (classification.intent) {
       case 'save': {
-        yield { type: 'status', message: 'Saving or updating your note…' }
+        yield {
+          type: 'status',
+          message: await resolveUiStatusMessage({
+            request: { phase: UiStatusPhase.orchestratorSavingNote },
+            userInstructionsBlock: turn.userInstructionsBlock,
+          }),
+        }
         turn.lastDocumentIds = []
         recordDispatcher(turn, 'ThoughtHandler')
         for await (const event of handleThought(
@@ -118,7 +139,13 @@ async function* dispatchIntentHandlers(
         break
       }
       case 'read': {
-        yield { type: 'status', message: 'Looking through your library to answer you…' }
+        yield {
+          type: 'status',
+          message: await resolveUiStatusMessage({
+            request: { phase: UiStatusPhase.orchestratorReadingLibrary },
+            userInstructionsBlock: turn.userInstructionsBlock,
+          }),
+        }
         turn.lastDocumentIds = []
         const isTodoQuery = classification.extractedTags.some((tag) => tag === 'todo')
         const todoOverrides = isTodoQuery ? ({ type: 'todo' } as const) : undefined
@@ -141,7 +168,13 @@ async function* dispatchIntentHandlers(
       }
       case 'edit':
       case 'delete': {
-        yield { type: 'status', message: 'Applying changes to your stored notes…' }
+        yield {
+          type: 'status',
+          message: await resolveUiStatusMessage({
+            request: { phase: UiStatusPhase.orchestratorApplyingChanges },
+            userInstructionsBlock: turn.userInstructionsBlock,
+          }),
+        }
         recordDispatcher(turn, 'CommandHandler')
         for await (const event of handleCommand(userInput, classification, priorHistory, undefined, turn.userInstructionsBlock)) {
           if (event.type === 'chunk') turn.assistantResponse += event.content
@@ -153,7 +186,13 @@ async function* dispatchIntentHandlers(
         break
       }
       case 'speak': {
-        yield { type: 'status', message: 'Checking your saved instructions for anything relevant…' }
+        yield {
+          type: 'status',
+          message: await resolveUiStatusMessage({
+            request: { phase: UiStatusPhase.orchestratorCheckingInstructions },
+            userInstructionsBlock: turn.userInstructionsBlock,
+          }),
+        }
         const relevantInstructions = await retrieveRelevantDocuments(userInput, {
           type: 'instruction',
           similarityThreshold: 0.8,
@@ -162,7 +201,10 @@ async function* dispatchIntentHandlers(
         if (relevantInstructions.length > 0) {
           yield {
             type: 'status',
-            message: 'Something you saved fits this—answering from your notes…',
+            message: await resolveUiStatusMessage({
+              request: { phase: UiStatusPhase.orchestratorAnsweringFromSavedInstructions },
+              userInstructionsBlock: turn.userInstructionsBlock,
+            }),
           }
           turn.lastDocumentIds = []
           recordDispatcher(turn, 'QuestionHandlerViaInstructions')
@@ -181,7 +223,13 @@ async function* dispatchIntentHandlers(
             }
           }
         } else {
-          yield { type: 'status', message: 'No saved rule applied—drafting a short reply…' }
+          yield {
+            type: 'status',
+            message: await resolveUiStatusMessage({
+              request: { phase: UiStatusPhase.orchestratorNoRuleDrafting },
+              userInstructionsBlock: turn.userInstructionsBlock,
+            }),
+          }
           recordDispatcher(turn, 'ConversationalHandler')
           for await (const event of handleConversational(userInput, classification, priorHistory, turn.userInstructionsBlock)) {
             if (event.type === 'chunk') turn.assistantResponse += event.content

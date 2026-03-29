@@ -13,6 +13,7 @@ import {
   setPendingCommandClarification,
 } from '../commandClarificationState'
 import type { AssistantReplyFacts } from '../assistantReplyTypes'
+import { resolveUiStatusMessage, UiStatusPhase } from '../uiStatusPhraseComposer'
 import type {
   ClassificationForHandler,
   CommandResolution,
@@ -40,7 +41,13 @@ export async function* handleCommand(
   retrievalOverrides?: RetrievalOptions,
   userInstructionsBlock: string = '',
 ): AsyncGenerator<AgentEvent> {
-  yield { type: 'status', message: 'Searching your library for matching documents…' }
+  yield {
+    type: 'status',
+    message: await resolveUiStatusMessage({
+      request: { phase: UiStatusPhase.searchingLibraryForCommand },
+      userInstructionsBlock,
+    }),
+  }
 
   const isTodoCompletion = classification.extractedTags.some(
     (tag) => tag.toLowerCase() === 'todo',
@@ -61,6 +68,7 @@ export async function* handleCommand(
     yield {
       type: 'turn_step_summary',
       summary: 'Command: no documents matched the search; nothing was modified.',
+      reportedOutcomeStatus: 'failed',
     }
     for await (const chunk of streamAssistantUserReplyWithFallback({
       userInstructionsBlock,
@@ -78,7 +86,13 @@ export async function* handleCommand(
     totalRetrieved: documents.length,
   }
 
-  yield { type: 'status', message: 'Narrowing down exactly which notes to change…' }
+  yield {
+    type: 'status',
+    message: await resolveUiStatusMessage({
+      request: { phase: UiStatusPhase.narrowingCommandTargets },
+      userInstructionsBlock,
+    }),
+  }
 
   let resolution: CommandResolution
   const pending = getPendingCommandClarification()
@@ -129,10 +143,13 @@ export async function* handleCommand(
         yield {
           type: 'turn_step_summary',
           summary: 'Command: decomposition failed; no documents were changed.',
+          reportedOutcomeStatus: 'failed',
         }
-        yield {
-          type: 'error',
-          message: 'Failed to understand which documents to modify. Please try being more specific.',
+        for await (const chunk of streamAssistantUserReplyWithFallback({
+          userInstructionsBlock,
+          facts: { kind: 'command_resolution_failed' },
+        })) {
+          yield { type: 'chunk', content: chunk }
         }
         yield { type: 'done' }
         return
@@ -185,10 +202,13 @@ export async function* handleCommand(
         yield {
           type: 'turn_step_summary',
           summary: 'Command: decomposition failed; no documents were changed.',
+          reportedOutcomeStatus: 'failed',
         }
-        yield {
-          type: 'error',
-          message: 'Failed to understand which documents to modify. Please try being more specific.',
+        for await (const chunk of streamAssistantUserReplyWithFallback({
+          userInstructionsBlock,
+          facts: { kind: 'command_resolution_failed' },
+        })) {
+          yield { type: 'chunk', content: chunk }
         }
         yield { type: 'done' }
         return
@@ -210,10 +230,48 @@ export async function* handleCommand(
     yield {
       type: 'turn_step_summary',
       summary: COMMAND_AMBIGUOUS_TARGETS_TURN_STEP_SUMMARY,
+      reportedOutcomeStatus: 'succeeded',
     }
-    yield {
-      type: 'chunk',
-      content: resolution.clarificationMessage,
+    const presentation = resolution.clarifyPresentation
+    if (presentation === undefined) {
+      for await (const chunk of streamAssistantUserReplyWithFallback({
+        userInstructionsBlock,
+        facts: { kind: 'command_clarify_model_text', text: resolution.clarificationMessage },
+      })) {
+        yield { type: 'chunk', content: chunk }
+      }
+    } else if (presentation.style === 'template_numbered_options') {
+      for await (const chunk of streamAssistantUserReplyWithFallback({
+        userInstructionsBlock,
+        facts: {
+          kind: 'command_target_clarify',
+          commandIntent: presentation.commandIntent,
+          verbatimNumberedOptionsBlock: presentation.verbatimNumberedOptionsBlock,
+        },
+      })) {
+        yield { type: 'chunk', content: chunk }
+      }
+    } else if (presentation.style === 'uncertain') {
+      for await (const chunk of streamAssistantUserReplyWithFallback({
+        userInstructionsBlock,
+        facts: { kind: 'command_clarify_uncertain', hint: presentation.hint },
+      })) {
+        yield { type: 'chunk', content: chunk }
+      }
+    } else if (presentation.style === 'no_resolvable_targets') {
+      for await (const chunk of streamAssistantUserReplyWithFallback({
+        userInstructionsBlock,
+        facts: { kind: 'command_resolution_failed' },
+      })) {
+        yield { type: 'chunk', content: chunk }
+      }
+    } else {
+      for await (const chunk of streamAssistantUserReplyWithFallback({
+        userInstructionsBlock,
+        facts: { kind: 'command_clarify_model_text', text: presentation.text },
+      })) {
+        yield { type: 'chunk', content: chunk }
+      }
     }
     yield { type: 'done' }
     return
@@ -225,6 +283,7 @@ export async function* handleCommand(
     yield {
       type: 'turn_step_summary',
       summary: 'Command: resolver returned no safe operations; nothing was modified.',
+      reportedOutcomeStatus: 'failed',
     }
     for await (const chunk of streamAssistantUserReplyWithFallback({
       userInstructionsBlock,
@@ -236,13 +295,22 @@ export async function* handleCommand(
     return
   }
 
-  const executionStatusMessage =
+  const executionPhase =
     resolution.operations.length === 1
       ? resolution.operations[0].action === 'update'
-        ? 'Updating your note…'
-        : 'Removing that note…'
-      : 'Applying your changes…'
-  yield { type: 'status', message: executionStatusMessage }
+        ? UiStatusPhase.commandExecutingUpdate
+        : UiStatusPhase.commandExecutingDelete
+      : UiStatusPhase.commandExecutingBatch
+  yield {
+    type: 'status',
+    message: await resolveUiStatusMessage({
+      request: {
+        phase: executionPhase,
+        matchingNoteCount: resolution.operations.length,
+      },
+      userInstructionsBlock,
+    }),
+  }
 
   const documentLookup = new Map(documents.map((document) => [document.id, document]))
   const results: ExecutionResult[] = []
@@ -278,7 +346,11 @@ export async function* handleCommand(
   if (updateCount > 0) {
     summaryParts.push(`Updated ${updateCount} document(s).`)
   }
-  yield { type: 'turn_step_summary', summary: summaryParts.join(' ') }
+  yield {
+    type: 'turn_step_summary',
+    summary: summaryParts.join(' '),
+    reportedOutcomeStatus: 'succeeded',
+  }
 
   for await (const chunk of streamAssistantUserReplyWithFallback({
     userInstructionsBlock,

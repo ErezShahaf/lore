@@ -12,23 +12,9 @@ import type {
   AgentEvent,
   ClassificationAction,
   ConversationEntry,
-  InputClassification,
   LoreDocument,
   RetrievalContextDocument,
 } from '../../shared/types'
-
-function inferStatusFromMessage(message: string): 'succeeded' | 'failed' {
-  const lower = message.toLowerCase()
-  if (
-    lower.includes('could not')
-    || lower.includes('no matching')
-    || lower.includes('nothing to save')
-    || lower.includes('no documents')
-  ) {
-    return 'failed'
-  }
-  return 'succeeded'
-}
 
 function synthesizeHandlerResultSummary(params: {
   readonly action: ClassificationAction
@@ -102,34 +88,6 @@ export function buildClassificationActionInput(
     return action.data
   }
   return fallbackUserInput
-}
-
-export interface ClassificationIntentStatusOptions {
-  readonly actionIndex: number
-  readonly totalActions: number
-}
-
-export function classificationIntentStatusLabel(
-  intent: InputClassification,
-  options: ClassificationIntentStatusOptions | null = null,
-): string {
-  const hasMultiStepPrefix = options !== null && options.totalActions > 1
-  const stepPrefix = hasMultiStepPrefix
-    ? `Step ${options.actionIndex + 1} of ${options.totalActions} — `
-    : ''
-
-  switch (intent) {
-    case 'save':
-      return `${stepPrefix}Capturing this in your library…`
-    case 'read':
-      return `${stepPrefix}Looking through your notes for an answer…`
-    case 'edit':
-      return `${stepPrefix}Finding the notes you want updated…`
-    case 'delete':
-      return `${stepPrefix}Finding what you want removed…`
-    case 'speak':
-      return `${stepPrefix}Putting a reply together…`
-  }
 }
 
 type HandlerInvocation = (
@@ -220,6 +178,7 @@ export async function* executeClassificationAction(
   let sawDuplicateEvent = false
   let explicitHandlerSummary = ''
   let retrievedDocumentsForComposer: readonly RetrievalContextDocument[] = []
+  let lastReportedOutcomeStatus: 'succeeded' | 'failed' | null = null
 
   try {
     const handler = selectHandler(action, totalActionsInTurn)
@@ -233,6 +192,9 @@ export async function* executeClassificationAction(
     )) {
       if (event.type === 'turn_step_summary') {
         explicitHandlerSummary = event.summary
+        if (event.reportedOutcomeStatus !== undefined) {
+          lastReportedOutcomeStatus = event.reportedOutcomeStatus
+        }
         continue
       }
 
@@ -277,11 +239,15 @@ export async function* executeClassificationAction(
 
   const status = hadError
     ? 'failed'
-    : (action.intent === 'save' && hadStored) || (action.intent === 'delete' && hadDeleted)
-      ? 'succeeded'
-      : action.intent === 'save' && !hadStored
-        ? 'failed'
-        : inferStatusFromMessage(chunkContent)
+    : lastReportedOutcomeStatus !== null
+      ? lastReportedOutcomeStatus
+      : (action.intent === 'save' && hadStored) || (action.intent === 'delete' && hadDeleted)
+        ? 'succeeded'
+        : action.intent === 'save' && !hadStored && sawDuplicateEvent
+          ? 'succeeded'
+        : action.intent === 'save' && !hadStored
+          ? 'failed'
+        : 'succeeded'
 
   const message = hadError ? errorMessage : (chunkContent.trim() || 'Done.')
 

@@ -1,0 +1,3 @@
+- Nothing was stored. Say so briefly and kindly.
+- If `emptyReason` is `empty_multi_action_step`, mention this step had nothing to save (not the whole message).
+- Do not pretend something was saved.

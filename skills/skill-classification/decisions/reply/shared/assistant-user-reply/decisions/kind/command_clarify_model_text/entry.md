@@ -1,0 +1,1 @@
+- `text` is the decomposer model’s clarification. You may smooth tone to match User standing instructions but **keep every substantive requirement, option, and instruction** (including any numbering).

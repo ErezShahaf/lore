@@ -114,6 +114,8 @@ export interface OllamaModel {
 
 export interface ChatRequestOptions {
   num_ctx?: number
+  /** Ollama: cap generated tokens (used for very short UI status phrases). */
+  num_predict?: number
 }
 
 export interface ChatRequest {
@@ -413,19 +415,41 @@ export interface CommandOperation {
   description: string
 }
 
+/** How to render a command clarification in the assistant reply composer. */
+export type CommandClarifyPresentation =
+  | {
+      readonly style: 'template_numbered_options'
+      readonly commandIntent: 'edit' | 'delete'
+      readonly verbatimNumberedOptionsBlock: string
+    }
+  | {
+      readonly style: 'uncertain'
+      readonly hint: string | null
+    }
+  | {
+      readonly style: 'no_resolvable_targets'
+    }
+  | {
+      readonly style: 'model_authored_text'
+      readonly text: string
+    }
+
 export type CommandResolution =
   | { status: 'execute'; operations: CommandOperation[]; clarificationMessage: null }
   | {
       status: 'clarify'
       operations: []
+      /**
+       * Legacy combined text when `clarifyPresentation` is absent (for example model-authored clarify).
+       */
       clarificationMessage: string
       /** Display order for numbered clarification; used for numeric follow-ups. */
       clarificationCandidateDocumentIds?: readonly string[]
       /**
-       * When true, downstream finalization must not replace `clarificationMessage`
-       * (for example literal-mismatch explanations that already include a full list).
+       * When true, downstream finalization must not replace wording already chosen upstream.
        */
       preserveClarificationWording?: boolean
+      clarifyPresentation?: CommandClarifyPresentation
     }
 
 export interface RetrievedAgentEvent {
@@ -448,7 +472,12 @@ export type AgentEvent =
    * Factual one-line execution trace for this handler step (not shown in chat).
    * Used when the turn ends with a multi-action summary so the composer knows what each sub-step did.
    */
-  | { type: 'turn_step_summary'; summary: string }
+  | {
+      type: 'turn_step_summary'
+      summary: string
+      /** When set, overrides phrase-based inference for multi-action outcome status. */
+      reportedOutcomeStatus?: 'succeeded' | 'failed'
+    }
   /**
    * Full retrieved note bodies for the read handler (not shown in chat). Consumed by the action executor for the reply composer.
    */

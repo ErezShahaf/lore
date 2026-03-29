@@ -1,0 +1,1 @@
+- The matcher was unsure which document they meant. If `hint` is non-empty, weave it in naturally; otherwise ask them to narrow it down. One or two sentences.

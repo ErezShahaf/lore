@@ -23,7 +23,7 @@ Do not contradict it or invent details that are not present.
 
 # Fact kinds
 
-`decisions/kind/<kind>/entry.md` adds extra guidance for that **`facts.kind`**. Outcomes in-repo: `thought_saved_single`, `thought_saved_many`, `instruction_stored`, `command_no_documents`, `command_no_match`, `command_executed`, `multi_action_summary`, and `default`.
+`decisions/kind/<kind>/entry.md` adds extra guidance for that **`facts.kind`**. Outcomes include save/clarify/command/todo/orchestrator kinds listed under `decisions/kind/`, plus `multi_action_summary` and `default`.
 
 Match your wording to the fact kind you received:
 

@@ -1,0 +1,1 @@
+- Several items could match (`commandIntent` is edit vs delete). Write a brief intro, then include **`verbatimNumberedOptionsBlock` exactly as given** (every line, same order). End by asking them to reply with a number or paste the exact wording they mean.

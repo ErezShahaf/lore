@@ -1,6 +1,6 @@
 import { logger } from '../logger'
 import { classifyInput } from './classifierService'
-import { buildFallbackAssistantReply } from './assistantReplyComposer'
+import { composeAssistantUserReplyText } from './assistantReplyComposer'
 import type { AssistantReplyFacts } from './assistantReplyTypes'
 import {
   multiQueryRetrieve,
@@ -98,7 +98,6 @@ async function handleComposeReply(
   args: Record<string, unknown>,
   context: OrchestratorToolContext,
 ): Promise<ToolExecutionResult> {
-  void context
   const factKind = requireString(args, 'factKind')
   const payloadRaw = optionalObject<Record<string, unknown>>(args, 'payload') ?? {}
 
@@ -171,7 +170,10 @@ async function handleComposeReply(
       facts = { kind: 'command_executed', operations: [] }
   }
 
-  const reply = buildFallbackAssistantReply(facts)
+  const reply = await composeAssistantUserReplyText({
+    facts,
+    userInstructionsBlock: context.userInstructionsBlock,
+  })
   return { output: reply, events: [{ type: 'chunk', content: reply }] }
 }
 

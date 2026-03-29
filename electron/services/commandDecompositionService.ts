@@ -207,14 +207,16 @@ function validateResolution(
 
   if (parsed.status === 'clarify') {
     const candidateIds = parseModelClarificationCandidateDocumentIds(parsed, validIds)
+    const modelText = typeof parsed.clarificationMessage === 'string'
+      ? parsed.clarificationMessage
+      : "I'm not sure which documents you're referring to. Could you be more specific?"
     return {
       status: 'clarify',
       operations: [],
-      clarificationMessage: typeof parsed.clarificationMessage === 'string'
-        ? parsed.clarificationMessage
-        : "I'm not sure which documents you're referring to. Could you be more specific?",
+      clarificationMessage: modelText,
       clarificationCandidateDocumentIds:
         candidateIds ?? documents.map((document) => document.id),
+      clarifyPresentation: { style: 'model_authored_text', text: modelText },
     }
   }
   const rawOperations = Array.isArray(parsed.operations) ? parsed.operations : []
@@ -239,10 +241,9 @@ function validateResolution(
       return {
         status: 'clarify',
         operations: [],
-        clarificationMessage: description
-          ? `I'm not confident about this: "${description}". Could you be more specific about which document you mean?`
-          : "I'm not sure which documents you're referring to. Could you be more specific?",
+        clarificationMessage: '',
         clarificationCandidateDocumentIds: documents.map((document) => document.id),
+        clarifyPresentation: { style: 'uncertain', hint: description.trim().length > 0 ? description : null },
       }
     }
 
@@ -268,8 +269,9 @@ function validateResolution(
     return {
       status: 'clarify',
       operations: [],
-      clarificationMessage: "I couldn't determine which documents you're referring to. Could you be more specific?",
+      clarificationMessage: '',
       clarificationCandidateDocumentIds: documents.map((document) => document.id),
+      clarifyPresentation: { style: 'no_resolvable_targets' },
     }
   }
 
@@ -419,22 +421,16 @@ function formatDocumentContentAsBlockquoteLines(rawContent: string): string {
     .join('\n')
 }
 
-export function buildClarificationCandidateListMessage(
+/** Numbered options and blockquoted bodies only (for assistant-user-reply `command_target_clarify`). */
+export function buildVerbatimNumberedOptionsBlock(
   action: CommandOperation['action'],
   orderedDocuments: readonly LoreDocument[],
 ): string {
-  const verb = action === 'delete' ? 'remove' : 'change'
   const blocks = orderedDocuments.map((document, index) => {
     const quotedBody = formatDocumentContentAsBlockquoteLines(document.content)
     return `Option ${index + 1}:\n${quotedBody}`
   })
-  return [
-    `More than one saved item matches; I am not sure which one you want to ${verb}:`,
-    '',
-    blocks.join('\n\n'),
-    '',
-    'Reply with the number or paste the exact wording of the item you mean.',
-  ].join('\n')
+  return blocks.join('\n\n')
 }
 
 function finalizeCommandResolutionWithMandatoryCandidateListing(
@@ -471,9 +467,15 @@ function finalizeCommandResolutionWithMandatoryCandidateListing(
 
   const commandAction: CommandOperation['action'] =
     classifiedCommandIntent === 'edit' ? 'update' : 'delete'
+  const verbatimNumberedOptionsBlock = buildVerbatimNumberedOptionsBlock(commandAction, orderedDocuments)
   return {
     ...resolution,
-    clarificationMessage: buildClarificationCandidateListMessage(commandAction, orderedDocuments),
+    clarificationMessage: '',
+    clarifyPresentation: {
+      style: 'template_numbered_options',
+      commandIntent: commandAction === 'update' ? 'edit' : 'delete',
+      verbatimNumberedOptionsBlock,
+    },
     clarificationCandidateDocumentIds: orderedDocuments.map((document) => document.id),
   }
 }
@@ -482,21 +484,16 @@ function buildLiteralMismatchClarification(
   action: CommandOperation['action'],
   documents: readonly LoreDocument[],
 ): CommandResolution {
-  const verb = action === 'delete' ? 'remove' : 'change'
-  const blocks = documents.map((document, index) => {
-    const quotedBody = formatDocumentContentAsBlockquoteLines(document.content)
-    return `Option ${index + 1}:\n${quotedBody}`
-  })
+  const verbatimNumberedOptionsBlock = buildVerbatimNumberedOptionsBlock(action, documents)
   return {
     status: 'clarify',
     operations: [],
-    clarificationMessage: [
-      `I could not match your wording to a single row to ${verb}. Here are the items from this search:`,
-      '',
-      blocks.join('\n\n'),
-      '',
-      'Reply with the number or paste the exact wording of the item you mean.',
-    ].join('\n'),
+    clarificationMessage: '',
+    clarifyPresentation: {
+      style: 'template_numbered_options',
+      commandIntent: action === 'update' ? 'edit' : 'delete',
+      verbatimNumberedOptionsBlock,
+    },
     clarificationCandidateDocumentIds: documents.map((document) => document.id),
     preserveClarificationWording: true,
   }
@@ -582,7 +579,15 @@ function tryResolveCommandDeterministically(
     return {
       status: 'clarify',
       operations: [],
-      clarificationMessage: buildClarificationCandidateListMessage(parsedCommand.action, orderedDocuments),
+      clarificationMessage: '',
+      clarifyPresentation: {
+        style: 'template_numbered_options',
+        commandIntent: parsedCommand.action === 'update' ? 'edit' : 'delete',
+        verbatimNumberedOptionsBlock: buildVerbatimNumberedOptionsBlock(
+          parsedCommand.action,
+          orderedDocuments,
+        ),
+      },
       clarificationCandidateDocumentIds: orderedDocuments.map((document) => document.id),
     }
   }

@@ -18,6 +18,8 @@ import {
   buildNoDocumentsQuestionUserMessage,
   streamQuestionLlmChunks,
 } from '../questionAnswerComposition'
+import { streamAssistantUserReplyWithFallback } from '../assistantReplyComposer'
+import { resolveUiStatusMessage, UiStatusPhase } from '../uiStatusPhraseComposer'
 import { noteContainsStructuredPayload } from '../jsonBlobUtils'
 import { getDocumentById } from '../lanceService'
 import { parseClarificationNumericReply } from '../commandClarificationState'
@@ -120,7 +122,13 @@ async function* answerQuestionFromRetrievedCandidateNotes(
     skipStrategistClarification,
   } = params
 
-  yield { type: 'status', message: 'Searching your notes…' }
+  yield {
+    type: 'status',
+    message: await resolveUiStatusMessage({
+      request: { phase: UiStatusPhase.searchingNotes },
+      userInstructionsBlock,
+    }),
+  }
 
   const settings = getSettings()
   const retrievalOpts = buildRetrievalOptions(userInput, classification, undefined)
@@ -181,10 +189,22 @@ async function* answerQuestionFromRetrievedCandidateNotes(
     return
   }
 
-  yield { type: 'status', message: 'Pulling the important details together…' }
+  yield {
+    type: 'status',
+    message: await resolveUiStatusMessage({
+      request: { phase: UiStatusPhase.pullingAnswerTogether },
+      userInstructionsBlock,
+    }),
+  }
 
   if (!skipStrategistClarification) {
-    yield { type: 'status', message: 'Choosing the clearest way to answer…' }
+    yield {
+      type: 'status',
+      message: await resolveUiStatusMessage({
+        request: { phase: UiStatusPhase.choosingAnswerPath },
+        userInstructionsBlock,
+      }),
+    }
     const strategy = await decideQuestionStrategy({
       userInput,
       situationSummary: classification.situationSummary,
@@ -220,7 +240,13 @@ async function* answerQuestionFromRetrievedCandidateNotes(
 
   yield {
     type: 'status',
-    message: `Writing your answer from ${documents.length} matching note${documents.length === 1 ? '' : 's'}…`,
+    message: await resolveUiStatusMessage({
+      request: {
+        phase: UiStatusPhase.writingAnswerFromNotes,
+        matchingNoteCount: documents.length,
+      },
+      userInstructionsBlock,
+    }),
   }
 
   const contextBlock = formatRetrievedDocuments([...documents])
@@ -322,7 +348,13 @@ export async function* handleQuestion(
     }
   }
 
-  yield { type: 'status', message: 'Searching your notes…' }
+  yield {
+    type: 'status',
+    message: await resolveUiStatusMessage({
+      request: { phase: UiStatusPhase.searchingNotes },
+      userInstructionsBlock,
+    }),
+  }
 
   const settings = getSettings()
 
@@ -411,9 +443,6 @@ export async function* handleQuestion(
     } else {
       const formattedTodos = sortedTodos.map((doc) => `- ${doc.content.trim()}`)
 
-      const greetingPrefix = looksLikeGreeting ? `${userInput.trim()}!\n\n` : ''
-      const response = `${greetingPrefix}Here are your todos from newest to oldest:\n\n${formattedTodos.join('\n')}`
-
       yield {
         type: 'retrieved',
         documentIds: sortedTodos.map((document) => document.id),
@@ -428,9 +457,20 @@ export async function* handleQuestion(
 
       yield {
         type: 'turn_step_summary',
-        summary: `Read: listed ${sortedTodos.length} todo(s) deterministically from storage (instruction-driven shortcut).`,
+        summary: `Read: listed ${sortedTodos.length} todo(s) from storage via assistant reply composer (instruction shortcut).`,
+        reportedOutcomeStatus: 'succeeded',
       }
-      yield { type: 'chunk', content: response }
+      for await (const chunk of streamAssistantUserReplyWithFallback({
+        userInstructionsBlock,
+        facts: {
+          kind: 'todo_list_present',
+          bulletLines: formattedTodos,
+          userSurfaceInput: userInput.trim(),
+          shouldEchoGreeting: looksLikeGreeting,
+        },
+      })) {
+        yield { type: 'chunk', content: chunk }
+      }
       yield { type: 'done' }
       return
     }
@@ -473,7 +513,13 @@ export async function* handleQuestion(
       type: 'turn_step_summary',
       summary: 'Read: retrieval returned zero matching documents; answer used the no-library context path.',
     }
-    yield { type: 'status', message: 'Nothing quite matched—drafting a helpful reply anyway…' }
+    yield {
+      type: 'status',
+      message: await resolveUiStatusMessage({
+        request: { phase: UiStatusPhase.noMatchDraftingAnswer },
+        userInstructionsBlock,
+      }),
+    }
     const ragSystemPrompt = appendUserInstructionsToSystemPrompt(
       loadSkill('question-answer', questionAnswerSelectors),
       userInstructionsBlock,
@@ -560,9 +606,21 @@ export async function* handleQuestion(
     return
   }
 
-  yield { type: 'status', message: 'Pulling the important details together…' }
+  yield {
+    type: 'status',
+    message: await resolveUiStatusMessage({
+      request: { phase: UiStatusPhase.pullingAnswerTogether },
+      userInstructionsBlock,
+    }),
+  }
 
-  yield { type: 'status', message: 'Choosing the clearest way to answer…' }
+  yield {
+    type: 'status',
+    message: await resolveUiStatusMessage({
+      request: { phase: UiStatusPhase.choosingAnswerPath },
+      userInstructionsBlock,
+    }),
+  }
   const strategy = await decideQuestionStrategy({
     userInput,
     situationSummary: classification.situationSummary,
@@ -597,7 +655,13 @@ export async function* handleQuestion(
 
   yield {
     type: 'status',
-    message: `Writing your answer from ${documents.length} matching note${documents.length === 1 ? '' : 's'}…`,
+    message: await resolveUiStatusMessage({
+      request: {
+        phase: UiStatusPhase.writingAnswerFromNotes,
+        matchingNoteCount: documents.length,
+      },
+      userInstructionsBlock,
+    }),
   }
 
   const contextBlock = formatRetrievedDocuments(documents)

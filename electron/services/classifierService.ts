@@ -1,5 +1,6 @@
 import type { AgentEvent, ClassificationResult, ConversationEntry } from '../../shared/types'
 import { classifyInputUnified } from './unifiedClassifierService'
+import { resolveUiStatusMessage, UiStatusPhase } from './uiStatusPhraseComposer'
 
 export async function* classifyInputWithStatusEvents(
   userInput: string,
@@ -7,7 +8,13 @@ export async function* classifyInputWithStatusEvents(
   userInstructionsBlock: string = '',
   priorTurnRetrievedContextBlock: string | null = null,
 ): AsyncGenerator<AgentEvent, ClassificationResult> {
-  yield { type: 'status', message: 'Figuring out what kind of request this is…' }
+  yield {
+    type: 'status',
+    message: await resolveUiStatusMessage({
+      request: { phase: UiStatusPhase.classifyingRequest },
+      userInstructionsBlock,
+    }),
+  }
   return classifyInputUnified(
     userInput,
     conversationHistory,
