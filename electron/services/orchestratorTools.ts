@@ -147,14 +147,26 @@ async function handleComposeReply(
           : [],
       }
       break
-    case 'duplicate_save_clarification_pending':
+    case 'duplicate_save_clarification_pending': {
+      const fromArray = Array.isArray(payloadRaw.existingSimilarContents)
+        ? (payloadRaw.existingSimilarContents as unknown[]).filter(
+            (item): item is string => typeof item === 'string',
+          )
+        : []
+      const legacySingle =
+        typeof payloadRaw.existingNoteContent === 'string'
+          && payloadRaw.existingNoteContent.trim().length > 0
+          ? [payloadRaw.existingNoteContent]
+          : []
+      const existingSimilarContents = fromArray.length > 0 ? fromArray : legacySingle
       facts = {
         kind: 'duplicate_save_clarification_pending',
         documentType: (payloadRaw.documentType as DocumentType) ?? 'thought',
-        existingNoteContent: String(payloadRaw.existingNoteContent ?? ''),
+        existingSimilarContents,
         pendingNewContent: String(payloadRaw.pendingNewContent ?? ''),
       }
       break
+    }
     default:
       facts = { kind: 'command_executed', operations: [] }
   }

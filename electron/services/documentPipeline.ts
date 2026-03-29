@@ -1,6 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
 import { logger } from '../logger'
-import { canonicalizeJsonFromNoteText } from './jsonBlobUtils'
 import { embedText } from './embeddingService'
 import {
   insertDocument,
@@ -155,6 +154,8 @@ const DUPLICATE_VECTOR_SEARCH_LIMIT = 8
 
 export interface CheckDuplicateOptions {
   readonly documentType?: DocumentType
+  /** Reserved for future duplicate flows that need user-instruction context. */
+  readonly userInstructionsBlock?: string
 }
 
 const TODO_MEASURE_PATTERN = /(\d+(?:\.\d+)?)\s*(km|kilometers?|mi|miles?|mins?|minutes?|hrs?|hours?)\b/gi
@@ -202,48 +203,56 @@ function duplicateSimilarityThreshold(documentType: DocumentType | undefined): n
   return documentType === 'todo' ? DUPLICATE_THRESHOLD_TODO : DUPLICATE_THRESHOLD
 }
 
-export async function checkForDuplicate(
+function duplicateCandidateSimilarity(row: Record<string, unknown>): number {
+  const distance = '_distance' in row ? (row._distance as number) : 1
+  return 1 - distance
+}
+
+/**
+ * Library rows close enough in embedding space to surface as “similar” before saving.
+ * For todos, neighbors that disagree on parsed distance/unit amounts are excluded.
+ */
+export async function findSimilarDocumentsForSave(
   content: string,
   options?: CheckDuplicateOptions,
-): Promise<LoreDocument | null> {
+): Promise<readonly LoreDocument[]> {
   const embedding = await embedText(content)
   const results = await searchSimilar(embedding, DUPLICATE_VECTOR_SEARCH_LIMIT)
 
-  if (results.length === 0) return null
-
-  const canonicalIncoming = canonicalizeJsonFromNoteText(content)
-  if (canonicalIncoming !== null) {
-    for (const row of results) {
-      const document = rowToLoreDoc(row as unknown as Record<string, unknown>)
-      const canonicalExisting = canonicalizeJsonFromNoteText(document.content)
-      if (
-        canonicalExisting !== null
-        && canonicalExisting === canonicalIncoming
-      ) {
-        return document
-      }
-    }
-  }
+  if (results.length === 0) return []
 
   const documentType = options?.documentType
   const threshold = duplicateSimilarityThreshold(documentType)
 
+  const seenIds = new Set<string>()
+  const similar: LoreDocument[] = []
+
   for (const row of results) {
     const candidate = rowToLoreDoc(row as unknown as Record<string, unknown>)
-    const distance = '_distance' in row
-      ? (row as Record<string, unknown>)._distance as number
-      : 1
-    const similarity = 1 - distance
+    const similarity = duplicateCandidateSimilarity(row as unknown as Record<string, unknown>)
     if (similarity < threshold) {
       continue
     }
     if (documentType === 'todo' && todoMeasuresConflict(content, candidate.content)) {
       continue
     }
-    return candidate
+    if (seenIds.has(candidate.id)) {
+      continue
+    }
+    seenIds.add(candidate.id)
+    similar.push(candidate)
   }
 
-  return null
+  return similar
+}
+
+/** First similar document, if any — used when a single duplicate handle is required (e.g. tools). */
+export async function checkForDuplicate(
+  content: string,
+  options?: CheckDuplicateOptions,
+): Promise<LoreDocument | null> {
+  const similar = await findSimilarDocumentsForSave(content, options)
+  return similar[0] ?? null
 }
 
 function rowToLoreDoc(row: Record<string, unknown>): LoreDocument {

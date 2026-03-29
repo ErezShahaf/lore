@@ -159,13 +159,29 @@ export function buildFallbackAssistantReply(facts: AssistantReplyFacts): string 
       return `Saved your ${facts.documentType}${dup}.${preview}`
     }
     case 'duplicate_save_clarification_pending': {
-      const existing = formatDuplicateExistingNoteBlockForFallback(facts.existingNoteContent)
+      const bodies = facts.existingSimilarContents.filter((body) => body.trim().length > 0)
+      const count = bodies.length
+      if (count === 0) {
+        return [
+          'Something similar may already be in your library, but no preview was available.',
+          '',
+          'Nothing new was saved yet. Say if you want to save another copy anyway, or replace an existing match.',
+        ].join('\n')
+      }
+      const intro =
+        count <= 1
+          ? 'You may already have the same (or almost the same) item. Here is what is on file:'
+          : `You already have ${count} similar items that may match. Here they are:`
+      const blocks = bodies.map((body, index) => {
+        const label = count > 1 ? `Similar item ${index + 1}:\n\n` : ''
+        return label + formatDuplicateExistingNoteBlockForFallback(body)
+      })
       return [
-        'You may already have the same (or almost the same) note. Here is what is on file:',
+        intro,
         '',
-        existing,
+        blocks.join('\n\n---\n\n'),
         '',
-        'Tell me if you want to keep a second copy alongside the existing note, or replace the existing one.',
+        'Nothing new was saved yet. Say if you want to save another copy anyway, or replace the first listed match with this text.',
       ].join('\n')
     }
     case 'thought_saved_many': {

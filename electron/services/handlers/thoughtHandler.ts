@@ -1,9 +1,8 @@
-import { storeThought, checkForDuplicate } from '../documentPipeline'
+import { storeThought, findSimilarDocumentsForSave } from '../documentPipeline'
 import { updateDocument } from '../lanceService'
 import { embedText } from '../embeddingService'
 import { formatLocalDate } from '../localDate'
 import { streamAssistantUserReplyWithFallback } from '../assistantReplyComposer'
-import { resolveDuplicateIntent } from '../duplicateResolutionService'
 import { resolveDuplicatePromptFollowUp } from '../duplicatePromptFollowUpService'
 import {
   clearPendingDuplicateSaveClarification,
@@ -106,8 +105,14 @@ export async function* handleThought(
     }
     if (followUp === 'replace_existing') {
       clearPendingDuplicateSaveClarification()
+      const replaceTargetId = pendingDuplicate.duplicateDocumentIds[0]
+      if (replaceTargetId === undefined) {
+        yield { type: 'chunk', content: 'Nothing to update.' }
+        yield { type: 'done' }
+        return
+      }
       yield* emitThoughtUpdateAfterDuplicateChoice(
-        pendingDuplicate.duplicateDocumentId,
+        replaceTargetId,
         pendingDuplicate.contentToStore,
         userInstructionsBlock,
       )
@@ -253,47 +258,40 @@ async function* storeSingleItem(
       type: 'status',
       message: 'Checking for an existing duplicate…',
     }
-    const duplicate = await checkForDuplicate(content, { documentType: docType })
+    const similarDocuments = await findSimilarDocumentsForSave(content, {
+      documentType: docType,
+      userInstructionsBlock,
+    })
 
-    if (duplicate) {
-      const resolution = await resolveDuplicateIntent(
-        originalInput,
-        conversationHistory,
+    if (similarDocuments.length > 0) {
+      setPendingDuplicateSaveClarification({
+        contentToStore: content,
+        originalInputForSource: originalInput,
+        documentType: docType,
+        date,
+        tags: [...tags],
+        duplicateDocumentIds: similarDocuments.map((document) => document.id),
+      })
+      const previewSource = similarDocuments[0]?.content ?? ''
+      const preview = previewSource.slice(0, 120)
+      yield { type: 'duplicate', existingContent: preview }
+      yield {
+        type: 'turn_step_summary',
+        summary:
+          'Save: similar items already in the library; waiting for user to confirm a new copy or replace. No new document was written.',
+      }
+      for await (const chunk of streamAssistantUserReplyWithFallback({
         userInstructionsBlock,
-      )
-      if (resolution === 'ask') {
-        setPendingDuplicateSaveClarification({
-          contentToStore: content,
-          originalInputForSource: originalInput,
+        facts: {
+          kind: 'duplicate_save_clarification_pending',
           documentType: docType,
-          date,
-          tags: [...tags],
-          duplicateDocumentId: duplicate.id,
-        })
-        const preview = duplicate.content.slice(0, 120)
-        yield { type: 'duplicate', existingContent: preview }
-        yield {
-          type: 'turn_step_summary',
-          summary:
-            'Save: duplicate check found a likely duplicate; waiting for user to choose add new or update. No new document was written.',
-        }
-        for await (const chunk of streamAssistantUserReplyWithFallback({
-          userInstructionsBlock,
-          facts: {
-            kind: 'duplicate_save_clarification_pending',
-            documentType: docType,
-            existingNoteContent: duplicate.content,
-            pendingNewContent: content,
-          },
-        })) {
-          yield { type: 'chunk', content: chunk }
-        }
-        return
+          existingSimilarContents: similarDocuments.map((document) => document.content),
+          pendingNewContent: content,
+        },
+      })) {
+        yield { type: 'chunk', content: chunk }
       }
-      if (resolution === 'update') {
-        yield* emitThoughtUpdateAfterDuplicateChoice(duplicate.id, content, userInstructionsBlock)
-        return
-      }
+      return
     }
   }
 

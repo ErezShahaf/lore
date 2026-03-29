@@ -17,8 +17,10 @@ export type AssistantReplyFacts =
   | {
       readonly kind: 'duplicate_save_clarification_pending'
       readonly documentType: DocumentType
-      /** Exact text of the note already in the library (must appear verbatim in the user-facing message). */
-      readonly existingNoteContent: string
+      /**
+       * Each string is one similar library item’s body — must appear verbatim in the user-facing message.
+       */
+      readonly existingSimilarContents: readonly string[]
       /** Content the user is trying to store (may be shown or summarized; nothing was written yet). */
       readonly pendingNewContent: string
     }

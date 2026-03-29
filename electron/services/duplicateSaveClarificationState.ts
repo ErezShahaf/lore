@@ -6,7 +6,8 @@ export interface PendingDuplicateSaveClarificationState {
   readonly documentType: DocumentType
   readonly date: string
   readonly tags: readonly string[]
-  readonly duplicateDocumentId: string
+  /** Similar library rows (embedding + todo measure rules); replace uses the first id. */
+  readonly duplicateDocumentIds: readonly string[]
 }
 
 let pendingDuplicateSaveClarification: PendingDuplicateSaveClarificationState | null = null
