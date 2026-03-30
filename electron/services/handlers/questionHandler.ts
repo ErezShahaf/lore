@@ -356,13 +356,7 @@ export async function* handleQuestion(
   const sortedFallbackDocuments = isTodoQuery
     ? sortDocumentsNewestFirstBySemanticDate(fallbackResult.documents)
     : fallbackResult.documents
-  const documents = selectDocumentsForAnswer(
-    userInput,
-    classification,
-    sortedFallbackDocuments,
-    maxFocusedDocumentsForAnswer,
-    embeddingRichQueryText,
-  )
+  const documents = sortedFallbackDocuments.slice(0, maxFocusedDocumentsForAnswer)
 
   const questionAnswerSelectors = {
     retrievalStatus: documents.length === 0 ? 'empty' : 'non_empty',
@@ -540,28 +534,6 @@ export async function* handleQuestion(
   }
 
   yield { type: 'done' }
-}
-
-function selectDocumentsForAnswer(
-  userInput: string,
-  classification: ClassificationForHandler,
-  documents: readonly ScoredDocument[],
-  maxFocusedDocuments: number,
-  lexicalReferenceText?: string,
-): ScoredDocument[] {
-  if (documents.length <= 1) {
-    return documents.slice(0, maxFocusedDocuments)
-  }
-
-  const referenceText = lexicalReferenceText ?? buildRetrievalQueryText(userInput, classification)
-  const lexicalRatios = documents.map((document) =>
-    lexicalMatchRatio(referenceText, document.content),
-  )
-  const bestRatio = Math.max(...lexicalRatios)
-  const threshold = Math.max(bestRatio - 0.12, 0.25)
-  const narrowed = documents.filter((_, index) => lexicalRatios[index] >= threshold)
-  const chosen = narrowed.length > 0 ? narrowed : documents
-  return chosen.slice(0, maxFocusedDocuments)
 }
 
 function sortDocumentsNewestFirstBySemanticDate(documents: readonly ScoredDocument[]): ScoredDocument[] {
