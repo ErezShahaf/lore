@@ -35,7 +35,7 @@ The confirmation text should include the word `saved`.
 
 # Item fields
 
-- `content`: exact user wording
+- `content`: the text to store **verbatim**, except you must **strip the same meta labels** the unified classifier strips from `data` (see classification skill: `save` / `data`). Remove label-only prefixes such as `save this:`, `remember:`, `todo:`, `remind me:`, `remind me to:`, `add to my todo:`, `add to my todo list:`, `add to my list:`, `add to my todos:`—keep everything after the label unchanged. For non-todo types, still drop those phrases when they are clearly a wrapper around the payload, not part of the prose the user wants kept.
 - `type`: `thought`, `todo`, `note`, or `meeting`
 - `tags`: one to five lowercase tags for **this row only**. Derive them from **that row’s** `content` and `type` (for example include `todo` when type is `todo`). With several `items`, each entry gets its **own** tags when the texts differ; do **not** reuse one tag list for every row, and do **not** copy the router block’s full `extractedTags` onto each row unless every tag still fits that row’s content alone.
 

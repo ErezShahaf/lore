@@ -31,10 +31,3 @@ export function parseClarificationNumericReply(trimmedInput: string): number | n
   }
   return null
 }
-
-export function isClarificationOptionsReplayRequest(userInput: string): boolean {
-  const lower = userInput.trim().toLowerCase()
-  return /\bwhat\s+are\s+(the\s+)?options\b/.test(lower)
-    || /\b(list|show)\s+(the\s+)?options\b/.test(lower)
-    || /\brepeat\s+(the\s+)?options\b/.test(lower)
-}

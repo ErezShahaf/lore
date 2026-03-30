@@ -9,15 +9,11 @@ import { formatLocalDate, getLocalDateRangeForDay, getLocalDateRangeForWeek } fr
 import { getSettings } from '../settingsService'
 import { loadSkill } from '../skillLoader'
 import { decideQuestionStrategy } from '../questionStrategistService'
-import {
-  appendUserInstructionsToSystemPrompt,
-  instructionDocumentsRequestTodoListing,
-} from '../userInstructionsContext'
+import { appendUserInstructionsToSystemPrompt } from '../userInstructionsContext'
 import {
   buildNoDocumentsQuestionUserMessage,
   streamQuestionLlmChunks,
 } from '../questionAnswerComposition'
-import { streamAssistantUserReplyWithFallback } from '../assistantReplyComposer'
 import { resolveUiStatusMessage, UiStatusPhase } from '../uiStatusPhraseComposer'
 import { noteContainsStructuredPayload } from '../jsonBlobUtils'
 import { getDocumentById } from '../lanceService'
@@ -151,43 +147,6 @@ async function* answerQuestionFromRetrievedCandidateNotes(
     documents: mapScoredDocumentsToRetrievalContext(documents),
   }
 
-  const directStructuredResolution = resolveDirectStructuredReply(
-    userInput,
-    documents,
-    classification,
-    buildEmbeddingRichQueryText(userInput, classification, conversationContext),
-  )
-  if (directStructuredResolution.kind === 'reply') {
-    yield {
-      type: 'turn_step_summary',
-      summary:
-        'Read: returned structured content from a single retrieved document without the full answer model.',
-    }
-    yield { type: 'chunk', content: directStructuredResolution.text }
-    yield { type: 'done' }
-    return
-  }
-  if (directStructuredResolution.kind === 'clarify') {
-    setPendingQuestionClarification({
-      priorUserInput: userInput,
-      candidateDocumentIds: directStructuredResolution.candidateDocumentIds,
-      classificationSnapshot: {
-        extractedTags: classification.extractedTags,
-        extractedDate: classification.extractedDate,
-        situationSummary: classification.situationSummary,
-        data: classification.data,
-      },
-    })
-    yield {
-      type: 'turn_step_summary',
-      summary:
-        'Read: several structured notes matched; user was asked which webhook or JSON payload they mean.',
-    }
-    yield { type: 'chunk', content: directStructuredResolution.message }
-    yield { type: 'done' }
-    return
-  }
-
   yield {
     type: 'status',
     message: await resolveUiStatusMessage({
@@ -305,7 +264,6 @@ export async function* handleQuestion(
   classification: ClassificationForHandler,
   conversationContext?: Array<{ role: 'user' | 'assistant'; content: string }>,
   retrievalOverrides?: RetrievalOptions,
-  userInstructionDocuments: readonly LoreDocument[] = [],
   userInstructionsBlock: string = '',
 ): AsyncGenerator<AgentEvent> {
   const narrowConsumed = takeConsumedQuestionFollowUp()
@@ -398,105 +356,13 @@ export async function* handleQuestion(
   const sortedFallbackDocuments = isTodoQuery
     ? sortDocumentsNewestFirstBySemanticDate(fallbackResult.documents)
     : fallbackResult.documents
-  let documents = selectDocumentsForAnswer(
+  const documents = selectDocumentsForAnswer(
     userInput,
     classification,
     sortedFallbackDocuments,
     maxFocusedDocumentsForAnswer,
     embeddingRichQueryText,
   )
-
-  const instructionRequestsTodoListing = instructionDocumentsRequestTodoListing(userInstructionDocuments)
-
-  // Only merge todo documents when this turn is already scoped as a todo retrieval (`todo` tag
-  // from metadata). Otherwise, instructions that mention "todo" would prepend every stored todo
-  // to unrelated questions (e.g. Stripe after a prior todo turn).
-  const shouldMergeTodoDocuments =
-    isTodoQuery && userInstructionDocuments.length > 0 && instructionRequestsTodoListing
-
-  // When an instruction explicitly requests todo listing/display (especially for the
-  // greeting-triggered scenarios), produce the todo list deterministically from the
-  // retrieved todo documents. This avoids the LLM hallucinating or ignoring retrieval.
-  const lowerUserInput = userInput.toLowerCase()
-  const looksLikeGreeting = lowerUserInput.includes('good morning') || lowerUserInput.startsWith('hello')
-  const isDirectTodoQuery = lowerUserInput.includes('todo') || lowerUserInput.includes('todos') || lowerUserInput.includes('tasks')
-  const shouldDeterministicallyListTodos =
-    instructionRequestsTodoListing
-    && (looksLikeGreeting || isDirectTodoQuery)
-
-  if (shouldDeterministicallyListTodos) {
-    const todoRetrievalOpts = stripTemporalFilters(retrievalOpts)
-    const todoResult = await retrieveByFilters({
-      ...todoRetrievalOpts,
-      type: 'todo',
-      maxResults: 50,
-    })
-
-    const sortedTodos = sortDocumentsNewestFirstBySemanticDate(todoResult.documents)
-    if (sortedTodos.length === 0) {
-      // If there are no todos in storage, fall back to the normal RAG flow
-      // so we can produce the correct "no data" response.
-    } else {
-      const formattedTodos = sortedTodos.map((doc) => `- ${doc.content.trim()}`)
-
-      yield {
-        type: 'retrieved',
-        documentIds: sortedTodos.map((document) => document.id),
-        totalRetrieved: sortedTodos.length,
-        totalCandidates: todoResult.totalCandidates,
-        cutoffScore: sortedTodos.length > 0 ? sortedTodos[sortedTodos.length - 1].score : 1,
-      }
-      yield {
-        type: 'read_retrieval_context',
-        documents: mapScoredDocumentsToRetrievalContext(sortedTodos),
-      }
-
-      yield {
-        type: 'turn_step_summary',
-        summary: `Read: listed ${sortedTodos.length} todo(s) from storage via assistant reply composer (instruction shortcut).`,
-        reportedOutcomeStatus: 'succeeded',
-      }
-      for await (const chunk of streamAssistantUserReplyWithFallback({
-        userInstructionsBlock,
-        facts: {
-          kind: 'todo_list_present',
-          bulletLines: formattedTodos,
-          userSurfaceInput: userInput.trim(),
-          shouldEchoGreeting: looksLikeGreeting,
-        },
-      })) {
-        yield { type: 'chunk', content: chunk }
-      }
-      yield { type: 'done' }
-      return
-    }
-  }
-
-  const maxFocusedDocuments = shouldMergeTodoDocuments ? MAX_TODO_DOCUMENTS_FOR_CONVERSATIONAL_INSTRUCTIONS : MAX_FOCUSED_ANSWER_DOCUMENTS
-  if (shouldMergeTodoDocuments) {
-    const todoRetrievalOpts = stripTemporalFilters(retrievalOpts)
-    const todoResult = await retrieveByFilters({
-      ...todoRetrievalOpts,
-      type: 'todo',
-      // Pull more candidates, then let the context limiter sort/trim.
-      maxResults: 50,
-    })
-
-    const sortedTodoDocuments = sortDocumentsNewestFirstBySemanticDate(todoResult.documents)
-
-    const mergedById = new Map<string, ScoredDocument>()
-    // Insert todos first so the merged prompt context starts with the ordered todo list.
-    for (const todoDoc of sortedTodoDocuments) mergedById.set(todoDoc.id, todoDoc)
-    for (const doc of documents) mergedById.set(doc.id, doc)
-
-    documents = selectDocumentsForAnswer(
-      userInput,
-      classification,
-      [...mergedById.values()],
-      maxFocusedDocuments,
-      embeddingRichQueryText,
-    )
-  }
 
   const questionAnswerSelectors = {
     retrievalStatus: documents.length === 0 ? 'empty' : 'non_empty',
@@ -564,42 +430,6 @@ export async function* handleQuestion(
   yield {
     type: 'read_retrieval_context',
     documents: mapScoredDocumentsToRetrievalContext(documents),
-  }
-
-  const directStructuredResolution = resolveDirectStructuredReply(
-    userInput,
-    sortedFallbackDocuments,
-    classification,
-    embeddingRichQueryText,
-  )
-  if (directStructuredResolution.kind === 'reply') {
-    yield {
-      type: 'turn_step_summary',
-      summary: 'Read: returned structured content from a single retrieved document without the full answer model.',
-    }
-    yield { type: 'chunk', content: directStructuredResolution.text }
-    yield { type: 'done' }
-    return
-  }
-  if (directStructuredResolution.kind === 'clarify') {
-    setPendingQuestionClarification({
-      priorUserInput: userInput,
-      candidateDocumentIds: directStructuredResolution.candidateDocumentIds,
-      classificationSnapshot: {
-        extractedTags: classification.extractedTags,
-        extractedDate: classification.extractedDate,
-        situationSummary: classification.situationSummary,
-        data: classification.data,
-      },
-    })
-    yield {
-      type: 'turn_step_summary',
-      summary:
-        'Read: several structured notes matched; user was asked which webhook or JSON payload they mean.',
-    }
-    yield { type: 'chunk', content: directStructuredResolution.message }
-    yield { type: 'done' }
-    return
   }
 
   yield {
@@ -797,124 +627,6 @@ function buildQuestionFallbackQueries(
   ]
 
   return [...new Set(fallbackQueries.map((query) => query.trim()).filter((query) => query.length > 0))]
-}
-
-function extractFirstHttpUrl(text: string): string | null {
-  const match = text.match(/https?:\/\/[^\s"'<>)\]]+/)
-  return match !== null ? match[0] : null
-}
-
-function looksLikeWebhookUrlQuestion(userInput: string): boolean {
-  const lower = userInput.toLowerCase()
-  return (
-    /\bwebhook\b/.test(lower)
-    && (/\burl\b/.test(lower) || /\blink\b/.test(lower) || /\buri\b/.test(lower))
-  )
-}
-
-const MIN_LEXICAL_MARGIN_FOR_MULTI_JSON_PICK = 0.12
-
-function isJsonLikeStoredDocument(document: ScoredDocument): boolean {
-  const trimmed = document.content.trim()
-  return trimmed.startsWith('{') || trimmed.startsWith('[') || noteContainsStructuredPayload(document.content)
-}
-
-function collectDocumentsWithExtractableHttpUrl(
-  documents: readonly ScoredDocument[],
-): ScoredDocument[] {
-  return documents.filter((document) => extractFirstHttpUrl(document.content) !== null)
-}
-
-function buildAmbiguousStructuredPayloadClarificationMessage(
-  candidates: readonly ScoredDocument[],
-): string {
-  const lines = candidates.map((document, index) => {
-    const preview = document.content.replace(/\s+/g, ' ').trim().slice(0, 100)
-    const suffix = preview.length >= 100 ? '…' : ''
-    return `${index + 1}. ${preview}${suffix}`
-  })
-  return [
-    'You have several saved notes that could match (different webhook URLs or JSON payloads).',
-    'Which one should I use? Reply with a number from the list or name the specific provider or event.',
-    '',
-    ...lines,
-  ].join('\n')
-}
-
-type DirectStructuredResolution =
-  | { readonly kind: 'reply'; readonly text: string }
-  | {
-      readonly kind: 'clarify'
-      readonly message: string
-      readonly candidateDocumentIds: readonly string[]
-    }
-  | { readonly kind: 'none' }
-
-function resolveDirectStructuredReply(
-  userInput: string,
-  allRelevantDocuments: readonly ScoredDocument[],
-  classification: ClassificationForHandler,
-  lexicalReferenceText?: string,
-): DirectStructuredResolution {
-  if (looksLikeWebhookUrlQuestion(userInput)) {
-    const urlDocuments = collectDocumentsWithExtractableHttpUrl(allRelevantDocuments)
-    if (urlDocuments.length === 1) {
-      const url = extractFirstHttpUrl(urlDocuments[0]!.content)
-      if (url !== null) {
-        return {
-          kind: 'reply',
-          text: `Based on your stored notes, here is the webhook URL:\n\n${url}`,
-        }
-      }
-    }
-    if (urlDocuments.length > 1) {
-      return {
-        kind: 'clarify',
-        message: buildAmbiguousStructuredPayloadClarificationMessage(urlDocuments),
-        candidateDocumentIds: urlDocuments.map((document) => document.id),
-      }
-    }
-  }
-
-  if (!/\b(json|payload)\b/i.test(userInput)) {
-    return { kind: 'none' }
-  }
-
-  const jsonCandidates = allRelevantDocuments.filter((document) => isJsonLikeStoredDocument(document))
-  if (jsonCandidates.length === 0) {
-    return { kind: 'none' }
-  }
-
-  if (jsonCandidates.length === 1) {
-    const content = jsonCandidates[0]!.content.trim()
-    return { kind: 'reply', text: `\`\`\`json\n${content}\n\`\`\`` }
-  }
-
-  const referenceText = lexicalReferenceText ?? buildRetrievalQueryText(userInput, classification)
-  const scored = jsonCandidates.map((document) => ({
-    document,
-    ratio: lexicalMatchRatio(referenceText, document.content),
-  }))
-  scored.sort((left, right) => right.ratio - left.ratio)
-  const first = scored[0]
-  const second = scored[1]
-  if (first === undefined) {
-    return { kind: 'none' }
-  }
-  if (second === undefined) {
-    const content = first.document.content.trim()
-    return { kind: 'reply', text: `\`\`\`json\n${content}\n\`\`\`` }
-  }
-  if (first.ratio - second.ratio >= MIN_LEXICAL_MARGIN_FOR_MULTI_JSON_PICK) {
-    const content = first.document.content.trim()
-    return { kind: 'reply', text: `\`\`\`json\n${content}\n\`\`\`` }
-  }
-
-  return {
-    kind: 'clarify',
-    message: buildAmbiguousStructuredPayloadClarificationMessage(jsonCandidates),
-    candidateDocumentIds: jsonCandidates.map((document) => document.id),
-  }
 }
 
 // ── Date range resolution ─────────────────────────────────────

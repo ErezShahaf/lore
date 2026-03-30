@@ -4,7 +4,6 @@ import { getDocumentById, hardDeleteDocument, updateDocument } from './lanceServ
 import { embedText } from './embeddingService'
 import {
   checkForDuplicate,
-  retrieveByFilters,
   retrieveWithAdaptiveThreshold,
   storeThought,
 } from './documentPipeline'
@@ -106,11 +105,7 @@ async function handleSearchLibrary(args: Record<string, unknown>): Promise<ToolE
 
   logger.debug({ query, type, maxResults }, '[ToolRegistry] search_library')
 
-  const isTodoFilterOnly = type === 'todo' && query.toLowerCase().replace(/[^a-z]/g, '') === 'todos'
-
-  const result = isTodoFilterOnly
-    ? await retrieveByFilters({ type, maxResults })
-    : await retrieveWithAdaptiveThreshold(query, { type, maxResults })
+  const result = await retrieveWithAdaptiveThreshold(query, { type, maxResults })
 
   const documents = result.documents.slice(0, maxResults).map((document) => ({
     id: document.id,

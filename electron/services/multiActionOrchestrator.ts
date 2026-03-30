@@ -3,17 +3,14 @@ import { classifyInputUnified } from './unifiedClassifierService'
 import { buildClassificationActionInput, executeClassificationAction } from './classificationActionExecutor'
 import {
   getPendingCommandClarification,
-  isClarificationOptionsReplayRequest,
   parseClarificationNumericReply,
 } from './commandClarificationState'
 import {
   clearPendingQuestionClarification,
   getPendingQuestionClarification,
-  looksLikeQuestionClarificationNarrowingReply,
   setConsumedQuestionFollowUp,
 } from './questionClarificationState'
 import { formatUserInstructionsBlock, loadAllUserInstructionDocuments } from './userInstructionsContext'
-import { producePendingClarificationReplay } from './pendingClarificationReplay'
 import { streamAssistantUserReplyWithFallback } from './assistantReplyComposer'
 import { getSettings } from './settingsService'
 import {
@@ -148,43 +145,6 @@ export async function* runMultiActionTurn(
   }
 
   const pendingGate = getPendingCommandClarification()
-  if (pendingGate !== null && isClarificationOptionsReplayRequest(userInput)) {
-    const replay = await producePendingClarificationReplay(pendingGate, userInstructionsBlock)
-    if (replay !== null) {
-      yield {
-        type: 'status',
-        message: await resolveUiStatusMessage({
-          request: { phase: UiStatusPhase.listingOptions },
-          userInstructionsBlock,
-        }),
-      }
-      const replayOutcome: ActionOutcome = {
-        intent: 'speak',
-        saveDocumentType: null,
-        situationSummary: 'Repeated numbered options for pending command clarification.',
-        status: 'succeeded',
-        message: replay.message,
-        handlerResultSummary: replay.summary,
-        duplicateSaveClarificationPending: false,
-        commandTargetClarificationPending: false,
-        storedDocumentIds: [],
-        retrievedDocumentIds: [...replay.retrievedIds],
-        deletedDocumentCount: 0,
-        retrievedDocumentsForComposer: [],
-      }
-      if (traceSink) {
-        traceSink.stages.push({
-          stageId: 'action_execution',
-          ordinal: traceSink.stages.length,
-          timestamp: new Date().toISOString(),
-          output: outcomeToTraceOutput(0, replayOutcome),
-        })
-      }
-      yield { type: 'chunk', content: replay.message }
-      yield { type: 'done' }
-      return
-    }
-  }
 
   const numericFollowUp = parseClarificationNumericReply(userInput.trim())
   let actions = classification.actions
@@ -207,17 +167,14 @@ export async function* runMultiActionTurn(
     ]
   }
 
-  let pendingQuestion = getPendingQuestionClarification()
+  const pendingQuestion = getPendingQuestionClarification()
+  const questionFollowUpNumeric = parseClarificationNumericReply(userInput.trim())
+  const pendingQuestionCandidateCount = pendingQuestion?.candidateDocumentIds.length ?? 0
   if (
     pendingQuestion !== null
-    && !looksLikeQuestionClarificationNarrowingReply(userInput)
-  ) {
-    clearPendingQuestionClarification()
-    pendingQuestion = null
-  }
-  if (
-    pendingQuestion !== null
-    && looksLikeQuestionClarificationNarrowingReply(userInput)
+    && questionFollowUpNumeric !== null
+    && questionFollowUpNumeric >= 1
+    && questionFollowUpNumeric <= pendingQuestionCandidateCount
   ) {
     clearPendingQuestionClarification()
     const mergedUserInput = `${pendingQuestion.priorUserInput}\n${userInput}`.trim()
@@ -234,10 +191,12 @@ export async function* runMultiActionTurn(
         data: mergedUserInput,
         extractedDate: pendingQuestion.classificationSnapshot.extractedDate,
         extractedTags: [...pendingQuestion.classificationSnapshot.extractedTags],
-        situationSummary: 'User narrowed a prior ambiguous question after retrieval clarification.',
+        situationSummary: 'User chose a number from the prior question clarification list.',
         saveDocumentType: null,
       },
     ]
+  } else if (pendingQuestion !== null) {
+    clearPendingQuestionClarification()
   }
 
   actions = mergeMultipleDeleteActionsForSingleCommandPass(actions, userInput)
@@ -253,7 +212,7 @@ export async function* runMultiActionTurn(
 
   for (let index = 0; index < actions.length; index += 1) {
     const action = actions[index]
-    const actionInput = buildClassificationActionInput(action, userInput, actions.length)
+    const actionInput = buildClassificationActionInput(action, userInput)
 
     yield {
       type: 'status',

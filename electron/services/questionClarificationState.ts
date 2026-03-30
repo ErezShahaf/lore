@@ -1,4 +1,3 @@
-import { parseClarificationNumericReply } from './commandClarificationState'
 import type { ClassificationAction } from '../../shared/types'
 
 export interface PendingQuestionClarificationState {
@@ -50,33 +49,4 @@ export function takeConsumedQuestionFollowUp(): ConsumedQuestionFollowUpPayload 
   const value = consumedQuestionFollowUp
   consumedQuestionFollowUp = null
   return value
-}
-
-/**
- * True when the user is likely answering a prior “which one?” question rather than starting a new task.
- */
-export function looksLikeQuestionClarificationNarrowingReply(userInput: string): boolean {
-  const trimmed = userInput.trim()
-  if (trimmed.length === 0 || trimmed.length > 220) {
-    return false
-  }
-  if (parseClarificationNumericReply(trimmed) !== null) {
-    return true
-  }
-  if (/^option\s*#?\s*\d+\s*$/i.test(trimmed)) {
-    return true
-  }
-  if (/\bi mean\b/i.test(trimmed)) {
-    return true
-  }
-  if (/\b(the first|the second|first one|second one|that one|this one)\b/i.test(trimmed)) {
-    return true
-  }
-  if (
-    trimmed.length < 120
-    && /\b(from finance|from design|finance one|design one|the finance|the design)\b/i.test(trimmed)
-  ) {
-    return true
-  }
-  return false
 }

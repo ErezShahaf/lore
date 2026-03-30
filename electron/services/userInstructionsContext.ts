@@ -32,10 +32,3 @@ export function appendUserInstructionsToSystemPrompt(
   if (trimmed.length === 0) return baseSystemPrompt
   return `${baseSystemPrompt}\n\n---\n\n${trimmed}`
 }
-
-export function instructionDocumentsRequestTodoListing(documents: readonly LoreDocument[]): boolean {
-  return documents.some((document) => {
-    const lower = document.content.toLowerCase()
-    return lower.includes('todo') || lower.includes('todos')
-  })
-}

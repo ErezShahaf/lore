@@ -168,6 +168,17 @@ This is the content that the `intent` operates on.
 
 For **`save`**, `data` must be **verbatim** user material to store: same wording, line breaks, bullets, and JSON structure. Only strip explicit meta phrases (“save this:”, “remember:”, “add to my todo:” as a label—not the task text after it). Do **not** summarize, polish, or translate into your own words.
 
+Treat any of these as **meta labels** when they introduce a task, not as part of the stored todo text: `todo:`, `remind me:`, `remind me to:`, `add to my todo:`, `add to my todo list:`, `add to my list:`, `add to my todos:` (and the same ideas with minor punctuation or spacing).
+
+More label-stripping examples for **`save`** (same rule: remove the **label/instruction**, keep the **task text** verbatim):
+
+- User: `todo: buy milk` → `data`: `buy milk` (and `saveDocumentType` `todo` when it is a task).
+- User: `remind me: call Sam` → `data`: `call Sam`.
+- User: `remind me to: finish the report` → `data`: `finish the report`.
+- User: `add to my todo list: walk the dog` → `data`: `walk the dog`.
+- User: `add to my list: pay rent` → `data`: `pay rent`.
+- User: `add to my todos: renew passport` → `data`: `renew passport`.
+
 Examples:
 
 - If the user says `save: XYZ`, set `data` to `XYZ` (the content to store, without the save instruction text).

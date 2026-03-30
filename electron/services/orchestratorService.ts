@@ -155,7 +155,6 @@ async function* dispatchIntentHandlers(
           classification,
           [...priorHistory],
           todoOverrides,
-          turn.userInstructionDocuments,
           turn.userInstructionsBlock,
         )) {
           if (event.type === 'chunk') turn.assistantResponse += event.content
@@ -213,7 +212,6 @@ async function* dispatchIntentHandlers(
             classification,
             [...priorHistory],
             undefined,
-            turn.userInstructionDocuments,
             turn.userInstructionsBlock,
           )) {
             if (event.type === 'chunk') turn.assistantResponse += event.content

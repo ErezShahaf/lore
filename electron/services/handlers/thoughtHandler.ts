@@ -28,21 +28,6 @@ export interface HandleThoughtOptions {
   readonly totalActionsInTurn?: number
 }
 
-function normalizeTodoBodyForStorage(raw: string): string {
-  let text = raw.trim()
-  const commandPrefixes = [
-    /^add to my todo(?: list)?:\s*/i,
-    /^add to (?:my )?(?:todo )?list:\s*/i,
-    /^add to my todos?:\s*/i,
-    /^todo:\s*/i,
-    /^remind me(?: to)?:\s*/i,
-  ] as const
-  for (const pattern of commandPrefixes) {
-    text = text.replace(pattern, '')
-  }
-  return text.trim()
-}
-
 function tagsForSaveDocument(
   documentType: DecomposedDocumentType,
   extractedTags: readonly string[],
@@ -205,10 +190,6 @@ export async function* handleThought(
     }
 
     resolvedContent = bodyResolution.noteBody.trim()
-  }
-
-  if (documentTypeForResolution === 'todo') {
-    resolvedContent = normalizeTodoBodyForStorage(resolvedContent)
   }
 
   if (resolvedContent.length === 0) {

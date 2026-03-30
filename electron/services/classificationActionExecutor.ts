@@ -78,7 +78,6 @@ function toErrorMessage(error: unknown): string {
 export function buildClassificationActionInput(
   action: ClassificationAction,
   fallbackUserInput: string,
-  _totalActionCount: number = 1,
 ): string {
   if (action.intent === 'delete' || action.intent === 'edit') {
     return fallbackUserInput
@@ -111,18 +110,22 @@ function selectHandler(
         })
       }
     case 'read':
-      return async function* (input, classification, history, instructionDocs, instructions, _originalUserMessage) {
+      return async function* (input, classification, history, instructionDocuments, instructions, originalUserMessage) {
+        void instructionDocuments
+        void originalUserMessage
         const isTodoQuery = classification.extractedTags.some((tag) => tag === 'todo')
         const todoOverrides = isTodoQuery ? ({ type: 'todo' } as const) : undefined
-        yield* handleQuestion(input, classification, history, todoOverrides, instructionDocs, instructions)
+        yield* handleQuestion(input, classification, history, todoOverrides, instructions)
       }
     case 'edit':
     case 'delete':
-      return async function* (input, classification, history, _, instructions, _originalUserMessage) {
+      return async function* (input, classification, history, _, instructions, originalUserMessage) {
+        void originalUserMessage
         yield* handleCommand(input, classification, history, undefined, instructions)
       }
     case 'speak':
-      return async function* (input, classification, history, _, instructions, _originalUserMessage) {
+      return async function* (input, classification, history, _, instructions, originalUserMessage) {
+        void originalUserMessage
         yield* handleConversational(input, classification, history, instructions)
       }
   }
