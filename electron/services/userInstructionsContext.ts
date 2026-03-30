@@ -39,10 +39,3 @@ export function instructionDocumentsRequestTodoListing(documents: readonly LoreD
     return lower.includes('todo') || lower.includes('todos')
   })
 }
-
-export function instructionDocumentsRequestRichTodoFormatting(documents: readonly LoreDocument[]): boolean {
-  return documents.some((document) => {
-    const lower = document.content.toLowerCase()
-    return lower.includes('emoji') || lower.includes('emojis')
-  })
-}

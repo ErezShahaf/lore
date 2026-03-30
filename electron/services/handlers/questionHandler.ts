@@ -11,7 +11,6 @@ import { loadSkill } from '../skillLoader'
 import { decideQuestionStrategy } from '../questionStrategistService'
 import {
   appendUserInstructionsToSystemPrompt,
-  instructionDocumentsRequestRichTodoFormatting,
   instructionDocumentsRequestTodoListing,
 } from '../userInstructionsContext'
 import {
@@ -418,14 +417,11 @@ export async function* handleQuestion(
   // When an instruction explicitly requests todo listing/display (especially for the
   // greeting-triggered scenarios), produce the todo list deterministically from the
   // retrieved todo documents. This avoids the LLM hallucinating or ignoring retrieval.
-  // Skip this shortcut when standing instructions ask for rich formatting (e.g. emojis) that
-  // requires the answer model.
   const lowerUserInput = userInput.toLowerCase()
   const looksLikeGreeting = lowerUserInput.includes('good morning') || lowerUserInput.startsWith('hello')
   const isDirectTodoQuery = lowerUserInput.includes('todo') || lowerUserInput.includes('todos') || lowerUserInput.includes('tasks')
   const shouldDeterministicallyListTodos =
     instructionRequestsTodoListing
-    && !instructionDocumentsRequestRichTodoFormatting(userInstructionDocuments)
     && (looksLikeGreeting || isDirectTodoQuery)
 
   if (shouldDeterministicallyListTodos) {
