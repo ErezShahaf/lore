@@ -1,5 +1,5 @@
 import { getSettings } from './settingsService'
-import { logger } from '../logger'
+import { logger, logVerboseLlmRequest, logVerboseLlmResponse } from '../logger'
 import type {
   OllamaModel,
   ChatRequest,
@@ -229,6 +229,9 @@ export async function* chat(request: ChatRequest): AsyncGenerator<string> {
     ...request,
     options: { num_ctx: CHAT_NUM_CTX, ...request.options },
   }
+  
+  logVerboseLlmRequest(payload)
+
   const res = await fetch(`${getHost()}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -243,7 +246,9 @@ export async function* chat(request: ChatRequest): AsyncGenerator<string> {
 
   if (!request.stream) {
     const data = await res.json()
-    yield data.message?.content ?? ''
+    const content = data.message?.content ?? ''
+    logVerboseLlmResponse(content)
+    yield content
     return
   }
 
@@ -253,24 +258,32 @@ export async function* chat(request: ChatRequest): AsyncGenerator<string> {
   const decoder = new TextDecoder()
   let buffer = ''
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+  let stringResponse = ''
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
 
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop() ?? ''
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
 
-    for (const line of lines) {
-      if (!line.trim()) continue
-      try {
-        const json = JSON.parse(line)
-        if (json.message?.content) {
-          yield json.message.content
+      for (const line of lines) {
+        if (!line.trim()) continue
+        try {
+          const json = JSON.parse(line)
+          if (json.message?.content) {
+            stringResponse += json.message.content
+            yield json.message.content
+          }
+        } catch {
+          // skip malformed lines
         }
-      } catch {
-        // skip malformed lines
       }
+    }
+  } finally {
+    if (stringResponse) {
+      logVerboseLlmResponse(stringResponse)
     }
   }
 }

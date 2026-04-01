@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
-import { logger } from '../logger'
+import { logger, logVerboseRetrieval } from '../logger'
 import { embedText } from './embeddingService'
 import {
   insertDocument,
@@ -16,7 +16,7 @@ import type {
 } from '../../shared/types'
 
 const DEFAULT_MAX_RESULTS = 1000
-const MAX_CONTEXT_DOCS = 25
+const MAX_CONTEXT_DOCS = 100
 const DUPLICATE_THRESHOLD = 0.92
 const MAX_SCORE_DEGRADATION_RATIO = 0.15 // If score decays more than 15% from the top score, drop it
 const MINIMUM_RELEVANCE_SCORE = 0.3
@@ -211,6 +211,8 @@ export async function retrieveWithAdaptiveThreshold(
     '[retrieval] candidates after cliff+floor',
   )
 
+  logVerboseRetrieval(query, relevant)
+
   return {
     documents: relevant,
     totalCandidates: boosted.length,
@@ -235,6 +237,8 @@ export async function retrieveByFilters(
 
     return right.createdAt.localeCompare(left.createdAt)
   })
+
+  logVerboseRetrieval(`[ByFilters: ${JSON.stringify(options)}]`, scoredDocuments)
 
   return {
     documents: scoredDocuments,
@@ -314,6 +318,8 @@ export async function multiQueryRetrieve(
     { candidates: scored.length, afterCliff: relevant.length, minScore: MINIMUM_RELEVANCE_SCORE },
     '[multi-query] candidates after cliff+floor',
   )
+
+  logVerboseRetrieval(queries.join(' | '), relevant)
 
   return {
     documents: relevant,
