@@ -16,6 +16,7 @@ import {
   pickBestVariant,
   sortModelsForSystem,
 } from '../../../shared/models'
+import { groupModelsByType } from '../../../shared/modelClassifier'
 import type {
   AppSettings,
   OllamaModel,
@@ -181,8 +182,7 @@ export function ModelSettings({ settings, onUpdate }: ModelSettingsProps) {
     setTimeout(() => setEmbeddingSaved(false), 1500)
   }
 
-  const chatModels = models.filter(m => !m.name.includes('embed') && !m.name.includes('minilm'))
-  const embeddingModels = models.filter(m => m.name.includes('embed') || m.name.includes('minilm'))
+  const { chat: chatModels, embedding: embeddingModels } = groupModelsByType(models)
 
   const isModelInstalled = (model: RecommendedModel) =>
     model.variants.some(v =>
