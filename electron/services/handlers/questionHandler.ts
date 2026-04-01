@@ -1,6 +1,8 @@
 import { chat } from '../ollamaService'
 import { logger } from '../../logger'
 import {
+  mergeRetrievedDocumentSets,
+  retrieveObsidianByTitleCandidates,
   retrieveByFilters,
   retrieveWithAdaptiveThreshold,
   retrieveRelevantDocuments,
@@ -8,7 +10,9 @@ import {
 import { formatLocalDate, getLocalDateRangeForDay, getLocalDateRangeForWeek } from '../localDate'
 import { getSettings } from '../settingsService'
 import { loadSkill } from '../skillLoader'
+import { pruneRetrievedDocumentsForAnswer } from './questionContextPruning'
 import {
+  extractObsidianNoteTitleCandidates,
   looksLikeStructuralRetrievalQuery,
   userAskedForDateInformation,
   userAskedForTagInformation,
@@ -37,6 +41,10 @@ export async function* handleQuestion(
   const settings = getSettings()
 
   const retrievalOpts = buildRetrievalOptions(userInput, classification, retrievalOverrides)
+  const requestedTitleCandidates = extractObsidianNoteTitleCandidates(userInput)
+  const shouldUseTitleRetrieval = requestedTitleCandidates.length > 0
+    && retrievalOpts.sources?.includes('obsidian')
+
   const shouldUseMetadataOnlyRetrieval = looksLikeStructuralRetrievalQuery(userInput)
     && (retrievalOpts.type !== undefined
       || retrievalOpts.sources !== undefined
@@ -47,8 +55,34 @@ export async function* handleQuestion(
 
   const result = shouldUseMetadataOnlyRetrieval
     ? await retrieveByFilters(retrievalOpts)
-    : await retrieveWithAdaptiveThreshold(userInput, retrievalOpts)
-  const documents = result.documents
+    : await retrieveWithAdaptiveThreshold(userInput, {
+      ...retrievalOpts,
+      skipRelevanceCliff: shouldUseTitleRetrieval,
+    })
+
+  const titleResult = shouldUseTitleRetrieval
+    ? await retrieveObsidianByTitleCandidates(requestedTitleCandidates, retrievalOpts)
+    : { documents: [], totalCandidates: 0, cutoffScore: 0 }
+
+  const mergedResult = shouldUseTitleRetrieval
+    ? mergeRetrievedDocumentSets(titleResult, result)
+    : result
+  const documents = pruneRetrievedDocumentsForAnswer(mergedResult.documents, {
+    titleFocused: Boolean(shouldUseTitleRetrieval),
+  })
+
+  if (shouldUseTitleRetrieval) {
+    logger.debug(
+      {
+        requestedTitleCandidates,
+        titleHits: titleResult.documents.length,
+        semanticHits: result.documents.length,
+        mergedHits: mergedResult.documents.length,
+        keptForPrompt: documents.length,
+      },
+      '[question] hybrid title+semantic retrieval',
+    )
+  }
 
   if (documents.length === 0) {
     yield { type: 'chunk', content: EMPTY_RESULT_RESPONSE }
@@ -280,6 +314,7 @@ function buildRagPrompt({
     `The user asked this question about their stored data: ${userInput}`,
     `Default answer policy: ${shouldMentionDates ? 'Mention relevant dates when they help answer the question.' : 'Do not mention dates unless the user asked for them or a preference requires it.'}`,
     `Tag policy: ${shouldMentionTags ? 'Mention relevant tags if they are needed to answer the question.' : 'Do not mention tags unless the user explicitly asked for them or a preference requires it.'}`,
+    'Relevance policy: Use only documents directly relevant to the user request. Ignore unrelated retrieved documents and never blend facts from irrelevant notes.',
   ]
 
   if (hasStructuredContent) {

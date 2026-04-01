@@ -58,6 +58,7 @@ export interface RetrievalOptions {
   sources?: DocumentSource[]
   maxResults?: number
   similarityThreshold?: number
+  skipRelevanceCliff?: boolean
 }
 
 export interface DatabaseStats {

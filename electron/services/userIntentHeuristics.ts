@@ -138,3 +138,37 @@ const OBSIDIAN_CREATE_PATTERN = /\b(create|write|save|add|make)\s+(?:an?\s+)?(?:
 export function looksLikeObsidianCreateRequest(userInput: string): boolean {
   return OBSIDIAN_CREATE_PATTERN.test(userInput)
 }
+
+export function extractObsidianNoteTitleCandidates(userInput: string): string[] {
+  const candidates: string[] = []
+  const pushCandidate = (value: string): void => {
+    const cleaned = value.trim().replace(/^["'`]+|["'`]+$/g, '').trim()
+    if (!cleaned) return
+    if (!candidates.some((existing) => existing.toLowerCase() === cleaned.toLowerCase())) {
+      candidates.push(cleaned)
+    }
+  }
+
+  // Prefer quoted titles when users ask for a specific note by name.
+  const quotedPattern = /"([^"]+)"|'([^']+)'/g
+  let match: RegExpExecArray | null
+  while ((match = quotedPattern.exec(userInput)) !== null) {
+    const phrase = match[1] || match[2]
+    if (phrase) pushCandidate(phrase)
+  }
+
+  const unquotedPatterns = [
+    /content of (?:my|the)\s+(.+?)\s+note\b/i,
+    /(?:show|give|find|get)\s+(?:me\s+)?(?:the\s+content\s+of\s+)?(?:my|the)\s+(.+?)\s+note\b/i,
+    /(?:my|the)\s+(.+?)\s+note\s+from\s+(?:obsidian|vault)\b/i,
+  ]
+
+  for (const pattern of unquotedPatterns) {
+    const result = userInput.match(pattern)
+    if (result?.[1]) {
+      pushCandidate(result[1])
+    }
+  }
+
+  return candidates
+}

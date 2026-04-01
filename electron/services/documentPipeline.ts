@@ -25,6 +25,12 @@ const DEFAULT_VECTOR_CANDIDATES = 300
 
 const TAG_BOOST_FACTOR = 0.2
 
+interface ObsidianMetadata {
+  fileName?: string
+  filePath?: string
+  chunkIndex?: number
+}
+
 function resolveVectorCandidateLimit(options?: RetrievalOptions): number {
   const requested = options?.maxResults
   if (typeof requested === 'number' && Number.isFinite(requested) && requested > 0) {
@@ -76,6 +82,46 @@ function boostByTags(docs: ScoredDocument[], queryTags: string[]): ScoredDocumen
     const boost = TAG_BOOST_FACTOR * (matchCount / lowerTags.length)
     return { ...doc, score: doc.score + boost }
   })
+}
+
+function normalizeTitle(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\.md$/i, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ')
+}
+
+function parseObsidianMetadata(metadata: string): ObsidianMetadata | null {
+  try {
+    const parsed = JSON.parse(metadata) as ObsidianMetadata
+    if (!parsed || typeof parsed !== 'object') return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function scoreTitleMatch(fileName: string, candidates: readonly string[]): number {
+  const normalizedFileName = normalizeTitle(fileName)
+  let bestScore = 0
+
+  for (const candidate of candidates) {
+    const normalizedCandidate = normalizeTitle(candidate)
+    if (!normalizedCandidate) continue
+
+    if (normalizedFileName === normalizedCandidate) {
+      bestScore = Math.max(bestScore, 1.5)
+      continue
+    }
+
+    if (normalizedFileName.includes(normalizedCandidate) || normalizedCandidate.includes(normalizedFileName)) {
+      bestScore = Math.max(bestScore, 1.2)
+    }
+  }
+
+  return bestScore
 }
 
 export async function storeThought(input: StoreThoughtInput): Promise<LoreDocument> {
@@ -204,7 +250,9 @@ export async function retrieveWithAdaptiveThreshold(
     )
   }
 
-  const relevant = applyRelevanceCliff(boosted)
+  const relevant = options?.skipRelevanceCliff
+    ? boosted.filter((doc) => doc.score >= MINIMUM_RELEVANCE_SCORE).slice(0, MAX_CONTEXT_DOCS)
+    : applyRelevanceCliff(boosted)
 
   logger.debug(
     { candidates: boosted.length, afterCliff: relevant.length, minScore: MINIMUM_RELEVANCE_SCORE },
@@ -217,6 +265,85 @@ export async function retrieveWithAdaptiveThreshold(
     documents: relevant,
     totalCandidates: boosted.length,
     cutoffScore: relevant.length > 0 ? relevant[relevant.length - 1].score : 0,
+  }
+}
+
+export async function retrieveObsidianByTitleCandidates(
+  titleCandidates: readonly string[],
+  options?: RetrievalOptions,
+): Promise<RetrievedDocumentSet> {
+  if (titleCandidates.length === 0) {
+    return { documents: [], totalCandidates: 0, cutoffScore: 0 }
+  }
+
+  const baseOptions: RetrievalOptions = {
+    ...options,
+    sources: ['obsidian'],
+    type: 'obsidian-note',
+  }
+
+  const filter = buildFilter(baseOptions)
+  const limit = Math.max((options?.maxResults ?? DEFAULT_MAX_RESULTS) * 20, 500)
+  const documents = await getDocumentsByFilter(filter, limit)
+
+  const scoredDocuments: ScoredDocument[] = []
+  for (const document of documents) {
+    const meta = parseObsidianMetadata(document.metadata)
+    const fileName = meta?.fileName
+    if (!fileName) continue
+
+    const titleScore = scoreTitleMatch(fileName, titleCandidates)
+    if (titleScore <= 0) continue
+
+    // Keep note chunks grouped near the top while preserving title-level ordering.
+    const chunkIndexPenalty = typeof meta?.chunkIndex === 'number' ? Math.min(meta.chunkIndex, 20) * 0.005 : 0
+    scoredDocuments.push({
+      ...document,
+      score: titleScore - chunkIndexPenalty,
+    })
+  }
+
+  scoredDocuments.sort((left, right) => {
+    if (right.score !== left.score) return right.score - left.score
+    return right.createdAt.localeCompare(left.createdAt)
+  })
+
+  const capped = scoredDocuments.slice(0, MAX_CONTEXT_DOCS)
+  logVerboseRetrieval(`[ByTitle: ${titleCandidates.join(' | ')}]`, capped)
+
+  return {
+    documents: capped,
+    totalCandidates: scoredDocuments.length,
+    cutoffScore: capped.length > 0 ? capped[capped.length - 1].score : 0,
+  }
+}
+
+export function mergeRetrievedDocumentSets(
+  primary: RetrievedDocumentSet,
+  secondary: RetrievedDocumentSet,
+  maxResults = MAX_CONTEXT_DOCS,
+): RetrievedDocumentSet {
+  const merged = new Map<string, ScoredDocument>()
+
+  for (const doc of primary.documents) {
+    merged.set(doc.id, doc)
+  }
+
+  for (const doc of secondary.documents) {
+    const existing = merged.get(doc.id)
+    if (!existing || doc.score > existing.score) {
+      merged.set(doc.id, doc)
+    }
+  }
+
+  const documents = [...merged.values()]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, maxResults)
+
+  return {
+    documents,
+    totalCandidates: primary.totalCandidates + secondary.totalCandidates,
+    cutoffScore: documents.length > 0 ? documents[documents.length - 1].score : 0,
   }
 }
 
