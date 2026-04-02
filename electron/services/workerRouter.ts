@@ -6,6 +6,7 @@ import {
   type InputClassification,
 } from '../../shared/types'
 import { retrieveRelevantDocuments } from './documentPipeline'
+import { buildLayeredWorkerSystemPrompt } from './promptLayers'
 import { classifyInputUnified } from './unifiedClassifierService'
 import { loadSkill } from './skillLoader'
 
@@ -82,22 +83,34 @@ export function buildWorkerSystemPrompt(
   classification: ClassificationResult,
 ): string {
   const workerSkillMountId = WORKER_KIND_TO_SKILL_MOUNT_ID[workerKind]
-  const parts: string[] = [
-    loadSkill('skill-shared-protocol'),
-    loadSkill(workerSkillMountId),
-    [
-      '## Router classification',
-      'Use intent, date, situation summary, and `saveDocumentType` from this JSON. `extractedTags` describe the turn for search-style hints; they are not a tag list to paste onto every row of `save_documents`. Each saved item needs tags derived from that item’s own `content`.',
-      '',
-      '```json',
-      compactClassificationForPrompt(classification),
-      '```',
-    ].join('\n'),
-  ]
+  const routerClassificationJson = [
+    '## Router classification',
+    'Use intent, date, situation summary, and `saveDocumentType` from this JSON. `extractedTags` describe the turn for search-style hints; they are not a tag list to paste onto every row of `save_documents`. Each saved item needs tags derived from that item’s own `content`.',
+    '',
+    '```json',
+    compactClassificationForPrompt(classification),
+    '```',
+  ].join('\n')
 
-  if (userInstructionsBlock.length > 0) {
-    parts.push(`## Active user instructions\n\n${userInstructionsBlock}`)
+  const userBlock =
+    userInstructionsBlock.trim().length > 0
+      ? `## Active user instructions\n\n${userInstructionsBlock}`
+      : ''
+
+  return buildLayeredWorkerSystemPrompt({
+    protocol: loadSkill('skill-shared-protocol'),
+    workerInstructions: loadSkill(workerSkillMountId),
+    routerClassificationJson,
+    userInstructionsBlock: userBlock,
+  })
+}
+
+/**
+ * Optional extra skill text for workers that often call `compose_reply` (progressive disclosure).
+ */
+export function loadProgressiveComposeSkillAddon(workerKind: WorkerKind): string {
+  if (workerKind === 'thought' || workerKind === 'command') {
+    return loadSkill('assistant-user-reply')
   }
-
-  return parts.join('\n\n---\n\n')
+  return ''
 }

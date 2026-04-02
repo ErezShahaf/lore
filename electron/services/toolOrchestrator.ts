@@ -8,10 +8,8 @@ import {
   resolveUiStatusMessage,
   UiStatusPhase,
 } from './uiStatusPhraseComposer'
-import {
-  executeOrchestratorTool,
-  type OrchestratorToolContext,
-} from './orchestratorTools'
+import { type OrchestratorToolContext } from './orchestratorTools'
+import { executeOrchestratorToolWithHooks } from './toolHooks'
 import { buildWorkerSystemPrompt, getToolsForWorker, resolveWorkerForTurn, type WorkerKind } from './workerRouter'
 import {
   ORCHESTRATOR_MAX_STEPS,
@@ -262,7 +260,7 @@ export async function* runToolOrchestratedTurn(
       '[ToolOrchestrator] Executing agent',
     )
 
-    const result = await executeOrchestratorTool(
+    const result = await executeOrchestratorToolWithHooks(
       parsed.agent,
       parsed.params ?? {},
       context,

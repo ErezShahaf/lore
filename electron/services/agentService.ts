@@ -7,6 +7,10 @@ import {
   dedupeDocumentIdsPreservingOrder,
 } from './priorTurnContextService'
 import { runMultiActionTurn } from './multiActionOrchestrator'
+import { compactSessionHistoryIfNeeded } from './sessionCompaction'
+import { runNativeToolLoopTurn } from './turnEngine'
+import { formatUserInstructionsBlock, loadAllUserInstructionDocuments } from './userInstructionsContext'
+import { getSettings } from './settingsService'
 import {
   PIPELINE_TRACE_SCHEMA_VERSION,
   type AgentEvent,
@@ -56,13 +60,10 @@ export function getLastPipelineTrace(): PipelineTracePayload | null {
 export async function* processUserInput(userInput: string): AsyncGenerator<AgentEvent> {
   const epochAtTurnStart = sessionResetEpoch
   const isSessionStillOwnedByThisTurn = (): boolean => epochAtTurnStart === sessionResetEpoch
+  const isCancelled = (): boolean => !isSessionStillOwnedByThisTurn()
 
-  const priorHistory = session.history.slice()
   session.history.push({ role: 'user', content: userInput })
-
-  const priorTurnRetrievedContextBlock = await buildPriorTurnRetrievedContextBlock(
-    session.lastTurnRetrievedDocumentIds,
-  )
+  const userMessage = session.history[session.history.length - 1]!
 
   const traceSink: MutablePipelineTraceSink = {
     traceSchemaVersion: PIPELINE_TRACE_SCHEMA_VERSION,
@@ -70,28 +71,64 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
   }
   session.lastPipelineTrace = null
 
+  const rawPriorHistory = session.history.slice(0, -1)
+  const { entries: compactedPriorHistory } = compactSessionHistoryIfNeeded(rawPriorHistory, traceSink)
+  session.history = [...compactedPriorHistory, userMessage]
+  const priorHistory = compactedPriorHistory
+
+  const priorTurnRetrievedContextBlock = await buildPriorTurnRetrievedContextBlock(
+    session.lastTurnRetrievedDocumentIds,
+  )
+
   let assistantResponse = ''
   const documentIds: string[] = []
   const retrievedDocumentIdsThisTurn: string[] = []
 
+  const settings = getSettings()
+  const useNativeToolLoop = settings.agentOrchestrationMode === 'native_tool_loop'
+
   try {
-    for await (const event of runMultiActionTurn(
-      userInput,
-      priorHistory,
-      traceSink,
-      priorTurnRetrievedContextBlock,
-    )) {
-      if (event.type === 'chunk') {
-        assistantResponse += event.content
+    if (useNativeToolLoop) {
+      const userInstructionDocuments = await loadAllUserInstructionDocuments()
+      const userInstructionsBlock = formatUserInstructionsBlock(userInstructionDocuments)
+
+      for await (const event of runNativeToolLoopTurn(userInput, priorHistory, {
+        traceSink,
+        userInstructionsBlock,
+        isCancelled,
+        priorTurnRetrievedContextBlock,
+      })) {
+        if (event.type === 'chunk') {
+          assistantResponse += event.content
+        }
+        if (event.type === 'retrieved') {
+          documentIds.push(...event.documentIds)
+          retrievedDocumentIdsThisTurn.push(...event.documentIds)
+        }
+        if (event.type === 'stored') {
+          documentIds.push(event.documentId)
+        }
+        yield event
       }
-      if (event.type === 'retrieved') {
-        documentIds.push(...event.documentIds)
-        retrievedDocumentIdsThisTurn.push(...event.documentIds)
+    } else {
+      for await (const event of runMultiActionTurn(
+        userInput,
+        priorHistory,
+        traceSink,
+        priorTurnRetrievedContextBlock,
+      )) {
+        if (event.type === 'chunk') {
+          assistantResponse += event.content
+        }
+        if (event.type === 'retrieved') {
+          documentIds.push(...event.documentIds)
+          retrievedDocumentIdsThisTurn.push(...event.documentIds)
+        }
+        if (event.type === 'stored') {
+          documentIds.push(event.documentId)
+        }
+        yield event
       }
-      if (event.type === 'stored') {
-        documentIds.push(event.documentId)
-      }
-      yield event
     }
   } catch (err) {
     logger.error({ err }, '[Agent] Orchestrator failed')

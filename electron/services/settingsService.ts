@@ -14,6 +14,7 @@ const DEFAULTS: AppSettings = {
   ollamaPath: '',
   ollamaModelsPath: '',
   ollamaSetupComplete: false,
+  agentOrchestrationMode: 'classify_handlers',
 }
 
 function getSettingsPath(): string {

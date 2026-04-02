@@ -1,10 +1,12 @@
 import { logger } from '../../logger'
 import {
+  DEFAULT_MAX_RESULTS,
   lexicalMatchRatio,
   multiQueryRetrieve,
   retrieveByFilters,
-  retrieveWithAdaptiveThreshold,
+  hybridRetrieveWithAdaptiveThreshold,
 } from '../documentPipeline'
+import { isTodoListingUserIntent } from '../todoListingIntent'
 import { formatLocalDate, getLocalDateRangeForDay, getLocalDateRangeForWeek } from '../localDate'
 import { getSettings } from '../settingsService'
 import { loadSkill } from '../skillLoader'
@@ -32,13 +34,25 @@ import type {
   ScoredDocument,
 } from '../../../shared/types'
 
-// Enough breadth for disambiguation (e.g. multiple Alex / Atlas / webhook notes); the question
-// skill chooses clarify vs single-doc answers. Keep within typical eval maxRetrievedCount (~8–12).
-const MAX_FOCUSED_ANSWER_DOCUMENTS = 8
-const MAX_TODO_DOCUMENTS_FOR_CONVERSATIONAL_INSTRUCTIONS = 6
+/** The answer model receives every retrieved document; the strategist only needs a bounded preview list. */
+const STRATEGIST_DOCUMENT_PREVIEW_MAX_COUNT = 28
+const STRATEGIST_DOCUMENT_PREVIEW_CHARS = 220
 
 const RECENT_CONVERSATION_QUERY_TAIL_MAX_CHARS = 2500
 const RECENT_CONVERSATION_TURNS_FOR_RETRIEVAL_QUERY = 4
+
+function buildStrategistDocumentPreviews(documents: readonly ScoredDocument[]): {
+  readonly previews: readonly { readonly id: string; readonly preview: string }[]
+  readonly totalCount: number
+} {
+  const totalCount = documents.length
+  const capped = documents.slice(0, STRATEGIST_DOCUMENT_PREVIEW_MAX_COUNT)
+  const previews = capped.map((document) => ({
+    id: document.id,
+    preview: document.content.slice(0, STRATEGIST_DOCUMENT_PREVIEW_CHARS),
+  }))
+  return { previews, totalCount }
+}
 
 function mapScoredDocumentsToRetrievalContext(
   documents: readonly ScoredDocument[],
@@ -127,7 +141,9 @@ async function* answerQuestionFromRetrievedCandidateNotes(
 
   const settings = getSettings()
   const retrievalOpts = buildRetrievalOptions(userInput, classification, undefined)
-  const isTodoQuery = retrievalOpts.type === 'todo'
+  const isTodoQuery =
+    retrievalOpts.type === 'todo'
+    || isTodoListingUserIntent(userInput)
   const questionAnswerSelectors = {
     retrievalStatus: documents.length === 0 ? 'empty' : 'non_empty',
     structuredRetrieved: containsRawStructuredContent(documents) ? 'yes' : 'no',
@@ -163,13 +179,12 @@ async function* answerQuestionFromRetrievedCandidateNotes(
         userInstructionsBlock,
       }),
     }
+    const strategistPreviews = buildStrategistDocumentPreviews(documents)
     const strategy = await decideQuestionStrategy({
       userInput,
       situationSummary: classification.situationSummary,
-      documentPreviews: documents.map((document) => ({
-        id: document.id,
-        preview: document.content.slice(0, 220),
-      })),
+      documentPreviews: strategistPreviews.previews,
+      totalRetrievedDocumentCount: strategistPreviews.totalCount,
       userInstructionsBlock,
       recentConversation: conversationContext,
     })
@@ -332,19 +347,18 @@ export async function* handleQuestion(
     '[question] searching',
   )
 
-  const isTodoQuery = retrievalOpts.type === 'todo'
-  const maxFocusedDocumentsForAnswer = isTodoQuery ? MAX_TODO_DOCUMENTS_FOR_CONVERSATIONAL_INSTRUCTIONS : MAX_FOCUSED_ANSWER_DOCUMENTS
+  const isTodoQuery =
+    retrievalOpts.type === 'todo'
+    || isTodoListingUserIntent(userInput)
   const retrievalOptsForTodo = isTodoQuery ? stripTemporalFilters(retrievalOpts) : retrievalOpts
 
   const result = isTodoQuery
     ? await retrieveByFilters({
       ...retrievalOptsForTodo,
       type: 'todo',
-      // Grab enough candidates so we can reliably order by stored date.
-      // The prompt-context limiter will further trim it.
-      maxResults: 50,
+      maxResults: DEFAULT_MAX_RESULTS,
     })
-    : await retrieveWithAdaptiveThreshold(embeddingRichQueryText, retrievalOpts)
+    : await hybridRetrieveWithAdaptiveThreshold(embeddingRichQueryText, retrievalOpts)
 
   const fallbackResult = !isTodoQuery && result.documents.length === 0
     ? await multiQueryRetrieve(
@@ -356,7 +370,7 @@ export async function* handleQuestion(
   const sortedFallbackDocuments = isTodoQuery
     ? sortDocumentsNewestFirstBySemanticDate(fallbackResult.documents)
     : fallbackResult.documents
-  const documents = sortedFallbackDocuments.slice(0, maxFocusedDocumentsForAnswer)
+  const documents = sortedFallbackDocuments
 
   const questionAnswerSelectors = {
     retrievalStatus: documents.length === 0 ? 'empty' : 'non_empty',
@@ -441,13 +455,12 @@ export async function* handleQuestion(
       userInstructionsBlock,
     }),
   }
+  const strategistPreviewsMain = buildStrategistDocumentPreviews(documents)
   const strategy = await decideQuestionStrategy({
     userInput,
     situationSummary: classification.situationSummary,
-    documentPreviews: documents.map((document) => ({
-      id: document.id,
-      preview: document.content.slice(0, 220),
-    })),
+    documentPreviews: strategistPreviewsMain.previews,
+    totalRetrievedDocumentCount: strategistPreviewsMain.totalCount,
     userInstructionsBlock,
     recentConversation: conversationContext,
   })

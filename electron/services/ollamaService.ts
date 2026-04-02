@@ -394,12 +394,16 @@ function parseToolChatMessage(message: Record<string, unknown>): ToolChatMessage
   const role = ((message.role as string) || 'assistant') as ToolChatMessage['role']
   const content = normalizeOllamaAssistantTextField(message.content)
   const rawToolCalls = message.tool_calls as ReadonlyArray<Record<string, unknown>> | undefined
+  const toolName =
+    typeof message.name === 'string' && message.name.length > 0 ? message.name : undefined
 
   const toolCalls: readonly ToolCall[] | undefined = rawToolCalls?.map((call) => {
     const func = (call.function as Record<string, unknown>) ?? {}
+    const id = typeof call.id === 'string' && call.id.length > 0 ? call.id : undefined
     return {
+      ...(id !== undefined ? { id } : {}),
       function: {
-        name: func.name as string,
+        name: (func.name as string) ?? '',
         arguments: parseToolArguments(func.arguments),
       },
     }
@@ -408,8 +412,39 @@ function parseToolChatMessage(message: Record<string, unknown>): ToolChatMessage
   return {
     role,
     content,
+    ...(toolName !== undefined ? { name: toolName } : {}),
     ...(toolCalls && toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
   }
+}
+
+/** Ollama `/api/chat` expects `function.arguments` as a JSON string on wire. */
+export function normalizeToolChatMessagesForOllamaApi(
+  messages: readonly ToolChatMessage[],
+): unknown[] {
+  return messages.map((message) => {
+    if (message.role === 'assistant' && message.tool_calls && message.tool_calls.length > 0) {
+      return {
+        role: 'assistant',
+        content: message.content,
+        tool_calls: message.tool_calls.map((toolCall) => ({
+          ...(toolCall.id !== undefined ? { id: toolCall.id } : {}),
+          type: 'function',
+          function: {
+            name: toolCall.function.name,
+            arguments: JSON.stringify(toolCall.function.arguments),
+          },
+        })),
+      }
+    }
+    if (message.role === 'tool') {
+      return {
+        role: 'tool',
+        content: message.content,
+        ...(message.name !== undefined ? { name: message.name } : {}),
+      }
+    }
+    return { role: message.role, content: message.content }
+  })
 }
 
 /**
@@ -427,7 +462,7 @@ export async function chatWithTools(request: ToolChatRequest): Promise<ToolChatR
   try {
     const payload = {
       model: request.model,
-      messages: request.messages,
+      messages: normalizeToolChatMessagesForOllamaApi(request.messages),
       tools: request.tools,
       stream: false,
       keep_alive: -1,
@@ -501,7 +536,7 @@ export async function* streamChatWithTools(
   try {
     const payload = {
       model: request.model,
-      messages: request.messages,
+      messages: normalizeToolChatMessagesForOllamaApi(request.messages),
       tools: request.tools,
       stream: true,
       think: false,

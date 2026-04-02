@@ -3,12 +3,16 @@ import { classifyInput } from './classifierService'
 import { composeAssistantUserReplyText } from './assistantReplyComposer'
 import type { AssistantReplyFacts } from './assistantReplyTypes'
 import {
+  buildSearchToolDocumentPayload,
+  DEFAULT_MAX_RESULTS,
+  hybridRetrieveWithAdaptiveThreshold,
   multiQueryRetrieve,
   retrieveByFilters,
   retrieveRelevantDocuments,
   retrieveTodoCandidatesForCommand,
-  retrieveWithAdaptiveThreshold,
+  SEARCH_TOOL_CONTENT_SNIPPET_CHARS,
 } from './documentPipeline'
+import { isTodoListingUserIntent } from './todoListingIntent'
 import {
   getToolDefinitions as getBaseToolDefinitions,
   executeTool as executeBaseTool,
@@ -22,9 +26,11 @@ import {
   type DocumentType,
   type InputClassification,
   type OllamaTool,
+  type RetrievedDocumentSet,
   type RetrievalOptions,
   type ScoredDocument,
 } from '../../shared/types'
+import { getToolsForWorker, type WorkerKind } from './workerRouter'
 
 // ── Tool execution context ────────────────────────────────────
 
@@ -194,7 +200,10 @@ async function handleSearchForQuestion(
   const primary = primaryClassificationAction(classification)
   const query = optionalString(args, 'query') ?? context.userInput
   const typeFilter = optionalString(args, 'type') as DocumentType | undefined
-  const maxResults = typeof args.maxResults === 'number' ? args.maxResults : 8
+  const maxResults =
+    typeof args.maxResults === 'number' && Number.isFinite(args.maxResults)
+      ? Math.max(1, Math.min(Math.floor(args.maxResults), DEFAULT_MAX_RESULTS))
+      : DEFAULT_MAX_RESULTS
 
   const retrievalOpts: RetrievalOptions = { maxResults }
   if (primary.extractedTags.length > 0) {
@@ -208,14 +217,18 @@ async function handleSearchForQuestion(
     retrievalOpts.type = typeFilter
   }
 
-  const isTodoQuery = typeFilter === 'todo' || primary.extractedTags.some((tag) => tag === 'todo')
-  let result: { documents: ScoredDocument[]; totalCandidates: number; cutoffScore: number }
+  const isTodoQuery =
+    typeFilter === 'todo'
+    || primary.extractedTags.some((tag) => tag === 'todo')
+    || isTodoListingUserIntent(query)
+    || isTodoListingUserIntent(context.userInput)
+  let result: RetrievedDocumentSet
 
   if (isTodoQuery) {
     const todoResult = await retrieveByFilters({
       ...retrievalOpts,
       type: 'todo',
-      maxResults: 50,
+      maxResults: DEFAULT_MAX_RESULTS,
     })
     const sorted = [...todoResult.documents].sort((a, b) => {
       const cmp = (b.date ?? '').localeCompare(a.date ?? '')
@@ -227,7 +240,7 @@ async function handleSearchForQuestion(
       cutoffScore: todoResult.cutoffScore,
     }
   } else {
-    result = await retrieveWithAdaptiveThreshold(query, retrievalOpts)
+    result = await hybridRetrieveWithAdaptiveThreshold(query, retrievalOpts)
     if (result.documents.length === 0) {
       const fallbackQueries = [
         query,
@@ -235,7 +248,10 @@ async function handleSearchForQuestion(
       ]
       const unique = [...new Set(fallbackQueries.map((q) => q.trim()).filter(Boolean))]
       const fallback = await multiQueryRetrieve(unique, retrievalOpts)
-      result = fallback
+      result = {
+        ...fallback,
+        retrievalDiagnostics: result.retrievalDiagnostics,
+      }
     }
   }
 
@@ -244,19 +260,15 @@ async function handleSearchForQuestion(
     context.documentsCache.set(doc.id, doc)
   }
 
-  const documents = fullDocuments.map((d) => ({
-    id: d.id,
-    type: d.type,
-    date: d.date,
-    tags: d.tags ? d.tags.split(',').filter(Boolean) : [],
-    content: d.content,
-    score: d.score,
-  }))
+  const documents = fullDocuments.map((document) =>
+    buildSearchToolDocumentPayload(document, SEARCH_TOOL_CONTENT_SNIPPET_CHARS),
+  )
 
   const output = JSON.stringify({
     documents,
     totalFound: result.totalCandidates,
     documentIds: documents.map((d) => d.id),
+    retrievalDiagnostics: result.retrievalDiagnostics ?? null,
   })
 
   const events: AgentEvent[] =
@@ -291,7 +303,7 @@ async function handleSearchForCommand(
   const primary = primaryClassificationAction(classification)
   const typeFilter = optionalString(args, 'type') as DocumentType | undefined
 
-  const retrievalOpts: RetrievalOptions = { maxResults: 50 }
+  const retrievalOpts: RetrievalOptions = { maxResults: DEFAULT_MAX_RESULTS }
   const isTodoCompletion = primary.extractedTags.some((tag) => tag.toLowerCase() === 'todo')
   if (typeFilter || isTodoCompletion) {
     retrievalOpts.type = typeFilter ?? 'todo'
@@ -402,6 +414,11 @@ export function getOrchestratorToolDefinitions(): readonly OllamaTool[] {
     COMPOSE_REPLY_TOOL,
   ]
   return [...base, ...orchestratorTools]
+}
+
+export function getOllamaToolsForWorker(workerKind: WorkerKind): readonly OllamaTool[] {
+  const allowed = new Set(getToolsForWorker(workerKind))
+  return getOrchestratorToolDefinitions().filter((tool) => allowed.has(tool.function.name))
 }
 
 export async function executeOrchestratorTool(

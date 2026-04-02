@@ -56,6 +56,8 @@ export async function decideQuestionStrategy(input: {
   readonly userInput: string
   readonly situationSummary: string
   readonly documentPreviews: readonly { readonly id: string; readonly preview: string }[]
+  /** When previews are capped, total retrieved count so the strategist knows the list is partial. */
+  readonly totalRetrievedDocumentCount?: number
   readonly userInstructionsBlock?: string
   readonly recentConversation?: ReadonlyArray<{
     readonly role: 'user' | 'assistant'
@@ -70,6 +72,14 @@ export async function decideQuestionStrategy(input: {
 
   const recentBlock = formatRecentConversationForStrategist(input.recentConversation ?? [])
 
+  const totalCountLine =
+    typeof input.totalRetrievedDocumentCount === 'number'
+    && input.totalRetrievedDocumentCount > input.documentPreviews.length
+      ? `Total documents retrieved: ${input.totalRetrievedDocumentCount} (only the first ${input.documentPreviews.length} previews appear below).`
+      : typeof input.totalRetrievedDocumentCount === 'number'
+        ? `Total documents retrieved: ${input.totalRetrievedDocumentCount}.`
+        : null
+
   const userContent = [
     'Situation summary:',
     input.situationSummary || '(none)',
@@ -80,6 +90,7 @@ export async function decideQuestionStrategy(input: {
     'User question:',
     input.userInput,
     '',
+    ...(totalCountLine !== null ? [totalCountLine, ''] : []),
     'Retrieved document previews:',
     input.documentPreviews.length === 0
       ? '(none)'

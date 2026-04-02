@@ -53,6 +53,12 @@ export interface RetrievedDocumentSet {
   documents: ScoredDocument[]
   totalCandidates: number
   cutoffScore: number
+  /** Populated when hybrid literal+vector retrieval runs. */
+  retrievalDiagnostics?: {
+    readonly literalRowsScanned: number
+    readonly needleCount: number
+    readonly recallChannel: 'vector_only' | 'hybrid'
+  }
 }
 
 export interface RetrievalOptions {
@@ -65,6 +71,8 @@ export interface RetrievalOptions {
   tags?: string[]
   maxResults?: number
   similarityThreshold?: number
+  /** Max LanceDB rows scanned for literal needle match (hybrid retrieval). */
+  literalScanBudget?: number
 }
 
 export interface DatabaseStats {
@@ -86,6 +94,9 @@ export interface ChatMessage {
   isStreaming?: boolean
 }
 
+/** How [agentService](electron/services/agentService.ts) runs a turn. */
+export type AgentOrchestrationMode = 'classify_handlers' | 'native_tool_loop'
+
 export interface AppSettings {
   shortcut: string
   startOnLogin: boolean
@@ -97,6 +108,11 @@ export interface AppSettings {
   ollamaPath: string
   ollamaModelsPath: string
   ollamaSetupComplete: boolean
+  /**
+   * `classify_handlers`: unified classifier then intent handlers (default, most compatible).
+   * `native_tool_loop`: Ollama native tool_calls + TurnEngine (needs a tool-capable chat model).
+   */
+  agentOrchestrationMode: AgentOrchestrationMode
 }
 
 export interface DisplayInfo {
@@ -142,6 +158,8 @@ export interface OllamaTool {
 }
 
 export interface ToolCall {
+  /** Present when the provider returns tool call ids (Ollama). */
+  readonly id?: string
   readonly function: {
     readonly name: string
     readonly arguments: Record<string, unknown>
@@ -154,6 +172,8 @@ export interface ToolChatMessage {
   readonly role: ToolMessageRole
   readonly content: string
   readonly tool_calls?: readonly ToolCall[]
+  /** For `role: 'tool'`, the function name this message answers (Ollama). */
+  readonly name?: string
 }
 
 export interface ToolChatRequest {
@@ -328,6 +348,9 @@ export type PipelineStageId =
   | 'unified_classifier'
   | 'action_execution'
   | 'assistant_reply_composer'
+  | 'session_compaction'
+  | 'turn_engine_router'
+  | 'turn_engine_native_round'
 
 /** Subset of {@link ActionOutcome} stored in eval traces (compact; message truncated elsewhere). */
 export interface PipelineActionExecutionTraceOutput {
@@ -348,6 +371,24 @@ export interface PipelineAssistantReplyComposerTraceOutput {
   readonly modelLabel: string | null
 }
 
+export interface PipelineSessionCompactionTraceOutput {
+  readonly droppedTurnCount: number
+  readonly keptTurnCount: number
+  readonly stopReason: 'none' | 'message_cap' | 'char_cap'
+}
+
+export interface TurnEngineRouterTraceOutput {
+  readonly workerKind: string
+}
+
+export interface TurnEngineNativeRoundTraceOutput {
+  readonly loopStep: number
+  readonly hadToolCalls: boolean
+  readonly toolNames: readonly string[]
+  readonly stopReason: 'model_reply' | 'max_rounds' | 'cancelled' | 'tool_round'
+  readonly assistantPreview: string
+}
+
 export type PipelineStageRecord =
   | {
       readonly stageId: 'unified_classifier'
@@ -366,6 +407,24 @@ export type PipelineStageRecord =
       readonly ordinal: number
       readonly timestamp?: string
       readonly output: PipelineAssistantReplyComposerTraceOutput
+    }
+  | {
+      readonly stageId: 'session_compaction'
+      readonly ordinal: number
+      readonly timestamp?: string
+      readonly output: PipelineSessionCompactionTraceOutput
+    }
+  | {
+      readonly stageId: 'turn_engine_router'
+      readonly ordinal: number
+      readonly timestamp?: string
+      readonly output: TurnEngineRouterTraceOutput
+    }
+  | {
+      readonly stageId: 'turn_engine_native_round'
+      readonly ordinal: number
+      readonly timestamp?: string
+      readonly output: TurnEngineNativeRoundTraceOutput
     }
 
 /** Serialized trace for one user message (eval / Promptfoo metadata). */

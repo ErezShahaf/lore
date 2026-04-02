@@ -4,6 +4,7 @@ import { getDocumentById, hardDeleteDocument, updateDocument } from './lanceServ
 import { embedText } from './embeddingService'
 import {
   checkForDuplicate,
+  DEFAULT_MAX_RESULTS,
   retrieveWithAdaptiveThreshold,
   storeThought,
 } from './documentPipeline'
@@ -94,7 +95,7 @@ function requireArray(args: Record<string, unknown>, key: string): unknown[] {
 async function handleSearchLibrary(args: Record<string, unknown>): Promise<ToolExecutionResult> {
   const query = requireString(args, 'query')
   const type = optionalString(args, 'type') as DocumentType | undefined
-  const maxResults = optionalNumber(args, 'maxResults') ?? 10
+  const maxResults = optionalNumber(args, 'maxResults') ?? DEFAULT_MAX_RESULTS
 
   if (type && !VALID_DOCUMENT_TYPES.has(type)) {
     return {

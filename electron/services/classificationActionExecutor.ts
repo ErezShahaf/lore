@@ -1,5 +1,6 @@
 import { logger } from '../logger'
 import { augmentConversationHistoryWithPriorTurnContext } from './priorTurnContextService'
+import { isTodoListingUserIntent } from './todoListingIntent'
 import { handleThought } from './handlers/thoughtHandler'
 import { handleQuestion } from './handlers/questionHandler'
 import {
@@ -113,7 +114,10 @@ function selectHandler(
       return async function* (input, classification, history, instructionDocuments, instructions, originalUserMessage) {
         void instructionDocuments
         void originalUserMessage
-        const isTodoQuery = classification.extractedTags.some((tag) => tag === 'todo')
+        const isTodoQuery =
+          classification.extractedTags.some((tag) => tag === 'todo')
+          || isTodoListingUserIntent(input)
+          || isTodoListingUserIntent(originalUserMessage)
         const todoOverrides = isTodoQuery ? ({ type: 'todo' } as const) : undefined
         yield* handleQuestion(input, classification, history, todoOverrides, instructions)
       }

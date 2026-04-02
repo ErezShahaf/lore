@@ -9,6 +9,7 @@ import { handleQuestion } from './handlers/questionHandler'
 import { handleCommand } from './handlers/commandHandler'
 import { handleConversational } from './handlers/conversationalHandler'
 import { retrieveRelevantDocuments } from './documentPipeline'
+import { isTodoListingUserIntent } from './todoListingIntent'
 import { formatUserInstructionsBlock, loadAllUserInstructionDocuments } from './userInstructionsContext'
 import {
   resetUiStatusPhraseCacheForNewTurn,
@@ -147,7 +148,9 @@ async function* dispatchIntentHandlers(
           }),
         }
         turn.lastDocumentIds = []
-        const isTodoQuery = classification.extractedTags.some((tag) => tag === 'todo')
+        const isTodoQuery =
+          classification.extractedTags.some((tag) => tag === 'todo')
+          || isTodoListingUserIntent(userInput)
         const todoOverrides = isTodoQuery ? ({ type: 'todo' } as const) : undefined
         recordDispatcher(turn, 'QuestionHandler')
         for await (const event of handleQuestion(

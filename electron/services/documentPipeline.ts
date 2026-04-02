@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 import { logger } from '../logger'
+import { extractLiteralSearchNeedles } from './needleExtraction'
 import { embedText } from './embeddingService'
 import {
   insertDocument,
@@ -16,14 +17,51 @@ import type {
   RetrievedDocumentSet,
 } from '../../shared/types'
 
-const DEFAULT_MAX_RESULTS = 1000
+export const DEFAULT_MAX_RESULTS = 1000
 const DUPLICATE_THRESHOLD = 0.92
 const DUPLICATE_THRESHOLD_TODO = 0.97
-const RELEVANCE_CLIFF_RATIO = 0.3
 const MINIMUM_RELEVANCE_SCORE = 0.24
 
 const TAG_BOOST_FACTOR = 0.32
 const LEXICAL_OVERLAP_BOOST_MAX = 0.14
+const DEFAULT_LITERAL_SCAN_BUDGET = 500
+const LITERAL_NEEDLE_BASE_SCORE = 0.32
+export const SEARCH_TOOL_CONTENT_SNIPPET_CHARS = 600
+
+function mergeHybridScoredDocuments(
+  vectorDocuments: readonly ScoredDocument[],
+  literalDocuments: readonly ScoredDocument[],
+): ScoredDocument[] {
+  const byId = new Map<string, ScoredDocument>()
+  for (const document of vectorDocuments) {
+    byId.set(document.id, { ...document })
+  }
+  for (const document of literalDocuments) {
+    const existing = byId.get(document.id)
+    if (existing === undefined) {
+      byId.set(document.id, { ...document })
+    } else {
+      byId.set(document.id, {
+        ...existing,
+        score: Math.max(existing.score, document.score),
+      })
+    }
+  }
+  return [...byId.values()].sort((left, right) => right.score - left.score)
+}
+
+function literalNeedleScore(documentContent: string, needles: readonly string[]): number {
+  if (needles.length === 0) return 0
+  const lowerContent = documentContent.toLowerCase()
+  let matchedNeedleCount = 0
+  for (const needle of needles) {
+    if (lowerContent.includes(needle.toLowerCase())) {
+      matchedNeedleCount += 1
+    }
+  }
+  if (matchedNeedleCount === 0) return 0
+  return LITERAL_NEEDLE_BASE_SCORE + 0.04 * Math.min(matchedNeedleCount, 8)
+}
 
 function extractRetrievalLexicalTokens(text: string): readonly string[] {
   const normalized = text.toLowerCase()
@@ -307,26 +345,111 @@ export async function retrieveWithAdaptiveThreshold(
   if (boosted.length > 0) {
     logger.debug(
       { scores: boosted.map((d) => `${d.score.toFixed(3)}${d.tags ? ` [${d.tags}]` : ''}`) },
-      '[retrieval] adaptive threshold: top scores (before relevance cliff)',
+      '[retrieval] adaptive threshold: top scores (before minimum-score filter)',
     )
   }
 
-  const relevant = applyRelevanceCliff(boosted)
+  const relevant = keepDocumentsAtOrAboveMinimumRelevanceScore(boosted)
 
   logger.debug(
     {
-      preCliffCandidateCount: boosted.length,
+      preFilterCandidateCount: boosted.length,
       finalDocumentCount: relevant.length,
       minimumScoreFloor: MINIMUM_RELEVANCE_SCORE,
-      note: 'Top scores above are pre-cliff; finalDocumentCount is what the question handler uses.',
+      note: 'Top scores above are pre-filter; finalDocumentCount is what the question handler uses.',
     },
-    '[retrieval] adaptive threshold: after relevance cliff',
+    '[retrieval] adaptive threshold: after minimum-score filter',
   )
 
   return {
     documents: relevant,
     totalCandidates: boosted.length,
     cutoffScore: relevant.length > 0 ? relevant[relevant.length - 1].score : 0,
+  }
+}
+
+/**
+ * Vector ANN retrieval plus bounded LanceDB scan for literal needles (from {@link extractLiteralSearchNeedles}).
+ */
+export async function hybridRetrieveWithAdaptiveThreshold(
+  query: string,
+  options?: RetrievalOptions,
+): Promise<RetrievedDocumentSet> {
+  const needles = extractLiteralSearchNeedles(query)
+  const vectorResult = await retrieveWithAdaptiveThreshold(query, options)
+
+  if (needles.length === 0) {
+    return {
+      ...vectorResult,
+      retrievalDiagnostics: {
+        literalRowsScanned: 0,
+        needleCount: 0,
+        recallChannel: 'vector_only',
+      },
+    }
+  }
+
+  const filter = buildFilter(options)
+  const budget = options?.literalScanBudget ?? DEFAULT_LITERAL_SCAN_BUDGET
+  const candidates = await getDocumentsByFilter(filter, budget)
+
+  const literalScored: ScoredDocument[] = []
+  for (const document of candidates) {
+    const score = literalNeedleScore(document.content, needles)
+    if (score <= 0) continue
+    literalScored.push({ ...document, score })
+  }
+
+  const merged = mergeHybridScoredDocuments(vectorResult.documents, literalScored)
+  const tagged = boostByTags(merged, options?.tags ?? [])
+  const boosted = boostByLexicalOverlap(tagged, query).sort((left, right) => right.score - left.score)
+  const relevant = keepDocumentsAtOrAboveMinimumRelevanceScore(boosted)
+
+  logger.debug(
+    {
+      needleCount: needles.length,
+      literalHitCount: literalScored.length,
+      literalRowsScanned: candidates.length,
+      mergedPreFilter: boosted.length,
+      finalCount: relevant.length,
+    },
+    '[retrieval] hybrid vector+literal',
+  )
+
+  return {
+    documents: relevant,
+    totalCandidates: boosted.length,
+    cutoffScore: relevant.length > 0 ? relevant[relevant.length - 1].score : 0,
+    retrievalDiagnostics: {
+      literalRowsScanned: candidates.length,
+      needleCount: needles.length,
+      recallChannel: 'hybrid',
+    },
+  }
+}
+
+export function buildSearchToolDocumentPayload(
+  document: ScoredDocument,
+  snippetChars: number,
+): {
+  id: string
+  type: string
+  date: string
+  tags: string[]
+  score: number | undefined
+  contentSnippet: string
+  contentTruncated: boolean
+} {
+  const content = document.content
+  const truncated = content.length > snippetChars
+  return {
+    id: document.id,
+    type: document.type,
+    date: document.date,
+    tags: document.tags ? document.tags.split(',').filter(Boolean) : [],
+    score: document.score,
+    contentSnippet: truncated ? `${content.slice(0, snippetChars)}…` : content,
+    contentTruncated: truncated,
   }
 }
 
@@ -355,27 +478,16 @@ export async function retrieveByFilters(
   }
 }
 
-function applyRelevanceCliff(results: ScoredDocument[]): ScoredDocument[] {
-  if (results.length === 0) return []
-
-  if (results[0].score < MINIMUM_RELEVANCE_SCORE) return []
-
-  const kept: ScoredDocument[] = [results[0]]
-
-  for (let i = 1; i < results.length; i++) {
-    if (results[i].score < MINIMUM_RELEVANCE_SCORE) break
-
-    const gap = results[i - 1].score - results[i].score
-    const relativeGap = results[i - 1].score > 0
-      ? gap / results[i - 1].score
-      : gap
-
-    if (relativeGap > RELEVANCE_CLIFF_RATIO) break
-
-    kept.push(results[i])
+function keepDocumentsAtOrAboveMinimumRelevanceScore(
+  results: readonly ScoredDocument[],
+): ScoredDocument[] {
+  if (results.length === 0) {
+    return []
   }
-
-  return kept
+  if (results[0]!.score < MINIMUM_RELEVANCE_SCORE) {
+    return []
+  }
+  return results.filter((document) => document.score >= MINIMUM_RELEVANCE_SCORE)
 }
 
 // ── Multi-query retrieval ─────────────────────────────────────
@@ -422,16 +534,16 @@ export async function multiQueryRetrieve(
     )
   }
 
-  const relevant = applyRelevanceCliff(scored)
+  const relevant = keepDocumentsAtOrAboveMinimumRelevanceScore(scored)
 
   logger.debug(
     {
-      preCliffCandidateCount: scored.length,
+      preFilterCandidateCount: scored.length,
       finalDocumentCount: relevant.length,
       minimumScoreFloor: MINIMUM_RELEVANCE_SCORE,
-      note: 'Unique docs are pre-cliff; finalDocumentCount is what the question handler uses.',
+      note: 'Unique docs are pre-filter; finalDocumentCount is what the question handler uses.',
     },
-    '[multi-query] after relevance cliff',
+    '[multi-query] after minimum-score filter',
   )
 
   return {
