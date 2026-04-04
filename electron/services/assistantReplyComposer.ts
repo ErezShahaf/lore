@@ -36,8 +36,13 @@ export async function* streamAssistantUserReply(input: {
     input.facts.kind === 'multi_action_summary'
       ? [
           `The user’s exact message this turn: ${input.facts.turnUserMessage}`,
-          'Your job: produce the reply they should see. For any read outcome with a non-empty `retrievedDocumentsForComposer`, those `content` fields are the full stored notes—include that text in full (blockquote prose with `> ` per line; fenced code blocks for JSON/XML/YAML/code) when they asked for the note, article, full text, or read-back—unless they clearly asked only for a summary or gist. Do not replace that with a meta line like “here is what the article is about” without the actual body.',
-          'FACTS_JSON also includes a `turnUserMessage` field; it duplicates the line above for parsers.',
+          'Your job: produce the reply they should see.',
+          'Read outcomes: `outcomes[].message` is the handler’s draft (often already the right answer). Prefer reusing or lightly editing it when it is consistent with `handlerResultSummary` and the user question.',
+          'When `retrievedDocumentsForComposer` is non-empty: use only notes that **genuinely answer** `turnUserMessage`. For pointed questions (“which X”, “the one for Y”, a specific id or label), include **only** the matching material—do **not** paste unrelated rows that merely share a broad tag or topic.',
+          'When they clearly want a **full read-back** of one or more notes (verbatim article, entire JSON blob, “show everything you found”), then include full `content` (blockquote prose with `> ` per line; fenced blocks for JSON/XML/YAML/code). If they asked only for a summary or gist, keep it short.',
+          'When one turn **retrieved todos** and the same message sets a **standing instruction** (for example list order), still **include the todo list** in the reply; a brief acknowledgment of the rule is fine, but do not substitute meta-only “from now on…” text for the list they asked to see.',
+          'Do not answer with only “I retrieved…” when they asked to see stored text—unless nothing matched.',
+          'FACTS_JSON also includes a `turnUserMessage` field; it duplicates the first line above for parsers.',
           '',
         ].join('\n')
       : ''

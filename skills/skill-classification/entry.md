@@ -60,6 +60,8 @@ When the user **does** tie their words to **specific** stored lines (repeated wo
 
 When one message names **several completions** that each map cleanly to **different** stored todos, emit **one `delete` per matched todo**.
 
+Each **`delete`** must map to wording the user **actually used** (verbatim chunk, distinctive fragment, or an unmistakable paraphrase of **that** line). Do **not** remove extra todos because they share a project theme or people if the user **never** referenced that line’s text.
+
 Do **not** infer **`delete`** from celebration alone (“all good”, “thanks”) with **no** identifiable tasks. Prefer **`speak`** there.
 
 When the message is only vague celebration with **no** identifiable tasks (“all good”, “thanks”) and **no** link to items they track, **`speak`** is appropriate.
@@ -262,6 +264,8 @@ Classifier output uses **`saveDocumentType`** only when `intent` is **`save`**: 
 | `decisions/reply/shared/assistant-user-reply/` | `assistant-user-reply` | `decisions/kind/`: … (see `assistantReplyComposer`). |
 | `decisions/shared/entry.md` | _(branch only)_ | Intent branch named **`shared`** (protocol). |
 | `decisions/shared/shared/skill-shared-protocol/` | `skill-shared-protocol` | Inner **`shared/`** holds the mounted agent. |
+| `decisions/shared/shared/skill-native-tool-protocol/` | `skill-native-tool-protocol` | Native Ollama `tool_calls` protocol for `turnEngine` only. |
+| `decisions/shared/shared/skill-native-unified-agent/` | `skill-native-unified-agent` | Single prompt + full tool allowlist for **`native_tool_loop`** (no upfront classifier). |
 | `shared/auxiliary/entry.md` | _(helpers; not classifier intent)_ | Top-level **`shared/`** next to **`decisions/`**. |
 | `shared/auxiliary/decisions/situation/` | `situation` | |
 | `shared/auxiliary/decisions/intent-route/` | `intent-route` | |

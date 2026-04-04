@@ -230,11 +230,14 @@ function judgeMisattributesAssistantJsonRequirement(reason) {
   const mentionsStructuredAssistantOutput =
     lower.includes('json object')
     || lower.includes('two keys')
+    || lower.includes('\'pass\'')
+    || lower.includes('"pass"')
     || lower.includes('code fence')
     || lower.includes('formatting requirement')
   const readsLikeAssistantFormatComplaint =
     lower.includes('assistant')
     || lower.includes('natural language')
+    || lower.includes('conversational')
     || lower.includes('conversational text')
   return mentionsStructuredAssistantOutput && readsLikeAssistantFormatComplaint
 }
@@ -265,6 +268,13 @@ function heuristicAssistantAsksForClarification(response) {
     'do you mean',
     'are you referring to',
     'let me know which',
+    'reply with a number',
+    'pick a number',
+    'paste the exact wording',
+    'numbered candidates',
+    '1, 2,',
+    '2, or 3',
+    'few ways you could',
   ]
 
   return clarificationCues.some((cue) => text.includes(cue))
@@ -291,6 +301,29 @@ function mapRetrievedDocuments(retrievedEvent, documentLookup) {
   return retrievedEvent.documentIds
     .map((documentId) => documentLookup.get(documentId))
     .filter((document) => document !== undefined)
+}
+
+/**
+ * Native tool-loop transcripts sometimes record the final turn as protocol JSON
+ * (`{"action":"reply","content":"..."}`). Judges and string rubrics should see the
+ * user-visible `content` when present.
+ */
+function surfaceAssistantTextForEvaluation(rawResponse) {
+  if (typeof rawResponse !== 'string') {
+    return ''
+  }
+  const trimmed = rawResponse.trim()
+  if (!trimmed.startsWith('{')) {
+    return rawResponse
+  }
+  const parsed = safeJsonParse(trimmed)
+  if (!parsed || typeof parsed !== 'object') {
+    return rawResponse
+  }
+  if (parsed.action === 'reply' && typeof parsed.content === 'string') {
+    return parsed.content
+  }
+  return rawResponse
 }
 
 function safeJsonParse(value) {
@@ -1298,7 +1331,7 @@ async function fetchStepState(evalServer, latestUserInput, messageResult, intera
 
   return {
     userInput: latestUserInput,
-    response: messageResult.response || '',
+    response: surfaceAssistantTextForEvaluation(messageResult.response || ''),
     events,
     allDocuments,
     todoDocuments,
@@ -1497,6 +1530,14 @@ export default class LoreScenarioProvider {
         ollamaHost,
       })
 
+      const agentOrchestrationMode =
+        this.config.agentOrchestrationMode === 'native_tool_loop'
+          ? 'native_tool_loop'
+          : 'classify_handlers'
+      await requestJson(evalServer.baseUrl, '/settings/update', 'POST', {
+        agentOrchestrationMode,
+      })
+
       const scenarioResult = await runScenario(evalServer, scenario, {
         judgeModel: this.config.judgeModel || this.config.model,
         ollamaHost,
@@ -1528,6 +1569,7 @@ export default class LoreScenarioProvider {
           scenarioId: scenario.id,
           scenarioTitle: scenario.title,
           model: this.config.model,
+          agentOrchestrationMode,
           judgeModel: this.config.judgeModel || this.config.model,
           failures: scenarioResult.failures,
           failedChecks: scenarioResult.failedChecks,
@@ -1544,6 +1586,10 @@ export default class LoreScenarioProvider {
           passed: false,
           scenarioId,
           model: this.config.model,
+          agentOrchestrationMode:
+            this.config.agentOrchestrationMode === 'native_tool_loop'
+              ? 'native_tool_loop'
+              : 'classify_handlers',
           judgeModel: this.config.judgeModel || this.config.model,
         },
       }

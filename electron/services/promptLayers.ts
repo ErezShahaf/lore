@@ -1,6 +1,6 @@
 /**
- * Explicit prompt layers for the agent (shared by classifier path and tool loop).
- * Keeps section order stable for debugging and traces.
+ * Explicit prompt layers for worker system prompts (tool orchestrator and native tool loop).
+ * The first layer (`protocol`) differs: JSON-in-text vs Ollama native `tool_calls`; see `buildWorkerSystemPrompt`.
  */
 
 export interface LayeredPromptSections {

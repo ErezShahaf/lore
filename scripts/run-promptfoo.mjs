@@ -169,6 +169,22 @@ async function resolveEmbeddingModel(ollamaHost, requestedEmbeddingModel) {
   return selectedEmbeddingModel
 }
 
+function parseOrchestrationModes() {
+  const raw = getSingleArgumentValue('--orchestration', 'classic').trim().toLowerCase()
+  if (raw === 'both') {
+    return ['classify_handlers', 'native_tool_loop']
+  }
+  if (raw === 'classic' || raw === 'classify_handlers') {
+    return ['classify_handlers']
+  }
+  if (raw === 'native' || raw === 'native_tool_loop') {
+    return ['native_tool_loop']
+  }
+  throw new Error(
+    `Unsupported --orchestration "${raw}". Use classic (or classify_handlers), native (or native_tool_loop), or both.`,
+  )
+}
+
 function buildPromptfooConfig({
   selectedModels,
   selectedScenarios,
@@ -176,23 +192,33 @@ function buildPromptfooConfig({
   embeddingModel,
   ollamaHost,
   judgeModel,
+  orchestrationModes,
 }) {
   const providerPath = join(repositoryRoot, 'evals', 'provider', 'loreScenarioProvider.mjs')
+
+  const providers = []
+  for (const modelName of selectedModels) {
+    for (const agentOrchestrationMode of orchestrationModes) {
+      const labelSuffix = agentOrchestrationMode === 'classify_handlers' ? 'classic' : 'native'
+      providers.push({
+        id: providerPath,
+        label: `${modelName} (${labelSuffix})`,
+        config: {
+          repositoryRoot,
+          model: modelName,
+          embeddingModel,
+          ollamaHost,
+          judgeModel,
+          agentOrchestrationMode,
+        },
+      })
+    }
+  }
 
   return {
     description: 'Lore promptfoo conversation evals',
     prompts: ['{{scenarioId}}'],
-    providers: selectedModels.map((modelName) => ({
-      id: providerPath,
-      label: modelName,
-      config: {
-        repositoryRoot,
-        model: modelName,
-        embeddingModel,
-        ollamaHost,
-        judgeModel,
-      },
-    })),
+    providers,
     defaultTest: {
       assert: [
         {
@@ -242,6 +268,8 @@ Options:
                        If omitted, each scenario is judged with the same model as that scenario.
   --scenario <id>      Filter to one or more scenario ids (comma-separated, repeat flag ok).
   --topic <name>       Filter by topic (comma-separated).
+  --orchestration <m>  Agent pipeline: classic (default), native, or both.
+                       classic = classify_handlers; native = native_tool_loop; both runs each scenario per mode.
   --skip-build         Skip npm run build:app before eval.
   --html-report        Also write an HTML report alongside JSON.
   --help               Show this message.
@@ -277,6 +305,7 @@ async function main() {
   const requestedScenarioIds = parseScenarioIds()
   const requestedTopics = parseTopics()
   const embeddingModel = await resolveEmbeddingModel(ollamaHost, requestedEmbeddingModel)
+  const orchestrationModes = parseOrchestrationModes()
   const suiteScenarios = getScenariosForSuite(suiteName)
   const unknownTopics = requestedTopics.filter((requestedTopic) => !scenarioTopics.includes(requestedTopic))
 
@@ -321,11 +350,15 @@ async function main() {
     embeddingModel,
     ollamaHost,
     judgeModel,
+    orchestrationModes,
   })
 
   writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8')
 
   console.log(`Running ${selectedScenarios.length} scenarios x ${repeatCount} repeats for models: ${selectedModels.join(', ')}`)
+  console.log(
+    `Orchestration: ${orchestrationModes.join(', ')} (${orchestrationModes.length} provider${orchestrationModes.length === 1 ? '' : 's'} per model)`,
+  )
   console.log(`Using embedding model: ${embeddingModel}`)
   if (judgeModel.trim().length > 0) {
     console.log(`Judge model: ${judgeModel}`)

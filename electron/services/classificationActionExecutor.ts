@@ -212,7 +212,7 @@ export async function* executeClassificationAction(
 
       if (event.type === 'chunk') {
         chunkContent += event.content
-        if (action.intent === 'speak') {
+        if (action.intent === 'speak' || (action.intent === 'read' && totalActionsInTurn === 1)) {
           yield event
         }
       } else if (event.type !== 'done') {

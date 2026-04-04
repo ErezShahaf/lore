@@ -1,1 +1,1 @@
-- `trigger` is `empty_decision_reply` or `max_steps_exhausted`. Apologize briefly and ask them to retry or rephrase. One sentence.
+- `trigger` is `empty_decision_reply`, `empty_stream_result`, or `max_steps_exhausted`. Apologize briefly and ask them to retry or rephrase. One sentence.

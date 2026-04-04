@@ -300,6 +300,7 @@ export async function* chat(request: ChatRequest): AsyncGenerator<string> {
     const reader = res.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
+    let previousStreamContent = ''
 
     while (true) {
       const { done, value } = await reader.read()
@@ -312,9 +313,27 @@ export async function* chat(request: ChatRequest): AsyncGenerator<string> {
       for (const line of lines) {
         if (!line.trim()) continue
         try {
-          const json = JSON.parse(line)
-          if (json.message?.content) {
-            yield json.message.content
+          const json = JSON.parse(line) as Record<string, unknown>
+          const rawMessage = json.message
+          if (!rawMessage || typeof rawMessage !== 'object' || Array.isArray(rawMessage)) {
+            continue
+          }
+          const piece = normalizeOllamaAssistantTextField(
+            (rawMessage as Record<string, unknown>).content,
+          )
+          if (piece.length === 0) {
+            continue
+          }
+          let delta: string
+          if (previousStreamContent.length > 0 && piece.startsWith(previousStreamContent)) {
+            delta = piece.slice(previousStreamContent.length)
+            previousStreamContent = piece
+          } else {
+            delta = piece
+            previousStreamContent += piece
+          }
+          if (delta.length > 0) {
+            yield delta
           }
         } catch {
           // skip malformed lines
@@ -534,6 +553,16 @@ export async function* streamChatWithTools(
 ): AsyncGenerator<ToolChatStreamEvent> {
   const { signal, finishTracking } = beginTrackedChatRequest()
   try {
+    logger.debug(
+      {
+        model: request.model,
+        messageCount: request.messages.length,
+        toolSchemaCount: request.tools.length,
+        toolSchemaNames: request.tools.map((tool) => tool.function.name),
+      },
+      '[Ollama] Stage: streamChatWithTools_request_start',
+    )
+
     const payload = {
       model: request.model,
       messages: normalizeToolChatMessagesForOllamaApi(request.messages),
@@ -553,8 +582,11 @@ export async function* streamChatWithTools(
 
     if (!res.ok) {
       const text = await res.text().catch(() => res.statusText)
+      logger.debug({ status: res.status, bodyPreview: text.slice(0, 200) }, '[Ollama] Stage: streamChatWithTools_http_not_ok')
       throw new Error(`Ollama chat failed: ${text}`)
     }
+
+    logger.debug({ model: request.model }, '[Ollama] Stage: streamChatWithTools_reading_stream_body')
 
     if (!res.body) {
       throw new Error('No response body for streaming')
@@ -616,8 +648,14 @@ export async function* streamChatWithTools(
     }
 
     if (!lastDoneMessage) {
+      logger.debug({ model: request.model }, '[Ollama] Stage: streamChatWithTools_missing_done_message')
       throw new Error('Ollama streaming response ended without a done message')
     }
+
+    logger.debug(
+      { model: request.model, rawDoneMessageKeys: Object.keys(lastDoneMessage) },
+      '[Ollama] Stage: streamChatWithTools_stream_done_line_received',
+    )
 
     const contentFromDone = normalizeOllamaAssistantTextField(lastDoneMessage.content)
     const thinkingFromDone = normalizeOllamaAssistantTextField(lastDoneMessage.thinking)
@@ -635,6 +673,18 @@ export async function* streamChatWithTools(
 
     const finalMessage = parseToolChatMessage(mergedMessage)
     const hasToolCalls = finalMessage.tool_calls && finalMessage.tool_calls.length > 0
+
+    logger.debug(
+      {
+        model: request.model,
+        hasToolCalls,
+        toolCallCount: finalMessage.tool_calls?.length ?? 0,
+        toolNames: finalMessage.tool_calls?.map((call) => call.function.name) ?? [],
+        contentLength: finalMessage.content.length,
+        contentPreview: finalMessage.content.trim().slice(0, 240),
+      },
+      '[Ollama] Stage: streamChatWithTools_parse_complete',
+    )
 
     if (hasToolCalls) {
       yield { type: 'assistant_message', message: finalMessage }

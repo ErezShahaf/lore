@@ -147,49 +147,59 @@ export async function* handleThought(
       return
     }
   } else if (!skipStructuredBodyResolution) {
-    const bodyResolution = await resolveSaveNoteBody({
-      handlerPayload: trimmed,
-      fullTurnUserMessage: fullTurn,
-      conversationHistory,
-      routerSituationSummary: classification.situationSummary,
-      userInstructionsBlock,
-    })
+    const routerExtractedData = classification.data.trim()
+    const shouldStoreRouterExtractedTodoBody =
+      documentTypeForResolution === 'todo' && routerExtractedData.length > 0
 
-    if (bodyResolution.step === 'clarify_intent') {
-      yield {
-        type: 'turn_step_summary',
-        summary:
-          'Save: model chose intent clarification; nothing was stored until the user is clearer.',
-        reportedOutcomeStatus: 'succeeded',
-      }
-      for await (const chunk of streamAssistantUserReplyWithFallback({
+    if (shouldStoreRouterExtractedTodoBody) {
+      resolvedContent = routerExtractedData
+    } else {
+      const bodyResolution = await resolveSaveNoteBody({
+        handlerPayload: trimmed,
+        fullTurnUserMessage: fullTurn,
+        conversationHistory,
+        routerSituationSummary: classification.situationSummary,
         userInstructionsBlock,
-        facts: { kind: 'save_body_clarify_structured_intent' },
-      })) {
-        yield { type: 'chunk', content: chunk }
-      }
-      yield { type: 'done' }
-      return
-    }
+        routerExtractedData:
+          routerExtractedData.length > 0 ? classification.data : undefined,
+      })
 
-    if (bodyResolution.step === 'ask_short_title') {
-      yield {
-        type: 'turn_step_summary',
-        summary:
-          'Save: model asked for a short title or description before writing structured data.',
-        reportedOutcomeStatus: 'succeeded',
+      if (bodyResolution.step === 'clarify_intent') {
+        yield {
+          type: 'turn_step_summary',
+          summary:
+            'Save: model chose intent clarification; nothing was stored until the user is clearer.',
+          reportedOutcomeStatus: 'succeeded',
+        }
+        for await (const chunk of streamAssistantUserReplyWithFallback({
+          userInstructionsBlock,
+          facts: { kind: 'save_body_clarify_structured_intent' },
+        })) {
+          yield { type: 'chunk', content: chunk }
+        }
+        yield { type: 'done' }
+        return
       }
-      for await (const chunk of streamAssistantUserReplyWithFallback({
-        userInstructionsBlock,
-        facts: { kind: 'save_body_clarify_short_title' },
-      })) {
-        yield { type: 'chunk', content: chunk }
-      }
-      yield { type: 'done' }
-      return
-    }
 
-    resolvedContent = bodyResolution.noteBody.trim()
+      if (bodyResolution.step === 'ask_short_title') {
+        yield {
+          type: 'turn_step_summary',
+          summary:
+            'Save: model asked for a short title or description before writing structured data.',
+          reportedOutcomeStatus: 'succeeded',
+        }
+        for await (const chunk of streamAssistantUserReplyWithFallback({
+          userInstructionsBlock,
+          facts: { kind: 'save_body_clarify_short_title' },
+        })) {
+          yield { type: 'chunk', content: chunk }
+        }
+        yield { type: 'done' }
+        return
+      }
+
+      resolvedContent = bodyResolution.noteBody.trim()
+    }
   }
 
   if (resolvedContent.length === 0) {

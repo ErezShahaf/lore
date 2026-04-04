@@ -1,5 +1,13 @@
 import { logger } from '../logger'
-import { collectChatResponse, parseJsonFromModelResponse } from './ollamaService'
+import { chat, collectChatResponse } from './ollamaService'
+import {
+  conversationHistoryToOrchestratorMessages,
+  formatToolResultForNextMessage,
+  formatValidAgentsHint,
+  jsonRetryUserMessage,
+  parseOrchestratorAction,
+  STREAM_RESULT_FOLLOW_UP_USER_MESSAGE,
+} from './orchestratorJsonProtocol'
 import { getSettings } from './settingsService'
 import { streamAssistantUserReplyWithFallback } from './assistantReplyComposer'
 import { formatUserInstructionsBlock, loadAllUserInstructionDocuments } from './userInstructionsContext'
@@ -10,62 +18,13 @@ import {
 } from './uiStatusPhraseComposer'
 import { type OrchestratorToolContext } from './orchestratorTools'
 import { executeOrchestratorToolWithHooks } from './toolHooks'
-import { buildWorkerSystemPrompt, getToolsForWorker, resolveWorkerForTurn, type WorkerKind } from './workerRouter'
 import {
-  ORCHESTRATOR_MAX_STEPS,
-  type AgentEvent,
-  type ConversationEntry,
-  type OrchestratorAction,
-} from '../../shared/types'
-
-function conversationHistoryToMessages(
-  history: readonly ConversationEntry[],
-): Array<{ role: 'user' | 'assistant'; content: string }> {
-  return history.map((entry) => ({
-    role: entry.role,
-    content: entry.content,
-  }))
-}
-
-function parseOrchestratorAction(raw: string): OrchestratorAction | null {
-  const parsed = parseJsonFromModelResponse(raw)
-  if (!parsed || typeof parsed.action !== 'string') return null
-
-  const action = parsed.action as string
-  if (action === 'reply') {
-    const content = typeof parsed.content === 'string' ? parsed.content : String(parsed.content ?? '')
-    return { action: 'reply', content }
-  }
-
-  if (action === 'call') {
-    const agent = typeof parsed.agent === 'string' ? parsed.agent : ''
-    if (!agent) return null
-    const params =
-      parsed.params && typeof parsed.params === 'object' && !Array.isArray(parsed.params)
-        ? (parsed.params as Record<string, unknown>)
-        : {}
-    return { action: 'call', agent, params }
-  }
-
-  return null
-}
-
-function formatToolResultForNextMessage(agent: string, output: string): string {
-  return `[Result from ${agent}]: ${output}`
-}
-
-function formatValidAgentsHint(workerKind: WorkerKind, validAgentNames: ReadonlySet<string>): string {
-  if (validAgentNames.size === 0) {
-    return 'You cannot call tools in this mode. Respond with exactly {"action":"reply","content":"..."} only.'
-  }
-  return `Valid agents for this worker (${workerKind}): ${[...validAgentNames].sort().join(', ')}.`
-}
-
-function jsonRetryUserMessage(workerKind: WorkerKind, validAgentNames: ReadonlySet<string>): string {
-  const base =
-    'Your last response was not valid JSON. Respond with exactly one JSON object: either {"action":"call","agent":"<name>","params":{...}} or {"action":"reply","content":"..."}. Try again.'
-  return `${base} ${formatValidAgentsHint(workerKind, validAgentNames)}`
-}
+  buildWorkerSystemPrompt,
+  getToolsForWorker,
+  resolveWorkerForTurn,
+  type WorkerKind,
+} from './workerRouter'
+import { ORCHESTRATOR_MAX_STEPS, type AgentEvent, type ConversationEntry } from '../../shared/types'
 
 export interface ToolOrchestratorTurnResult {
   assistantResponse: string
@@ -138,6 +97,7 @@ export async function* runToolOrchestratedTurn(
     priorHistory,
     userInstructionsBlock,
     documentsCache: new Map(),
+    isUnifiedNativeAgent: false,
   }
 
   const allowedToolNames = getToolsForWorker(workerKind)
@@ -145,7 +105,7 @@ export async function* runToolOrchestratedTurn(
 
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     { role: 'system', content: systemPrompt },
-    ...conversationHistoryToMessages(priorHistory),
+    ...conversationHistoryToOrchestratorMessages(priorHistory),
     { role: 'user', content: userInput },
   ]
 
@@ -180,7 +140,7 @@ export async function* runToolOrchestratedTurn(
       return
     }
 
-    const parsed = parseOrchestratorAction(rawResponse)
+    const parsed = parseOrchestratorAction(rawResponse, validAgentNames)
 
     if (!parsed) {
       logger.warn(
@@ -212,6 +172,54 @@ export async function* runToolOrchestratedTurn(
           userInstructionsBlock,
           facts: { kind: 'orchestrator_surface_fallback', trigger: 'empty_decision_reply' },
         })) {
+          yield { type: 'chunk', content: chunk }
+        }
+      }
+      yield { type: 'done' }
+      return
+    }
+
+    if (parsed.action === 'stream_result') {
+      logger.debug({ step, workerKind }, '[ToolOrchestrator] stream_result_starting_plain_completion')
+      messages.push({ role: 'assistant', content: rawResponse.trim() })
+      messages.push({ role: 'user', content: STREAM_RESULT_FOLLOW_UP_USER_MESSAGE })
+
+      yield {
+        type: 'status',
+        message: await resolveUiStatusMessage({
+          request: { phase: UiStatusPhase.draftingNaturalReply },
+          userInstructionsBlock,
+        }),
+      }
+
+      let streamed = ''
+      try {
+        for await (const delta of chat({
+          model,
+          messages,
+          stream: true,
+          think: false,
+        })) {
+          if (delta.length > 0) {
+            streamed += delta
+            assistantResponse += delta
+            yield { type: 'chunk', content: delta }
+          }
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Streaming failed'
+        logger.error({ error: errorMessage, step }, '[ToolOrchestrator] stream_result chat failed')
+        yield { type: 'error', message: errorMessage }
+        yield { type: 'done' }
+        return
+      }
+
+      if (streamed.trim().length === 0) {
+        for await (const chunk of streamAssistantUserReplyWithFallback({
+          userInstructionsBlock,
+          facts: { kind: 'orchestrator_surface_fallback', trigger: 'empty_stream_result' },
+        })) {
+          assistantResponse += chunk
           yield { type: 'chunk', content: chunk }
         }
       }
@@ -308,6 +316,8 @@ function workerKindToStatusPhase(workerKind: WorkerKind): string {
       return UiStatusPhase.workerFocusCommand
     case 'conversational':
       return UiStatusPhase.workerFocusConversational
+    case 'unified':
+      return UiStatusPhase.workerFocusUnified
   }
 }
 
@@ -327,6 +337,8 @@ function toolAgentToStatusPhase(agentName: string): string {
       return UiStatusPhase.toolModifyDocuments
     case 'compose_reply':
       return UiStatusPhase.toolComposeReply
+    case 'summarize_context':
+      return UiStatusPhase.toolSummarizeContext
     default:
       return UiStatusPhase.toolRunningUnknown
   }

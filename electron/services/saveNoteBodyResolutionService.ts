@@ -30,6 +30,11 @@ export async function resolveSaveNoteBody(params: {
   readonly conversationHistory: readonly ConversationEntry[]
   readonly routerSituationSummary: string
   readonly userInstructionsBlock: string
+  /**
+   * Unified classifier `data` when non-empty: prefer this as the stored body when it is the
+   * actionable item and the handler payload is a longer instruction wrapper.
+   */
+  readonly routerExtractedData?: string
 }): Promise<SaveNoteBodyResolution> {
   const settings = getSettings()
   const systemPrompt = appendUserInstructionsToSystemPrompt(
@@ -50,11 +55,17 @@ export async function resolveSaveNoteBody(params: {
       ? `Router situation summary: ${params.routerSituationSummary.trim()}`
       : 'Router situation summary: (none)'
 
+  const extractedLine =
+    params.routerExtractedData !== undefined && params.routerExtractedData.trim().length > 0
+      ? `Router extracted data (action payload): ${params.routerExtractedData.trim()}`
+      : null
+
   messages.push({
     role: 'user',
     content: [
       summaryLine,
       '',
+      ...(extractedLine !== null ? [extractedLine, ''] : []),
       `Handler payload (may be JSON-only): ${params.handlerPayload}`,
       `Full user message for this send: ${params.fullTurnUserMessage}`,
     ].join('\n'),

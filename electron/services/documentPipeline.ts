@@ -78,6 +78,118 @@ export function lexicalMatchRatio(referenceText: string, documentContent: string
   return hitCount / tokens.length
 }
 
+/**
+ * When hybrid search returns several related notes but the query lexically favors one subset,
+ * drop weak tail matches. Skips narrowing when all candidates look equally relevant to the
+ * reference text (keeps broad retrieval for generic questions).
+ */
+export function narrowRetrievedDocumentsByLexicalFocus(
+  referenceText: string,
+  documents: readonly ScoredDocument[],
+): ScoredDocument[] {
+  if (documents.length <= 1) {
+    return [...documents]
+  }
+  const trimmedReference = referenceText.trim()
+  if (trimmedReference.length < 8) {
+    return [...documents]
+  }
+
+  const scored = documents.map((document) => ({
+    document,
+    lexicalRatio: lexicalMatchRatio(trimmedReference, document.content),
+  }))
+  scored.sort((left, right) => right.lexicalRatio - left.lexicalRatio)
+  const bestRatio = scored[0]?.lexicalRatio ?? 0
+  const secondRatio = scored[1]?.lexicalRatio ?? 0
+
+  const minimumBestRatio = 0.32
+  const minimumLeadOverRunnerUp = 0.14
+  if (bestRatio < minimumBestRatio || bestRatio - secondRatio < minimumLeadOverRunnerUp) {
+    return [...documents]
+  }
+
+  const keepThreshold = Math.max(secondRatio + 0.03, bestRatio - 0.09)
+  const keepIds = new Set(
+    scored.filter((row) => row.lexicalRatio >= keepThreshold).map((row) => row.document.id),
+  )
+  if (keepIds.size === 0) {
+    return [...documents]
+  }
+  const filtered = documents.filter((document) => keepIds.has(document.id))
+  return filtered.length > 0 ? filtered : [...documents]
+}
+
+const DOTTED_STRUCTURED_IDENTIFIER_PATTERN = /\b[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+\b/gi
+
+function extractDottedStructuredIdentifiers(text: string): string[] {
+  const matches = text.match(DOTTED_STRUCTURED_IDENTIFIER_PATTERN) ?? []
+  return [...new Set(matches.map((token) => token.toLowerCase()))]
+}
+
+function buildClassifierDataFocusNeedles(
+  data: string,
+  situationSummary: string,
+): readonly string[] {
+  const dataTrimmed = data.trim()
+  const summaryTrimmed = situationSummary.trim()
+  const combined = `${dataTrimmed}\n${summaryTrimmed}`
+
+  let dottedNeedles = extractDottedStructuredIdentifiers(combined)
+  const dottedInDataOnly = extractDottedStructuredIdentifiers(dataTrimmed)
+  if (dottedInDataOnly.length > 0) {
+    dottedNeedles = dottedInDataOnly
+  }
+
+  const needles: string[] = [...dottedNeedles]
+  const authorisationFocused =
+    /\bauthorisation\b/i.test(combined) || /\bauthorization\b/i.test(combined)
+  const captureFocused = /\bcapture\b/i.test(combined)
+
+  if (authorisationFocused && captureFocused) {
+    // Leave disambiguation to lexical narrowing when both appear in the router text.
+  } else if (authorisationFocused) {
+    needles.push('authorisation')
+  } else if (captureFocused) {
+    needles.push('capture')
+  }
+
+  return [...new Set(needles)]
+}
+
+function documentContentMatchesFocusNeedle(content: string, needle: string): boolean {
+  const lowerContent = content.toLowerCase()
+  if (needle === 'authorisation') {
+    return lowerContent.includes('authorisation') || lowerContent.includes('authorization')
+  }
+  if (needle === 'capture') {
+    return /\bcapture\b/i.test(content)
+  }
+  return lowerContent.includes(needle)
+}
+
+/**
+ * Drops retrieved notes that omit classifier-supplied structured anchors (dotted event ids such as
+ * `checkout.session.completed`, or webhook-kind words such as authorisation vs capture). Falls
+ * back to the input set when filtering would remove every candidate.
+ */
+export function narrowRetrievedDocumentsByClassifierFocus(
+  classification: { readonly data: string; readonly situationSummary: string },
+  documents: readonly ScoredDocument[],
+): ScoredDocument[] {
+  if (documents.length <= 1) {
+    return [...documents]
+  }
+  const needles = buildClassifierDataFocusNeedles(classification.data, classification.situationSummary)
+  if (needles.length === 0) {
+    return [...documents]
+  }
+  const filtered = documents.filter((document) =>
+    needles.every((needle) => documentContentMatchesFocusNeedle(document.content, needle)),
+  )
+  return filtered.length > 0 ? filtered : [...documents]
+}
+
 function boostByLexicalOverlap(docs: ScoredDocument[], referenceText: string): ScoredDocument[] {
   if (referenceText.trim().length === 0) return docs
   return docs.map((document) => {

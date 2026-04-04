@@ -112,10 +112,10 @@ export function GeneralSettings({ settings, onUpdate }: GeneralSettingsProps) {
             className="max-w-lg rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
           >
             <option value="classify_handlers">Classic (unified classifier, then handlers)</option>
-            <option value="native_tool_loop">Native tool loop (Ollama tool_calls; needs a capable model)</option>
+            <option value="native_tool_loop">Native tool loop (unified agent, full tools)</option>
           </select>
           <p className="text-xs text-muted-foreground">
-            The tool loop routes work through Ollama native tools. Use classic mode if your model does not support tools well.
+            One composed prompt decides search, save, and edit tools per turn (JSON tool protocol over chat). Use classic if your model does not follow tool JSON reliably.
           </p>
         </div>
 

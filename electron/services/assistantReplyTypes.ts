@@ -85,7 +85,7 @@ export type AssistantReplyFacts =
     }
   | {
       readonly kind: 'orchestrator_surface_fallback'
-      readonly trigger: 'empty_decision_reply' | 'max_steps_exhausted'
+      readonly trigger: 'empty_decision_reply' | 'empty_stream_result' | 'max_steps_exhausted'
     }
   | {
       readonly kind: 'todo_list_present'

@@ -198,7 +198,15 @@ export interface OrchestratorReplyAction {
   readonly content: string
 }
 
-export type OrchestratorAction = OrchestratorCallAction | OrchestratorReplyAction
+/** Host runs a follow-up streaming completion for the user-visible answer (native JSON tool loop). */
+export interface OrchestratorStreamResultAction {
+  readonly action: 'stream_result'
+}
+
+export type OrchestratorAction =
+  | OrchestratorCallAction
+  | OrchestratorReplyAction
+  | OrchestratorStreamResultAction
 
 export interface PullProgress {
   status: string
@@ -385,7 +393,13 @@ export interface TurnEngineNativeRoundTraceOutput {
   readonly loopStep: number
   readonly hadToolCalls: boolean
   readonly toolNames: readonly string[]
-  readonly stopReason: 'model_reply' | 'max_rounds' | 'cancelled' | 'tool_round'
+  readonly stopReason:
+    | 'model_reply'
+    | 'stream_result'
+    | 'max_rounds'
+    | 'cancelled'
+    | 'tool_round'
+    | 'invalid_json_retry'
   readonly assistantPreview: string
 }
 

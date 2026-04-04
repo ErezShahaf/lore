@@ -62,6 +62,7 @@ const DECISION_KEY_MERGE_PRIORITY: readonly string[] = [
   'todoListing',
   'structuredRetrieved',
   'kind',
+  'toolOrchestration',
 ]
 
 function sortDecisionKeys(decisionKeys: readonly string[]): string[] {

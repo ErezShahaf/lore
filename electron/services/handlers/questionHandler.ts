@@ -3,6 +3,8 @@ import {
   DEFAULT_MAX_RESULTS,
   lexicalMatchRatio,
   multiQueryRetrieve,
+  narrowRetrievedDocumentsByClassifierFocus,
+  narrowRetrievedDocumentsByLexicalFocus,
   retrieveByFilters,
   hybridRetrieveWithAdaptiveThreshold,
 } from '../documentPipeline'
@@ -36,10 +38,35 @@ import type {
 
 /** The answer model receives every retrieved document; the strategist only needs a bounded preview list. */
 const STRATEGIST_DOCUMENT_PREVIEW_MAX_COUNT = 28
-const STRATEGIST_DOCUMENT_PREVIEW_CHARS = 220
+/** Per-document preview when multiple notes are in play (head + tail if long). */
+const STRATEGIST_MULTI_DOCUMENT_PREVIEW_CHARS = 400
+/** Single retrieved note: strategist sees full text up to this cap. */
+const STRATEGIST_SINGLE_DOCUMENT_PREVIEW_MAX_CHARS = 12_000
+const STRATEGIST_HEAD_TAIL_SEPARATOR = '\n…\n'
 
 const RECENT_CONVERSATION_QUERY_TAIL_MAX_CHARS = 2500
 const RECENT_CONVERSATION_TURNS_FOR_RETRIEVAL_QUERY = 4
+
+function buildStrategistPreviewForDocumentContent(
+  content: string,
+  isSingleRetrievedDocument: boolean,
+): string {
+  if (isSingleRetrievedDocument) {
+    return content.length <= STRATEGIST_SINGLE_DOCUMENT_PREVIEW_MAX_CHARS
+      ? content
+      : content.slice(0, STRATEGIST_SINGLE_DOCUMENT_PREVIEW_MAX_CHARS)
+  }
+  const maxChars = STRATEGIST_MULTI_DOCUMENT_PREVIEW_CHARS
+  if (content.length <= maxChars) {
+    return content
+  }
+  const headLength = Math.floor(maxChars / 2)
+  const tailLength = maxChars - headLength - STRATEGIST_HEAD_TAIL_SEPARATOR.length
+  if (tailLength < 24) {
+    return content.slice(0, maxChars)
+  }
+  return `${content.slice(0, headLength)}${STRATEGIST_HEAD_TAIL_SEPARATOR}${content.slice(-tailLength)}`
+}
 
 function buildStrategistDocumentPreviews(documents: readonly ScoredDocument[]): {
   readonly previews: readonly { readonly id: string; readonly preview: string }[]
@@ -47,11 +74,22 @@ function buildStrategistDocumentPreviews(documents: readonly ScoredDocument[]): 
 } {
   const totalCount = documents.length
   const capped = documents.slice(0, STRATEGIST_DOCUMENT_PREVIEW_MAX_COUNT)
+  const isSingleRetrievedDocument = totalCount === 1
   const previews = capped.map((document) => ({
     id: document.id,
-    preview: document.content.slice(0, STRATEGIST_DOCUMENT_PREVIEW_CHARS),
+    preview: buildStrategistPreviewForDocumentContent(document.content, isSingleRetrievedDocument),
   }))
   return { previews, totalCount }
+}
+
+function buildReadRetrievalNarrowingReference(
+  userInput: string,
+  classification: ClassificationForHandler,
+): string {
+  return [userInput, classification.data, classification.situationSummary]
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0)
+    .join('\n')
 }
 
 function mapScoredDocumentsToRetrievalContext(
@@ -370,7 +408,13 @@ export async function* handleQuestion(
   const sortedFallbackDocuments = isTodoQuery
     ? sortDocumentsNewestFirstBySemanticDate(fallbackResult.documents)
     : fallbackResult.documents
-  const documents = sortedFallbackDocuments
+  const narrowingReference = buildReadRetrievalNarrowingReference(userInput, classification)
+  const afterLexicalNarrowing = isTodoQuery
+    ? sortedFallbackDocuments
+    : narrowRetrievedDocumentsByLexicalFocus(narrowingReference, sortedFallbackDocuments)
+  const documents = isTodoQuery
+    ? afterLexicalNarrowing
+    : narrowRetrievedDocumentsByClassifierFocus(classification, afterLexicalNarrowing)
 
   const questionAnswerSelectors = {
     retrievalStatus: documents.length === 0 ? 'empty' : 'non_empty',
@@ -455,35 +499,38 @@ export async function* handleQuestion(
       userInstructionsBlock,
     }),
   }
-  const strategistPreviewsMain = buildStrategistDocumentPreviews(documents)
-  const strategy = await decideQuestionStrategy({
-    userInput,
-    situationSummary: classification.situationSummary,
-    documentPreviews: strategistPreviewsMain.previews,
-    totalRetrievedDocumentCount: strategistPreviewsMain.totalCount,
-    userInstructionsBlock,
-    recentConversation: conversationContext,
-  })
 
-  if (strategy.mode === 'ask_clarification' && strategy.clarificationMessage) {
-    setPendingQuestionClarification({
-      priorUserInput: userInput,
-      candidateDocumentIds: documents.map((document) => document.id),
-      classificationSnapshot: {
-        extractedTags: classification.extractedTags,
-        extractedDate: classification.extractedDate,
-        situationSummary: classification.situationSummary,
-        data: classification.data,
-      },
+  if (documents.length !== 1) {
+    const strategistPreviewsMain = buildStrategistDocumentPreviews(documents)
+    const strategy = await decideQuestionStrategy({
+      userInput,
+      situationSummary: classification.situationSummary,
+      documentPreviews: strategistPreviewsMain.previews,
+      totalRetrievedDocumentCount: strategistPreviewsMain.totalCount,
+      userInstructionsBlock,
+      recentConversation: conversationContext,
     })
-    yield {
-      type: 'turn_step_summary',
-      summary:
-        'Read: question strategist chose clarification instead of a direct answer; user was asked to narrow the question.',
+
+    if (strategy.mode === 'ask_clarification' && strategy.clarificationMessage) {
+      setPendingQuestionClarification({
+        priorUserInput: userInput,
+        candidateDocumentIds: documents.map((document) => document.id),
+        classificationSnapshot: {
+          extractedTags: classification.extractedTags,
+          extractedDate: classification.extractedDate,
+          situationSummary: classification.situationSummary,
+          data: classification.data,
+        },
+      })
+      yield {
+        type: 'turn_step_summary',
+        summary:
+          'Read: question strategist chose clarification instead of a direct answer; user was asked to narrow the question.',
+      }
+      yield { type: 'chunk', content: strategy.clarificationMessage }
+      yield { type: 'done' }
+      return
     }
-    yield { type: 'chunk', content: strategy.clarificationMessage }
-    yield { type: 'done' }
-    return
   }
 
   yield {

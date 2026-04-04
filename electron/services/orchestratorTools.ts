@@ -1,4 +1,6 @@
 import { logger } from '../logger'
+import { collectChatResponse } from './ollamaService'
+import { getSettings } from './settingsService'
 import { classifyInput } from './classifierService'
 import { composeAssistantUserReplyText } from './assistantReplyComposer'
 import type { AssistantReplyFacts } from './assistantReplyTypes'
@@ -7,6 +9,8 @@ import {
   DEFAULT_MAX_RESULTS,
   hybridRetrieveWithAdaptiveThreshold,
   multiQueryRetrieve,
+  narrowRetrievedDocumentsByClassifierFocus,
+  narrowRetrievedDocumentsByLexicalFocus,
   retrieveByFilters,
   retrieveRelevantDocuments,
   retrieveTodoCandidatesForCommand,
@@ -40,7 +44,19 @@ export interface OrchestratorToolContext {
   readonly userInstructionsBlock: string
   /** Cache of documents by id to avoid re-fetching after search. Populated by search_for_question and search_for_command. */
   readonly documentsCache: Map<string, ScoredDocument>
+  /** When true, tool result formatting may mark outputs as untrusted data for the model. */
+  readonly isUnifiedNativeAgent?: boolean
 }
+
+const SUMMARIZE_CONTEXT_MAX_INPUT_CHARS = 48_000
+const SUMMARIZE_CONTEXT_MAX_OUTPUT_CHARS = 8_000
+
+/** Default rows returned when `maxResults` is omitted on `search_for_question` (non-todo). */
+const ORCHESTRATOR_QUESTION_SEARCH_DEFAULT_MAX = 20
+/** Default rows when the question search is todo-oriented and `maxResults` is omitted. */
+const ORCHESTRATOR_TODO_SEARCH_DEFAULT_MAX = 150
+/** Default rows for `search_for_command` when the tool has no `maxResults` param. */
+const ORCHESTRATOR_COMMAND_SEARCH_DEFAULT_MAX = 40
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -183,6 +199,61 @@ async function handleComposeReply(
   return { output: reply, events: [{ type: 'chunk', content: reply }] }
 }
 
+// ── summarize_context ─────────────────────────────────────────
+
+async function handleSummarizeContext(
+  args: Record<string, unknown>,
+  _context: OrchestratorToolContext,
+): Promise<ToolExecutionResult> {
+  const text = requireString(args, 'text')
+  const purpose =
+    optionalString(args, 'purpose') ?? 'Compress for the next planning step without dropping critical facts.'
+
+  const truncated =
+    text.length > SUMMARIZE_CONTEXT_MAX_INPUT_CHARS
+      ? `${text.slice(0, SUMMARIZE_CONTEXT_MAX_INPUT_CHARS)}\n\n[truncated from ${String(text.length)} characters]`
+      : text
+
+  const settings = getSettings()
+  const model = settings.selectedModel
+  const systemPrompt =
+    'You compress text for another assistant that controls tools. Output only the summary—no preamble. Preserve names, dates, numbers, and task wording where they matter. Do not invent facts.'
+
+  const userMessage = [`Purpose: ${purpose}`, '', 'TEXT:', truncated].join('\n')
+
+  try {
+    const raw = await collectChatResponse({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
+      stream: false,
+      think: false,
+      options: { num_predict: 2048 },
+    })
+    let summary = raw.trim()
+    if (summary.length > SUMMARIZE_CONTEXT_MAX_OUTPUT_CHARS) {
+      summary = `${summary.slice(0, SUMMARIZE_CONTEXT_MAX_OUTPUT_CHARS)}…`
+    }
+    return {
+      output: JSON.stringify({
+        summary,
+        inputWasTruncated: text.length > SUMMARIZE_CONTEXT_MAX_INPUT_CHARS,
+        originalCharCount: text.length,
+      }),
+      events: [],
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    logger.error({ message }, '[OrchestratorTools] summarize_context failed')
+    return {
+      output: JSON.stringify({ error: message }),
+      events: [],
+    }
+  }
+}
+
 // ── search_for_question ───────────────────────────────────────
 
 async function handleSearchForQuestion(
@@ -200,10 +271,20 @@ async function handleSearchForQuestion(
   const primary = primaryClassificationAction(classification)
   const query = optionalString(args, 'query') ?? context.userInput
   const typeFilter = optionalString(args, 'type') as DocumentType | undefined
+
+  const isTodoQuery =
+    typeFilter === 'todo'
+    || primary.extractedTags.some((tag) => tag === 'todo')
+    || isTodoListingUserIntent(query)
+    || isTodoListingUserIntent(context.userInput)
+
+  const defaultMaxForTool = isTodoQuery
+    ? ORCHESTRATOR_TODO_SEARCH_DEFAULT_MAX
+    : ORCHESTRATOR_QUESTION_SEARCH_DEFAULT_MAX
   const maxResults =
     typeof args.maxResults === 'number' && Number.isFinite(args.maxResults)
       ? Math.max(1, Math.min(Math.floor(args.maxResults), DEFAULT_MAX_RESULTS))
-      : DEFAULT_MAX_RESULTS
+      : defaultMaxForTool
 
   const retrievalOpts: RetrievalOptions = { maxResults }
   if (primary.extractedTags.length > 0) {
@@ -216,12 +297,6 @@ async function handleSearchForQuestion(
   if (typeFilter) {
     retrievalOpts.type = typeFilter
   }
-
-  const isTodoQuery =
-    typeFilter === 'todo'
-    || primary.extractedTags.some((tag) => tag === 'todo')
-    || isTodoListingUserIntent(query)
-    || isTodoListingUserIntent(context.userInput)
   let result: RetrievedDocumentSet
 
   if (isTodoQuery) {
@@ -252,6 +327,19 @@ async function handleSearchForQuestion(
         ...fallback,
         retrievalDiagnostics: result.retrievalDiagnostics,
       }
+    }
+    const narrowingReference = [query, primary.data, primary.situationSummary]
+      .map((segment) => segment.trim())
+      .filter((segment) => segment.length > 0)
+      .join('\n')
+    const afterLexical = narrowRetrievedDocumentsByLexicalFocus(narrowingReference, result.documents)
+    const narrowedDocuments = narrowRetrievedDocumentsByClassifierFocus(
+      { data: primary.data, situationSummary: primary.situationSummary },
+      afterLexical,
+    )
+    result = {
+      ...result,
+      documents: narrowedDocuments,
     }
   }
 
@@ -303,7 +391,7 @@ async function handleSearchForCommand(
   const primary = primaryClassificationAction(classification)
   const typeFilter = optionalString(args, 'type') as DocumentType | undefined
 
-  const retrievalOpts: RetrievalOptions = { maxResults: DEFAULT_MAX_RESULTS }
+  const retrievalOpts: RetrievalOptions = { maxResults: ORCHESTRATOR_COMMAND_SEARCH_DEFAULT_MAX }
   const isTodoCompletion = primary.extractedTags.some((tag) => tag.toLowerCase() === 'todo')
   if (typeFilter || isTodoCompletion) {
     retrievalOpts.type = typeFilter ?? 'todo'
@@ -360,7 +448,7 @@ const SEARCH_FOR_QUESTION_TOOL: OllamaTool = {
   function: {
     name: 'search_for_question',
     description:
-      'Search the library for a question. Provide classification in params. Optional: query, type, maxResults. Returns documents (id, type, content) and documentIds.',
+      'Search the library for a question. Prefer an explicit `query` string. Optional: `classification` (object), `type`, `maxResults`. Default `maxResults` is about 20 for normal search and about 150 for todo-style listing when omitted—pass a higher `maxResults` if you need more rows. When `query` is omitted, the host may run a fallback classifier. Returns documents (id, type, content) and documentIds.',
     parameters: {
       type: 'object',
       properties: {
@@ -389,6 +477,29 @@ const SEARCH_FOR_COMMAND_TOOL: OllamaTool = {
   },
 }
 
+const SUMMARIZE_CONTEXT_TOOL: OllamaTool = {
+  type: 'function',
+  function: {
+    name: 'summarize_context',
+    description:
+      'Run a nested LLM pass to compress long text for your next reasoning step. Use when retrieval returned too much content to fit comfortably in context. Not a substitute for verbatim user read-back unless they asked for a summary.',
+    parameters: {
+      type: 'object',
+      required: ['text'],
+      properties: {
+        text: {
+          type: 'string',
+          description: 'Source text to summarize (host enforces a maximum length).',
+        },
+        purpose: {
+          type: 'string',
+          description: 'What the summary should optimize for (optional).',
+        },
+      },
+    },
+  },
+}
+
 type OrchestratorToolHandler = (
   args: Record<string, unknown>,
   context: OrchestratorToolContext,
@@ -398,6 +509,7 @@ const ORCHESTRATOR_HANDLERS: ReadonlyMap<string, OrchestratorToolHandler> = new 
   ['compose_reply', handleComposeReply],
   ['search_for_question', handleSearchForQuestion],
   ['search_for_command', handleSearchForCommand],
+  ['summarize_context', handleSummarizeContext],
 ])
 
 export function getOrchestratorAgentNames(): readonly string[] {
@@ -412,6 +524,7 @@ export function getOrchestratorToolDefinitions(): readonly OllamaTool[] {
     SEARCH_FOR_QUESTION_TOOL,
     SEARCH_FOR_COMMAND_TOOL,
     COMPOSE_REPLY_TOOL,
+    SUMMARIZE_CONTEXT_TOOL,
   ]
   return [...base, ...orchestratorTools]
 }

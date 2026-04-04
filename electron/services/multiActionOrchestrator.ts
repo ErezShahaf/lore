@@ -344,6 +344,38 @@ export async function* runMultiActionTurn(
     return
   }
 
+  const isSingleReadPassthrough =
+    singleOutcome !== undefined
+    && singleOutcome.intent === 'read'
+    && singleOutcome.status === 'succeeded'
+    && singleOutcome.message.trim().length > 0
+  if (isSingleReadPassthrough) {
+    const passthroughMessage = singleOutcome.message
+    if (traceSink) {
+      const multiActionFacts = {
+        kind: 'multi_action_summary' as const,
+        turnUserMessage: userInput,
+        outcomes,
+      }
+      traceSink.stages.push({
+        stageId: 'assistant_reply_composer',
+        ordinal: traceSink.stages.length,
+        timestamp: new Date().toISOString(),
+        output: {
+          factsKind: multiActionFacts.kind,
+          facts: multiActionFacts,
+          composedReplyPreview: truncateForPipelineTrace(
+            passthroughMessage,
+            PIPELINE_COMPOSED_REPLY_PREVIEW_MAX_CHARS,
+          ),
+          modelLabel: null,
+        },
+      })
+    }
+    yield { type: 'done' }
+    return
+  }
+
   yield {
     type: 'status',
     message: await resolveUiStatusMessage({

@@ -14,7 +14,11 @@ export async function executeOrchestratorToolWithHooks(
 ): Promise<ToolExecutionResult> {
   if (MUTATING_TOOL_NAMES.has(toolName)) {
     logger.debug(
-      { toolName, argumentKeys: Object.keys(toolArguments) },
+      {
+        toolName,
+        argumentKeys: Object.keys(toolArguments),
+        isUnifiedNativeAgent: context.isUnifiedNativeAgent === true,
+      },
       '[ToolHooks] PreToolUse mutating tool',
     )
   }
@@ -23,7 +27,11 @@ export async function executeOrchestratorToolWithHooks(
 
   if (MUTATING_TOOL_NAMES.has(toolName)) {
     logger.debug(
-      { toolName, outputPreview: result.output.slice(0, 240) },
+      {
+        toolName,
+        outputPreview: result.output.slice(0, 240),
+        isUnifiedNativeAgent: context.isUnifiedNativeAgent === true,
+      },
       '[ToolHooks] PostToolUse mutating tool',
     )
   }
