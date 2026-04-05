@@ -3,6 +3,10 @@ import { join, resolve } from 'path'
 import { fileURLToPath } from 'url'
 import { spawn } from 'child_process'
 import { scenarioTopics, scenarios } from '../evals/scenarios/catalog.mjs'
+import {
+  qwen35ProblemScenarioIds,
+  qwen35ProblemSuiteName,
+} from '../evals/scenarios/qwen35ProblemSuite.mjs'
 
 const scriptDirectory = fileURLToPath(new URL('.', import.meta.url))
 const repositoryRoot = resolve(scriptDirectory, '..')
@@ -100,7 +104,14 @@ function parseTopics() {
   return [...new Set(topics)]
 }
 
+const qwen35ProblemScenarioIdSet = new Set(qwen35ProblemScenarioIds)
+
+const supportedSuiteNames = new Set(['smoke', 'full', qwen35ProblemSuiteName])
+
 function getScenariosForSuite(suiteName) {
+  if (suiteName === qwen35ProblemSuiteName) {
+    return scenarios.filter((scenario) => qwen35ProblemScenarioIdSet.has(scenario.id))
+  }
   return scenarios.filter((scenario) => scenario.suites.includes(suiteName))
 }
 
@@ -259,7 +270,7 @@ function printUsageAndExit() {
 
 Options:
   --models <names>     Comma-separated Ollama model names (or repeat --model).
-  --suite smoke|full   Scenario suite (default: full).
+  --suite smoke|full|qwen35-problem   Scenario suite (default: full). qwen35-problem = regression set from qwen3.5:9b failures (see evals/scenarios/qwen35ProblemSuite.mjs).
   --repeat <n>         Repeats per scenario (default: 3).
   --embedding-model    Ollama embedding model (default: auto-pick).
   --ollama-host <url>  Ollama base URL (default: http://127.0.0.1:11434).
@@ -288,8 +299,10 @@ async function main() {
   }
 
   const suiteName = getSingleArgumentValue('--suite', 'full')
-  if (suiteName !== 'smoke' && suiteName !== 'full') {
-    throw new Error(`Unsupported suite "${suiteName}". Use smoke or full.`)
+  if (!supportedSuiteNames.has(suiteName)) {
+    throw new Error(
+      `Unsupported suite "${suiteName}". Use smoke, full, or ${qwen35ProblemSuiteName}.`,
+    )
   }
 
   const repeatCount = Number.parseInt(getSingleArgumentValue('--repeat', '3'), 10)

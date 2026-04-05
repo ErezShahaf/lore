@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'fs'
-import { join, resolve } from 'path'
+import { basename, dirname, join, resolve } from 'path'
 import { fileURLToPath } from 'url'
 
 const scriptDirectory = fileURLToPath(new URL('.', import.meta.url))
@@ -818,7 +818,22 @@ function writeSummaryArtifacts(resultPath, summaryRows, providerSummaries) {
 
   writeFileSync(artifactPaths.jsonPath, JSON.stringify(summaryPayload, null, 2), 'utf-8')
   writeFileSync(artifactPaths.markdownPath, `${markdownLines.join('\n').trim()}\n`, 'utf-8')
-  return artifactPaths
+
+  const latestPointerPath = join(dirname(resultPath), '.promptfoo-latest.json')
+  writeFileSync(
+    latestPointerPath,
+    `${JSON.stringify(
+      {
+        resultFile: basename(resultPath),
+        generatedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    )}\n`,
+    'utf-8',
+  )
+
+  return { ...artifactPaths, latestPointerPath }
 }
 
 function main() {
@@ -837,6 +852,7 @@ function main() {
   const artifactPaths = writeSummaryArtifacts(resultPath, summaryRows, providerSummaries)
   console.log(`Wrote summary JSON to ${artifactPaths.jsonPath}`)
   console.log(`Wrote summary Markdown to ${artifactPaths.markdownPath}`)
+  console.log(`Wrote latest result pointer to ${artifactPaths.latestPointerPath}`)
 }
 
 try {

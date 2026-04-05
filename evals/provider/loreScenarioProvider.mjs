@@ -1453,6 +1453,10 @@ async function runScenarioStep({
       cutoffScore: finalState.cutoffScore,
       interactionTurns,
       failedChecks: stepValidation.failedChecks,
+      librarySnapshot: {
+        allDocuments: finalState.allDocuments,
+        todoDocuments: finalState.todoDocuments,
+      },
     },
   }
 }

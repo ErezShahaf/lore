@@ -22,7 +22,9 @@
     "eval:promptfoo": "node scripts/run-promptfoo.mjs",
     "eval:promptfoo:smoke": "node scripts/run-promptfoo.mjs --suite smoke",
     "eval:promptfoo:iterate": "node evals/run-and-summarize.mjs",
-    "eval:promptfoo:summary": "node scripts/summarize-promptfoo-results.mjs"
+    "eval:promptfoo:summary": "node scripts/summarize-promptfoo-results.mjs",
+    "eval:promptfoo:viewer": "vite --config evals/promptfoo-viewer/vite.config.ts",
+    "eval:promptfoo:qwen35-problem": "node scripts/run-promptfoo.mjs --suite qwen35-problem --models qwen3.5:9b"
   },
   "author": "",
   "license": "MIT",
