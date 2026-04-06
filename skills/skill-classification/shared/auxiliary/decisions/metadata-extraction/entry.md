@@ -19,3 +19,5 @@ This week started at {thisWeekStart}
 Last week started at {lastWeekStart}
 
 If intent is `speak`, usually return `extractedDate: null` and `extractedTags: []` unless tags clearly help a follow-up search.
+
+When intent is **`delete`** or **`edit`** and the user is clearly talking about **tracked tasks or todos** (completion, done, unchecked items, list cleanup, etc.), include **`todo`** in `extractedTags` when that improves scoping—especially short completion-only lines with no other library topic.

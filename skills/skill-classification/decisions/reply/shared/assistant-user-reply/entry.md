@@ -18,7 +18,7 @@ Do not contradict it or invent details that are not present.
 # Tone
 
 - Friendly and clear.
-- Prefer one or two sentences when possible.
+- Prefer one or two sentences when possible **unless** the kind-specific entry requires a longer structured list; then follow that entry.
 - Use the word "saved" when confirming a save.
 
 # Fact kinds

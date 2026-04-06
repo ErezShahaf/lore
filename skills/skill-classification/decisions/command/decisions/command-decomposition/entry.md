@@ -40,6 +40,7 @@ Do not include any other top-level fields beyond those listed above.
 - When the user message includes **Classifier intent: DELETE**, you must not substitute an `"update"` operation for a removal; use `"delete"` only.
 - `targetDocumentIds` must list every document id affected by that single operation.
 - Do **not** put several ids in one operation because a **single vague phrase** matches several rows (for example several different “run …” todos), unless the user clearly asked to affect **all** of them (“both”, “all matching …”, “every run reminder”).
+- **Singular grammar is not a unique pointer.** “The todo about running”, “that run reminder”, “remove the one about X” can still match **several** rows when each line shares that loose theme but differs in detail (two different distances, times, or titles). Unless the user explicitly scopes **all / both / every** matching line—or names **distinct** specifics that map one-to-one—set **`status: "clarify"`**. Do **not** delete every row that fits the theme just because they said “the” todo.
 - If `confidence` is below about `0.5`, prefer `status: "clarify"` over executing blindly.
 - If multiple documents could match and the user was vague, set `status: "clarify"`. In `clarificationMessage`, you **must** list candidates by **copying each row’s `Content` field verbatim** from the matching-documents list, **numbered** `1.`, `2.`, … (blockquoted lines are fine). Do **not** only say that there are two matches—**show** both lines. **Never invent or paraphrase** candidate text; if you cannot copy from that list, say you need a clearer pointer instead of guessing.
 - On follow-up turns, map the user’s choice only to **document ids and `Content` that appear in the latest candidate list** in the user message payload—not to paraphrases from chat alone.
@@ -48,11 +49,11 @@ Do not include any other top-level fields beyond those listed above.
 
 Use the thread when it helps. For example, after the assistant listed todos, "mark that done" often refers to that list.
 
-If the user said "all of them" or "both", include every relevant id in your operations.
+If the user affirms a **batch** ("all of them", "both", "all four", "every matching one"), map **only** to document ids whose **Content** fits what they said. **Scoped** follow-ups ("all four **ten-times** tasks", "both **run** reminders") **exclude** rows that lack that shared wording, **even if** those rows appeared in the same thread or in the candidate list. After clarification about a **shared phrase**, bare "all of them" means every row that **actually** shares that phrase—not an unrelated line with different text. When they give a **count** ("four") and a **scope**, the number of ids should match.
 
 # When to clarify
 
-- Several candidates fit but the pointer is ambiguous
+- Several candidates fit but the pointer is ambiguous—including **topic-level** references (“about running”, “the meeting todo”) when **multiple** stored lines share that topic but are not identical
 - "The second one" is unclear because ordering is unclear
 - The user said "update it" but nothing uniquely identifies which row
 

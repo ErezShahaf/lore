@@ -34,7 +34,7 @@ export const qwen35ProblemScenarioIds = [
   'delete-todos-when-completion-mentions-listed-items',
   'delete-with-wrong-distance-clarifies-not-silent-wrong-todo',
   'duplicate-prompt-then-add-new-keeps-two-rows',
-  'duplicate-todo-still-persists-separately',
+  'identical-todo-repeat-clarifies-before-second-copy',
   'generic-stripe-webhook-url-needs-event-clarification',
   'heuristic-trap-todo-text-contains-remember-and-list-all-dialogue',
   'identical-thought-twice-surfaces-duplicate-handling',

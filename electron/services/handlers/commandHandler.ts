@@ -157,30 +157,35 @@ export async function* handleCommand(
     }
   } else {
     let resolutionFromPendingText: CommandResolution | null = null
-    if (
-      pending !== null
-      && commandIntentForPending !== null
-      && pending.commandIntent === commandIntentForPending
-      && numericSelection === null
-      && userInput.trim().length > 0
-    ) {
+    if (pending !== null && numericSelection === null && userInput.trim().length > 0) {
       const pendingDocuments = await loadPendingCandidateDocuments(
         pending.candidateDocumentIds,
         documents,
       )
       const uniqueTarget = findUniquePendingCommandTargetFromText(userInput, pendingDocuments)
       if (uniqueTarget !== null) {
-        clearPendingCommandClarification()
-        resolutionFromPendingText = {
-          status: 'execute',
-          operations: [{
-            targetDocumentIds: [uniqueTarget.id],
-            action: commandIntentForPending === 'delete' ? 'delete' : 'update',
-            updatedContent: null,
-            confidence: 0.99,
-            description: 'User matched one item from the clarification list by wording.',
-          }],
-          clarificationMessage: null,
+        const classifierMatchesPending =
+          commandIntentForPending !== null && pending.commandIntent === commandIntentForPending
+        const classifierAssertsDifferentCommand =
+          commandIntentForPending !== null && pending.commandIntent !== commandIntentForPending
+        const bareLineConfirmsDeleteClarification =
+          commandIntentForPending === null && pending.commandIntent === 'delete'
+        const shouldResolvePendingLinePick =
+          !classifierAssertsDifferentCommand
+          && (classifierMatchesPending || bareLineConfirmsDeleteClarification)
+        if (shouldResolvePendingLinePick) {
+          clearPendingCommandClarification()
+          resolutionFromPendingText = {
+            status: 'execute',
+            operations: [{
+              targetDocumentIds: [uniqueTarget.id],
+              action: pending.commandIntent === 'delete' ? 'delete' : 'update',
+              updatedContent: null,
+              confidence: 0.99,
+              description: 'User matched one item from the clarification list by wording.',
+            }],
+            clarificationMessage: null,
+          }
         }
       }
     }

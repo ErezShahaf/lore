@@ -71,6 +71,11 @@ export async function* streamAssistantUserReplyWithFallback(input: {
   readonly facts: AssistantReplyFacts
   readonly userInstructionsBlock: string
 }): AsyncGenerator<string> {
+  if (input.facts.kind === 'command_target_clarify') {
+    yield buildFallbackAssistantReply(input.facts)
+    return
+  }
+
   const settings = getSettings()
 
   try {

@@ -103,9 +103,9 @@ export const todoCreationScenarios = [
     ],
   },
   {
-    id: 'duplicate-todo-still-persists-separately',
+    id: 'identical-todo-repeat-clarifies-before-second-copy',
     topic: 'todo-creation',
-    title: 'Near-duplicate todo requests still store separately',
+    title: 'Repeating the same todo add clarifies instead of silently duplicating',
     suites: ['full'],
     steps: [
       {
@@ -118,9 +118,12 @@ export const todoCreationScenarios = [
       {
         userInput: 'Add to my todo list: call the plumber',
         expect: {
-          storedCount: 1,
-          todoCount: 2,
+          requiresClarification: true,
+          storedCount: 0,
+          todoCount: 1,
           todoContentsIncludeExact: ['call the plumber'],
+          responseJudge:
+            'The assistant should treat this as overlapping an existing todo with the same wording. It should ask what the user wants (for example add a second copy, keep one, or update)—not cheerfully confirm a second independent save as if nothing matched. It must not claim two separate todos were saved on this turn.',
         },
       },
     ],
