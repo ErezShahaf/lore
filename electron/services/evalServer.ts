@@ -183,6 +183,15 @@ function parseSettingsUpdate(body: Record<string, unknown>): Partial<AppSettings
     settingsUpdate.ollamaHost = body.ollamaHost
   }
 
+  if (
+    typeof body.ollamaKeepAliveMinutes === 'number' &&
+    Number.isInteger(body.ollamaKeepAliveMinutes) &&
+    body.ollamaKeepAliveMinutes >= -1 &&
+    body.ollamaKeepAliveMinutes <= 10_080
+  ) {
+    settingsUpdate.ollamaKeepAliveMinutes = body.ollamaKeepAliveMinutes
+  }
+
   if (isBoolean(body.ollamaSetupComplete)) {
     settingsUpdate.ollamaSetupComplete = body.ollamaSetupComplete
   }

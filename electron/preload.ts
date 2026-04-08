@@ -55,6 +55,19 @@ const loreAPI = {
     return () => ipcRenderer.removeListener('chat:status', handler)
   },
 
+  onLikelyChatModelEvicted: (callback: (likely: boolean) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, { likely }: { likely: boolean }) =>
+      callback(likely)
+    ipcRenderer.on('chat:likely-chat-model-evicted', handler)
+    return () => ipcRenderer.removeListener('chat:likely-chat-model-evicted', handler)
+  },
+
+  onChatModelInferenceCompleted: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('chat:model-inference-completed', handler)
+    return () => ipcRenderer.removeListener('chat:model-inference-completed', handler)
+  },
+
   onChatReset: (callback: () => void) => {
     ipcRenderer.on('chat:reset', callback)
     return () => ipcRenderer.removeListener('chat:reset', callback)

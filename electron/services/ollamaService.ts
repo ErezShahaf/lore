@@ -1,4 +1,7 @@
+import { EventEmitter } from 'node:events'
+
 import { getSettings } from './settingsService'
+import { resolveOllamaKeepAlive } from './resolveOllamaKeepAlive'
 import { logger } from '../logger'
 import type {
   OllamaModel,
@@ -35,6 +38,40 @@ interface StructuredResponseRequest<T> {
 
 let connectionStatus: OllamaStatus = { connected: false }
 let healthCheckTimer: ReturnType<typeof setInterval> | null = null
+
+/** Wall time after the last successful `/api/chat` using the app chat model; used for keep-alive eviction UI. */
+let lastChatModelActivityAtMs: number | null = null
+
+export const chatModelInferenceCompletedEmitter = new EventEmitter()
+
+export interface RecordChatModelActivityOptions {
+  readonly isWarmupOnly?: boolean
+}
+
+export function recordChatModelActivity(options?: RecordChatModelActivityOptions): void {
+  lastChatModelActivityAtMs = Date.now()
+  if (options?.isWarmupOnly !== true) {
+    chatModelInferenceCompletedEmitter.emit('inference-completed')
+  }
+}
+
+let preloadModelsInFlight: Promise<void> | null = null
+
+/**
+ * True when configured keep-alive is timed (not infinite) and idle time since the last successful
+ * chat-model request likely exceeds Ollama's keep_alive, so weights may need loading again.
+ */
+export function getLikelyChatModelWasEvicted(): boolean {
+  const settings = getSettings()
+  if (settings.ollamaKeepAliveMinutes < 0) {
+    return false
+  }
+  if (lastChatModelActivityAtMs === null) {
+    return false
+  }
+  const keepAliveMilliseconds = settings.ollamaKeepAliveMinutes * 60_000
+  return Date.now() - lastChatModelActivityAtMs > keepAliveMilliseconds
+}
 
 function getHost(): string {
   return getSettings().ollamaHost || 'http://127.0.0.1:11434'
@@ -95,57 +132,72 @@ export async function listModels(): Promise<OllamaModel[]> {
 }
 
 export async function preloadModels(): Promise<void> {
-  const settings = getSettings()
-  const host = getHost()
-
-  const chatModel = settings.selectedModel
-  const embedModel = settings.embeddingModel || 'nomic-embed-text'
-
-  const jobs: Promise<void>[] = []
-
-  if (chatModel) {
-    jobs.push(
-      fetch(`${host}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: chatModel,
-          messages: [],
-          keep_alive: -1,
-          think: false,
-          options: { num_ctx: CHAT_NUM_CTX },
-        }),
-        signal: AbortSignal.timeout(120_000),
-      })
-        .then((res) => {
-          if (res.ok) logger.info({ chatModel }, '[Lore] Preloaded chat model')
-          else logger.warn({ chatModel, status: res.statusText }, '[Lore] Failed to preload chat model')
-        })
-        .catch((err) => logger.warn({ err, chatModel }, '[Lore] Failed to preload chat model')),
-    )
+  if (preloadModelsInFlight !== null) {
+    return preloadModelsInFlight
   }
 
-  if (embedModel) {
-    jobs.push(
-      fetch(`${host}/api/embed`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: embedModel,
-          input: '',
-          keep_alive: -1,
-        }),
-        signal: AbortSignal.timeout(120_000),
-      })
-        .then((res) => {
-          if (res.ok) logger.info({ embedModel }, '[Lore] Preloaded embedding model')
-          else logger.warn({ embedModel, status: res.statusText }, '[Lore] Failed to preload embedding model')
-        })
-        .catch((err) => logger.warn({ err, embedModel }, '[Lore] Failed to preload embedding model')),
-    )
-  }
+  preloadModelsInFlight = (async (): Promise<void> => {
+    const settings = getSettings()
+    const host = getHost()
+    const keepAlive = resolveOllamaKeepAlive(settings)
 
-  await Promise.allSettled(jobs)
+    const chatModel = settings.selectedModel
+    const embedModel = settings.embeddingModel || 'nomic-embed-text'
+
+    const jobs: Promise<void>[] = []
+
+    if (chatModel) {
+      jobs.push(
+        fetch(`${host}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: chatModel,
+            messages: [],
+            keep_alive: keepAlive,
+            think: false,
+            options: { num_ctx: CHAT_NUM_CTX },
+          }),
+          signal: AbortSignal.timeout(120_000),
+        })
+          .then((res) => {
+            if (res.ok) {
+              logger.info({ chatModel }, '[Lore] Preloaded chat model')
+              recordChatModelActivity({ isWarmupOnly: true })
+            } else {
+              logger.warn({ chatModel, status: res.statusText }, '[Lore] Failed to preload chat model')
+            }
+          })
+          .catch((err) => logger.warn({ err, chatModel }, '[Lore] Failed to preload chat model')),
+      )
+    }
+
+    if (embedModel) {
+      jobs.push(
+        fetch(`${host}/api/embed`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: embedModel,
+            input: '',
+            keep_alive: keepAlive,
+          }),
+          signal: AbortSignal.timeout(120_000),
+        })
+          .then((res) => {
+            if (res.ok) logger.info({ embedModel }, '[Lore] Preloaded embedding model')
+            else logger.warn({ embedModel, status: res.statusText }, '[Lore] Failed to preload embedding model')
+          })
+          .catch((err) => logger.warn({ err, embedModel }, '[Lore] Failed to preload embedding model')),
+      )
+    }
+
+    await Promise.allSettled(jobs)
+  })().finally(() => {
+    preloadModelsInFlight = null
+  })
+
+  return preloadModelsInFlight
 }
 
 const activeAbortControllers = new Map<string, AbortController>()
@@ -271,10 +323,11 @@ export async function getModelInfo(modelName: string): Promise<Record<string, un
 
 export async function* chat(request: ChatRequest): AsyncGenerator<string> {
   const { signal, finishTracking } = beginTrackedChatRequest()
+  let completedSuccessfully = false
   try {
     const payload = {
-      keep_alive: -1,
       ...request,
+      keep_alive: request.keep_alive ?? resolveOllamaKeepAlive(getSettings()),
       options: { num_ctx: CHAT_NUM_CTX, ...request.options },
     }
     const res = await fetch(`${getHost()}/api/chat`, {
@@ -292,6 +345,7 @@ export async function* chat(request: ChatRequest): AsyncGenerator<string> {
     if (!request.stream) {
       const data = await res.json()
       yield data.message?.content ?? ''
+      completedSuccessfully = true
       return
     }
 
@@ -340,8 +394,12 @@ export async function* chat(request: ChatRequest): AsyncGenerator<string> {
         }
       }
     }
+    completedSuccessfully = true
   } finally {
     finishTracking()
+    if (completedSuccessfully) {
+      recordChatModelActivity()
+    }
   }
 }
 
@@ -484,7 +542,7 @@ export async function chatWithTools(request: ToolChatRequest): Promise<ToolChatR
       messages: normalizeToolChatMessagesForOllamaApi(request.messages),
       tools: request.tools,
       stream: false,
-      keep_alive: -1,
+      keep_alive: resolveOllamaKeepAlive(getSettings()),
       options: { num_ctx: CHAT_NUM_CTX, ...request.options },
     }
 
@@ -537,6 +595,7 @@ export async function chatWithTools(request: ToolChatRequest): Promise<ToolChatR
       )
     }
 
+    recordChatModelActivity()
     return { message: responseMessage }
   } finally {
     finishTracking()
@@ -552,6 +611,7 @@ export async function* streamChatWithTools(
   request: ToolChatRequest,
 ): AsyncGenerator<ToolChatStreamEvent> {
   const { signal, finishTracking } = beginTrackedChatRequest()
+  let completedSuccessfully = false
   try {
     logger.debug(
       {
@@ -569,7 +629,7 @@ export async function* streamChatWithTools(
       tools: request.tools,
       stream: true,
       think: false,
-      keep_alive: -1,
+      keep_alive: resolveOllamaKeepAlive(getSettings()),
       options: { num_ctx: CHAT_NUM_CTX, ...request.options },
     }
 
@@ -688,6 +748,7 @@ export async function* streamChatWithTools(
 
     if (hasToolCalls) {
       yield { type: 'assistant_message', message: finalMessage }
+      completedSuccessfully = true
       return
     }
 
@@ -709,8 +770,12 @@ export async function* streamChatWithTools(
     }
 
     yield { type: 'assistant_message', message: finalMessageForUi }
+    completedSuccessfully = true
   } finally {
     finishTracking()
+    if (completedSuccessfully) {
+      recordChatModelActivity()
+    }
   }
 }
 

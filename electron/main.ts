@@ -91,6 +91,13 @@ function getEnvironmentSettingsOverrides(): Partial<AppSettings> {
     settingsUpdate.ollamaHost = process.env.LORE_OLLAMA_HOST
   }
 
+  if (typeof process.env.LORE_OLLAMA_KEEP_ALIVE_MINUTES === 'string') {
+    const parsed = Number.parseInt(process.env.LORE_OLLAMA_KEEP_ALIVE_MINUTES, 10)
+    if (Number.isInteger(parsed) && parsed >= -1 && parsed <= 10_080) {
+      settingsUpdate.ollamaKeepAliveMinutes = parsed
+    }
+  }
+
   if (isEvalMode) {
     settingsUpdate.ollamaSetupComplete = true
   }

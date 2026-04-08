@@ -28,6 +28,8 @@ declare global {
       onResponseEnd: (callback: () => void) => () => void
       onResponseError: (callback: (error: string) => void) => () => void
       onStatus: (callback: (message: string) => void) => () => void
+      onLikelyChatModelEvicted: (callback: (likely: boolean) => void) => () => void
+      onChatModelInferenceCompleted: (callback: () => void) => () => void
       onChatReset: (callback: () => void) => () => void
       onChatShown: (callback: () => void) => () => void
       onChatWillHide: (callback: () => void) => () => void

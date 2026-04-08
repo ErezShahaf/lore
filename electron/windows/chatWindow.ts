@@ -10,6 +10,7 @@ import {
 } from '../../shared/chatWindowConstants'
 import { getPreferredDisplay } from '../services/displayService'
 import { resetChatSessionBeforeHidingWindow } from '../services/chatSessionResetService'
+import { preloadModels } from '../services/ollamaService'
 
 let chatWindow: BrowserWindow | null = null
 
@@ -118,6 +119,7 @@ export function showChatWindow(): void {
   win.show()
   win.focus()
   win.webContents.send('chat:shown')
+  void preloadModels()
 }
 
 export function hideChatWindow(): void {

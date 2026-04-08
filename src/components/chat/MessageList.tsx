@@ -14,7 +14,7 @@ function isScrolledToBottom(viewport: HTMLDivElement, threshold = SCROLL_THRESHO
 interface MessageListProps {
   messages: ChatMessage[]
   isLoading: boolean
-  statusMessage?: string | null
+  progressMessage?: string | null
 }
 
 function EmptyState() {
@@ -30,7 +30,7 @@ function EmptyState() {
   )
 }
 
-export function MessageList({ messages, isLoading, statusMessage }: MessageListProps) {
+export function MessageList({ messages, isLoading, progressMessage }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const shouldAutoFollowRef = useRef(true)
@@ -105,7 +105,7 @@ export function MessageList({ messages, isLoading, statusMessage }: MessageListP
     if (!shouldAutoFollowRef.current) return
 
     scrollToBottom()
-  }, [messages, isLoading, statusMessage])
+  }, [messages, isLoading, progressMessage])
 
   if (messages.length === 0 && !isLoading) return <EmptyState />
 
@@ -115,12 +115,12 @@ export function MessageList({ messages, isLoading, statusMessage }: MessageListP
         {messages.map(msg => (
           <MessageBubble key={msg.id} message={msg} />
         ))}
-        {statusMessage && (
+        {progressMessage && (
           <div className="animate-fade-in flex justify-start">
-            <span className="text-xs italic text-muted-foreground">{statusMessage}</span>
+            <span className="text-xs italic text-muted-foreground">{progressMessage}</span>
           </div>
         )}
-        {isLoading && !messages.some(m => m.isStreaming) && !statusMessage && <TypingIndicator />}
+        {isLoading && !messages.some(m => m.isStreaming) && !progressMessage && <TypingIndicator />}
         <div ref={bottomRef} />
       </div>
     </ScrollArea>

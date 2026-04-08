@@ -15,6 +15,8 @@ import { listDisplays } from '../services/displayService'
 import { setAutoStart } from '../services/autoStartService'
 import {
   checkConnection,
+  chatModelInferenceCompletedEmitter,
+  getLikelyChatModelWasEvicted,
   listModels,
   pullModel,
   abortPull,
@@ -88,6 +90,15 @@ export function registerIpcHandlers(): void {
         return null
       }
 
+      sender.send('chat:likely-chat-model-evicted', {
+        likely: getLikelyChatModelWasEvicted(),
+      })
+
+      const onChatModelInferenceCompleted = (): void => {
+        sender.send('chat:model-inference-completed')
+      }
+      chatModelInferenceCompletedEmitter.once('inference-completed', onChatModelInferenceCompleted)
+
       try {
         const generator = processUserInput(normalizedUserMessage)
 
@@ -118,6 +129,8 @@ export function registerIpcHandlers(): void {
           err instanceof Error ? err.message : 'An unexpected error occurred'
         sender.send('chat:response-error', { error: errorMessage })
         sender.send('chat:response-end')
+      } finally {
+        chatModelInferenceCompletedEmitter.off('inference-completed', onChatModelInferenceCompleted)
       }
 
       return null

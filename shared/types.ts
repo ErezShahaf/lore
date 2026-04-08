@@ -102,6 +102,7 @@ export interface AppSettings {
   selectedModel: string
   embeddingModel: string
   ollamaHost: string
+  ollamaKeepAliveMinutes: number
   ollamaPath: string
   ollamaModelsPath: string
   ollamaSetupComplete: boolean

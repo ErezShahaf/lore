@@ -63,7 +63,7 @@ function NeedsModels({ missingChat, missingEmbedding }: { missingChat: boolean; 
 }
 
 export function ChatWindow() {
-  const { messages, isLoading, statusMessage, sendMessage } = useChat()
+  const { messages, isLoading, progressMessage, sendMessage } = useChat()
   const containerRef = useRef<HTMLDivElement>(null)
   const setupState = useSetupStatus()
   const [isClosing, setIsClosing] = useState(false)
@@ -182,7 +182,7 @@ export function ChatWindow() {
               missingEmbedding={setupState.missingEmbedding}
             />
           ) : (
-            <MessageList messages={messages} isLoading={isLoading} statusMessage={statusMessage} />
+            <MessageList messages={messages} isLoading={isLoading} progressMessage={progressMessage} />
           )}
         </div>
         <InputBar

@@ -11,6 +11,7 @@ const DEFAULTS: AppSettings = {
   selectedModel: '',
   embeddingModel: '',
   ollamaHost: 'http://127.0.0.1:11434',
+  ollamaKeepAliveMinutes: 5,
   ollamaPath: '',
   ollamaModelsPath: '',
   ollamaSetupComplete: false,
