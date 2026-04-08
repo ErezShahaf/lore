@@ -70,6 +70,7 @@ export function ChatWindow() {
   const [showUpdateDialog, setShowUpdateDialog] = useState(false)
   const [latestVersion, setLatestVersion] = useState<string | null>(null)
   const updateCheckDoneRef = useRef(false)
+  const isLinuxPlatform = navigator.userAgent.toLowerCase().includes('linux')
 
   useWindowResize(containerRef)
 
@@ -134,9 +135,13 @@ export function ChatWindow() {
   const handleAnimationEnd = useCallback((event: React.AnimationEvent) => {
     if (event.animationName === 'scale-out') {
       setIsClosing(false)
-      window.loreAPI.hideChatWindow()
+      if (isLinuxPlatform) {
+        window.loreAPI.minimizeChatWindowWithReset()
+      } else {
+        window.loreAPI.hideChatWindow()
+      }
     }
-  }, [])
+  }, [isLinuxPlatform])
 
   const chatDisabled = setupState.status !== 'ready' || isLoading
   const disabledReason =
@@ -152,7 +157,14 @@ export function ChatWindow() {
         className={`${isClosing ? 'animate-scale-out' : 'animate-scale-in'} relative flex h-full flex-col gap-2 overflow-hidden rounded-2xl border border-border/30 bg-[#0e0e0e]/95 backdrop-blur-xl [filter:drop-shadow(0_4px_12px_rgba(0,0,0,0.35))]`}
         onAnimationEnd={handleAnimationEnd}
       >
-        <div className="absolute right-3 top-3 z-10">
+        <div className="absolute right-3 top-3 z-10 flex items-center gap-1">
+          <button
+            onClick={() => window.loreAPI.openSettings()}
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            aria-label="Open settings"
+          >
+            <Settings className="size-3.5" />
+          </button>
           <button
             onClick={handleRequestClose}
             className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"

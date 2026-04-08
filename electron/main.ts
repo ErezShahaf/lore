@@ -16,6 +16,10 @@ import { startEvalServer, stopEvalServer } from './services/evalServer'
 import { configureRuntimeProfile, isEvalRuntimeProfile } from './services/runtimeProfileService'
 import type { AppSettings } from '../shared/types'
 
+if (!app) {
+  process.exit(0)
+}
+
 function logErrorToFile(label: string, err: unknown): void {
   try {
     const logPath = join(app.getPath('userData'), 'error.log')
@@ -94,6 +98,22 @@ function getEnvironmentSettingsOverrides(): Partial<AppSettings> {
   return settingsUpdate
 }
 
+function showOrCreateChatWindow(): void {
+  const existingChatWindow = getChatWindow()
+  if (existingChatWindow) {
+    if (existingChatWindow.isMinimized()) {
+      existingChatWindow.restore()
+    }
+    showChatWindow()
+    return
+  }
+
+  const createdChatWindow = createChatWindow()
+  createdChatWindow.once('ready-to-show', () => {
+    showChatWindow()
+  })
+}
+
 const gotLock = isEvalMode ? true : app.requestSingleInstanceLock()
 
 if (!gotLock) {
@@ -101,7 +121,7 @@ if (!gotLock) {
 } else {
   if (!isEvalMode) {
     app.on('second-instance', () => {
-      showChatWindow()
+      showOrCreateChatWindow()
     })
   }
 
@@ -162,7 +182,12 @@ if (!gotLock) {
         updateSettings({ ollamaSetupComplete: true })
       }
 
-      createChatWindow()
+      const chatWindow = createChatWindow()
+      if (process.platform === 'linux') {
+        chatWindow.once('ready-to-show', () => {
+          showOrCreateChatWindow()
+        })
+      }
 
       bootstrapOllama()
         .then(() => preloadModels())

@@ -18,6 +18,7 @@ declare global {
       ping: () => Promise<string>
       resizeChatWindow: (height: number) => void
       hideChatWindow: () => void
+      minimizeChatWindowWithReset: () => void
 
       sendMessage: (
         message: string,
