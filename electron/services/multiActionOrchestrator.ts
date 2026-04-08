@@ -239,6 +239,7 @@ export async function* runMultiActionTurn(
       originalUserMessage: userInput,
       totalActionsInTurn: actions.length,
       priorTurnRetrievedContextBlock,
+      pipelineTraceSink: traceSink,
     })
 
     let step = await executor.next()

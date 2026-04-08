@@ -11,7 +11,6 @@ import { getSettings, updateSettings } from './settingsService'
 import {
   PIPELINE_TRACE_SCHEMA_VERSION,
   type AgentEvent,
-  type AgentOrchestrationMode,
   type AppSettings,
   type DocumentType,
   type LoreDocument,
@@ -169,16 +168,8 @@ async function seedDocumentsForEval(inputs: readonly EvalSeedDocumentInput[]): P
   return documents.map(sanitizeDocument)
 }
 
-function isAgentOrchestrationMode(value: unknown): value is AgentOrchestrationMode {
-  return value === 'classify_handlers' || value === 'native_tool_loop'
-}
-
 function parseSettingsUpdate(body: Record<string, unknown>): Partial<AppSettings> {
   const settingsUpdate: Partial<AppSettings> = {}
-
-  if (isAgentOrchestrationMode(body.agentOrchestrationMode)) {
-    settingsUpdate.agentOrchestrationMode = body.agentOrchestrationMode
-  }
 
   if (isString(body.selectedModel)) {
     settingsUpdate.selectedModel = body.selectedModel

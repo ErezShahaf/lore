@@ -4,11 +4,17 @@ import { loadSkill } from './skillLoader'
 import { logger } from '../logger'
 import { appendUserInstructionsToSystemPrompt } from './userInstructionsContext'
 import { extractTodoMeasureMap } from './documentPipeline'
+import {
+  appendVerbosePipelineStageRecord,
+  truncateForSubAgentPipelineTraceDefault,
+} from './pipelineTraceVerbose'
 import type {
   CommandResolution,
   CommandOperation,
   ConversationEntry,
   LoreDocument,
+  MutablePipelineTraceSink,
+  PipelineCommandDecompositionTraceOutput,
 } from '../../shared/types'
 
 const COMMAND_RESOLUTION_SCHEMA = {
@@ -55,12 +61,63 @@ const COMMAND_RESOLUTION_SCHEMA = {
 const MAX_RETRIES = 2
 const MIN_OPERATION_CONFIDENCE = 0.5
 
+function buildCommandDecompositionTraceOutput(resolution: CommandResolution): PipelineCommandDecompositionTraceOutput {
+  if (resolution.status === 'execute') {
+    return {
+      status: 'execute',
+      operationSummaries: resolution.operations.map((operation) => ({
+        action: operation.action,
+        targetDocumentIdCount: operation.targetDocumentIds.length,
+        confidence: operation.confidence,
+      })),
+      clarificationCandidateDocumentIdCount: null,
+      clarifyPresentationStyle: null,
+      clarificationMessagePreview: null,
+    }
+  }
+
+  const clarificationPreview =
+    resolution.clarificationMessage.trim().length > 0
+      ? resolution.clarificationMessage.trim()
+      : resolution.clarifyPresentation?.style === 'model_authored_text'
+        ? resolution.clarifyPresentation.text
+        : resolution.clarifyPresentation?.style === 'uncertain'
+          ? resolution.clarifyPresentation.hint ?? ''
+          : ''
+
+  return {
+    status: 'clarify',
+    operationSummaries: [],
+    clarificationCandidateDocumentIdCount:
+      resolution.clarificationCandidateDocumentIds !== undefined
+        ? resolution.clarificationCandidateDocumentIds.length
+        : null,
+    clarifyPresentationStyle: resolution.clarifyPresentation?.style ?? null,
+    clarificationMessagePreview:
+      clarificationPreview.length > 0
+        ? truncateForSubAgentPipelineTraceDefault(clarificationPreview)
+        : null,
+  }
+}
+
+function recordCommandDecompositionPipelineStage(
+  pipelineTraceSink: MutablePipelineTraceSink | null | undefined,
+  resolution: CommandResolution,
+): void {
+  appendVerbosePipelineStageRecord(pipelineTraceSink, {
+    stageId: 'command_decomposition',
+    ordinal: 0,
+    output: buildCommandDecompositionTraceOutput(resolution),
+  })
+}
+
 export async function resolveCommandTargets(
   userInput: string,
   documents: readonly LoreDocument[],
   conversationHistory: readonly ConversationEntry[] = [],
   userInstructionsBlock: string = '',
   classifiedCommandIntent: 'edit' | 'delete' | undefined = undefined,
+  pipelineTraceSink: MutablePipelineTraceSink | null = null,
 ): Promise<CommandResolution> {
   const settings = getSettings()
 
@@ -114,11 +171,13 @@ export async function resolveCommandTargets(
       '[CommandDecomposition] Resolved command',
     )
 
-    return finalizeCommandResolutionWithMandatoryCandidateListing(
+    const finalized = finalizeCommandResolutionWithMandatoryCandidateListing(
       resolution,
       documents,
       classifiedCommandIntent,
     )
+    recordCommandDecompositionPipelineStage(pipelineTraceSink, finalized)
+    return finalized
   } catch (error) {
     logger.error(
       { error },

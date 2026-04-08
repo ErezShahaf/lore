@@ -21,6 +21,7 @@ import type {
   AgentEvent,
   LoreDocument,
   CommandOperation,
+  MutablePipelineTraceSink,
   RetrievalOptions,
 } from '../../../shared/types'
 
@@ -40,6 +41,7 @@ export async function* handleCommand(
   conversationHistory: readonly ConversationEntry[] = [],
   retrievalOverrides?: RetrievalOptions,
   userInstructionsBlock: string = '',
+  pipelineTraceSink: MutablePipelineTraceSink | null = null,
 ): AsyncGenerator<AgentEvent> {
   yield {
     type: 'status',
@@ -138,6 +140,7 @@ export async function* handleCommand(
           classification.intent === 'delete' || classification.intent === 'edit'
             ? classification.intent
             : undefined,
+          pipelineTraceSink,
         )
       } catch {
         yield {
@@ -202,6 +205,7 @@ export async function* handleCommand(
           classification.intent === 'delete' || classification.intent === 'edit'
             ? classification.intent
             : undefined,
+          pipelineTraceSink,
         )
       } catch {
         yield {

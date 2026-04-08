@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { FolderOpen, X } from 'lucide-react'
-import type { AgentOrchestrationMode, AppSettings, DisplayInfo } from '../../../shared/types'
+import type { AppSettings, DisplayInfo } from '../../../shared/types'
 
 interface GeneralSettingsProps {
   settings: AppSettings
@@ -97,25 +97,6 @@ export function GeneralSettings({ settings, onUpdate }: GeneralSettingsProps) {
           </select>
           <p className="text-xs text-muted-foreground">
             Choose where the chat window appears. Auto follows the screen nearest to your cursor.
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground">Agent orchestration</label>
-          <select
-            value={settings.agentOrchestrationMode}
-            onChange={(event) => {
-              onUpdate({
-                agentOrchestrationMode: event.target.value as AgentOrchestrationMode,
-              })
-            }}
-            className="max-w-lg rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
-          >
-            <option value="classify_handlers">Classic (unified classifier, then handlers)</option>
-            <option value="native_tool_loop">Native tool loop (unified agent, full tools)</option>
-          </select>
-          <p className="text-xs text-muted-foreground">
-            One composed prompt decides search, save, and edit tools per turn (JSON tool protocol over chat). Use classic if your model does not follow tool JSON reliably.
           </p>
         </div>
 

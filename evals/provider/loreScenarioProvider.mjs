@@ -1552,14 +1552,6 @@ export default class LoreScenarioProvider {
         ollamaHost,
       })
 
-      const agentOrchestrationMode =
-        this.config.agentOrchestrationMode === 'native_tool_loop'
-          ? 'native_tool_loop'
-          : 'classify_handlers'
-      await requestJson(evalServer.baseUrl, '/settings/update', 'POST', {
-        agentOrchestrationMode,
-      })
-
       const scenarioResult = await runScenario(evalServer, scenario, {
         judgeModel: this.config.judgeModel || this.config.model,
         ollamaHost,
@@ -1591,7 +1583,6 @@ export default class LoreScenarioProvider {
           scenarioId: scenario.id,
           scenarioTitle: scenario.title,
           model: this.config.model,
-          agentOrchestrationMode,
           judgeModel: this.config.judgeModel || this.config.model,
           failures: scenarioResult.failures,
           failedChecks: scenarioResult.failedChecks,
@@ -1608,10 +1599,6 @@ export default class LoreScenarioProvider {
           passed: false,
           scenarioId,
           model: this.config.model,
-          agentOrchestrationMode:
-            this.config.agentOrchestrationMode === 'native_tool_loop'
-              ? 'native_tool_loop'
-              : 'classify_handlers',
           judgeModel: this.config.judgeModel || this.config.model,
         },
       }

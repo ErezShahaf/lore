@@ -375,9 +375,6 @@ export function App(): ReactElement {
                       <strong>Model:</strong> {metadata.model ?? '—'}
                     </p>
                     <p>
-                      <strong>Orchestration:</strong> {metadata.agentOrchestrationMode ?? '—'}
-                    </p>
-                    <p>
                       <strong>Judge model:</strong> {metadata.judgeModel ?? '—'}
                     </p>
                     <p>

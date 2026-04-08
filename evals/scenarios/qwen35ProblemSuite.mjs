@@ -1,6 +1,5 @@
 /**
- * Scenarios that failed at least once for Ollama model qwen3.5:9b when running
- * both classic (classify_handlers) and native (native_tool_loop) orchestration.
+ * Scenarios that failed at least once for Ollama model qwen3.5:9b (classic classify_handlers path).
  *
  * Source: evals/results/promptfoo-full-2026-04-05T16-59-50-242Z.json
  *

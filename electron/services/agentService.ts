@@ -8,9 +8,6 @@ import {
 } from './priorTurnContextService'
 import { runMultiActionTurn } from './multiActionOrchestrator'
 import { compactSessionHistoryIfNeeded } from './sessionCompaction'
-import { runNativeToolLoopTurn } from './turnEngine'
-import { formatUserInstructionsBlock, loadAllUserInstructionDocuments } from './userInstructionsContext'
-import { getSettings } from './settingsService'
 import {
   PIPELINE_TRACE_SCHEMA_VERSION,
   type AgentEvent,
@@ -84,51 +81,25 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
   const documentIds: string[] = []
   const retrievedDocumentIdsThisTurn: string[] = []
 
-  const settings = getSettings()
-  const useNativeToolLoop = settings.agentOrchestrationMode === 'native_tool_loop'
-
   try {
-    if (useNativeToolLoop) {
-      const userInstructionDocuments = await loadAllUserInstructionDocuments()
-      const userInstructionsBlock = formatUserInstructionsBlock(userInstructionDocuments)
-
-      for await (const event of runNativeToolLoopTurn(userInput, priorHistory, {
-        traceSink,
-        userInstructionsBlock,
-        isCancelled,
-        priorTurnRetrievedContextBlock,
-      })) {
-        if (event.type === 'chunk') {
-          assistantResponse += event.content
-        }
-        if (event.type === 'retrieved') {
-          documentIds.push(...event.documentIds)
-          retrievedDocumentIdsThisTurn.push(...event.documentIds)
-        }
-        if (event.type === 'stored') {
-          documentIds.push(event.documentId)
-        }
-        yield event
+    for await (const event of runMultiActionTurn(
+      userInput,
+      priorHistory,
+      traceSink,
+      priorTurnRetrievedContextBlock,
+    )) {
+      void isCancelled
+      if (event.type === 'chunk') {
+        assistantResponse += event.content
       }
-    } else {
-      for await (const event of runMultiActionTurn(
-        userInput,
-        priorHistory,
-        traceSink,
-        priorTurnRetrievedContextBlock,
-      )) {
-        if (event.type === 'chunk') {
-          assistantResponse += event.content
-        }
-        if (event.type === 'retrieved') {
-          documentIds.push(...event.documentIds)
-          retrievedDocumentIdsThisTurn.push(...event.documentIds)
-        }
-        if (event.type === 'stored') {
-          documentIds.push(event.documentId)
-        }
-        yield event
+      if (event.type === 'retrieved') {
+        documentIds.push(...event.documentIds)
+        retrievedDocumentIdsThisTurn.push(...event.documentIds)
       }
+      if (event.type === 'stored') {
+        documentIds.push(event.documentId)
+      }
+      yield event
     }
   } catch (err) {
     logger.error({ err }, '[Agent] Orchestrator failed')

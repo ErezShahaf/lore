@@ -180,20 +180,17 @@ async function resolveEmbeddingModel(ollamaHost, requestedEmbeddingModel) {
   return selectedEmbeddingModel
 }
 
-function parseOrchestrationModes() {
+function parseOrchestrationModeLabel() {
   const raw = getSingleArgumentValue('--orchestration', 'classic').trim().toLowerCase()
-  if (raw === 'both') {
-    return ['classify_handlers', 'native_tool_loop']
-  }
   if (raw === 'classic' || raw === 'classify_handlers') {
-    return ['classify_handlers']
+    return 'classic'
   }
-  if (raw === 'native' || raw === 'native_tool_loop') {
-    return ['native_tool_loop']
+  if (raw === 'native' || raw === 'native_tool_loop' || raw === 'both') {
+    throw new Error(
+      'Native tool loop orchestration was removed. Use --orchestration classic (default) only.',
+    )
   }
-  throw new Error(
-    `Unsupported --orchestration "${raw}". Use classic (or classify_handlers), native (or native_tool_loop), or both.`,
-  )
+  throw new Error(`Unsupported --orchestration "${raw}". Use classic (or classify_handlers).`)
 }
 
 function buildPromptfooConfig({
@@ -203,27 +200,23 @@ function buildPromptfooConfig({
   embeddingModel,
   ollamaHost,
   judgeModel,
-  orchestrationModes,
+  orchestrationModeLabel,
 }) {
   const providerPath = join(repositoryRoot, 'evals', 'provider', 'loreScenarioProvider.mjs')
 
   const providers = []
   for (const modelName of selectedModels) {
-    for (const agentOrchestrationMode of orchestrationModes) {
-      const labelSuffix = agentOrchestrationMode === 'classify_handlers' ? 'classic' : 'native'
-      providers.push({
-        id: providerPath,
-        label: `${modelName} (${labelSuffix})`,
-        config: {
-          repositoryRoot,
-          model: modelName,
-          embeddingModel,
-          ollamaHost,
-          judgeModel,
-          agentOrchestrationMode,
-        },
-      })
-    }
+    providers.push({
+      id: providerPath,
+      label: `${modelName} (${orchestrationModeLabel})`,
+      config: {
+        repositoryRoot,
+        model: modelName,
+        embeddingModel,
+        ollamaHost,
+        judgeModel,
+      },
+    })
   }
 
   return {
@@ -279,8 +272,7 @@ Options:
                        If omitted, each scenario is judged with the same model as that scenario.
   --scenario <id>      Filter to one or more scenario ids (comma-separated, repeat flag ok).
   --topic <name>       Filter by topic (comma-separated).
-  --orchestration <m>  Agent pipeline: classic (default), native, or both.
-                       classic = classify_handlers; native = native_tool_loop; both runs each scenario per mode.
+  --orchestration <m>  Agent pipeline: classic only (unified classifier + handlers). Default: classic.
   --skip-build         Skip npm run build:app before eval.
   --html-report        Also write an HTML report alongside JSON.
   --help               Show this message.
@@ -318,7 +310,7 @@ async function main() {
   const requestedScenarioIds = parseScenarioIds()
   const requestedTopics = parseTopics()
   const embeddingModel = await resolveEmbeddingModel(ollamaHost, requestedEmbeddingModel)
-  const orchestrationModes = parseOrchestrationModes()
+  const orchestrationModeLabel = parseOrchestrationModeLabel()
   const suiteScenarios = getScenariosForSuite(suiteName)
   const unknownTopics = requestedTopics.filter((requestedTopic) => !scenarioTopics.includes(requestedTopic))
 
@@ -363,15 +355,13 @@ async function main() {
     embeddingModel,
     ollamaHost,
     judgeModel,
-    orchestrationModes,
+    orchestrationModeLabel,
   })
 
   writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8')
 
   console.log(`Running ${selectedScenarios.length} scenarios x ${repeatCount} repeats for models: ${selectedModels.join(', ')}`)
-  console.log(
-    `Orchestration: ${orchestrationModes.join(', ')} (${orchestrationModes.length} provider${orchestrationModes.length === 1 ? '' : 's'} per model)`,
-  )
+  console.log(`Orchestration: ${orchestrationModeLabel} (classify_handlers)`)
   console.log(`Using embedding model: ${embeddingModel}`)
   if (judgeModel.trim().length > 0) {
     console.log(`Judge model: ${judgeModel}`)

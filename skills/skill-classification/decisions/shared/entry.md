@@ -1,10 +1,9 @@
-# Shared worker protocol branch
+# Shared protocol branch
 
-Prepended alongside intent-specific workers in the tool-loop path.
+Protocol wording used alongside intent-specific prompts where applicable.
 
 ## Agent (`shared/`)
 
 | Folder | `loadSkill` id |
 |--------|----------------|
 | `shared/skill-shared-protocol/` | `skill-shared-protocol` |
-| `shared/skill-native-tool-protocol/` | `skill-native-tool-protocol` |

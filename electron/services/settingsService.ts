@@ -14,7 +14,14 @@ const DEFAULTS: AppSettings = {
   ollamaPath: '',
   ollamaModelsPath: '',
   ollamaSetupComplete: false,
-  agentOrchestrationMode: 'classify_handlers',
+}
+
+function stripLegacyAgentOrchestrationKey(
+  parsed: Record<string, unknown>,
+): Record<string, unknown> {
+  const { agentOrchestrationMode: _legacy, ...rest } = parsed
+  void _legacy
+  return rest
 }
 
 function getSettingsPath(): string {
@@ -37,7 +44,8 @@ export function getSettings(): AppSettings {
 
   try {
     const raw = readFileSync(path, 'utf-8')
-    cached = { ...DEFAULTS, ...JSON.parse(raw) }
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    cached = { ...DEFAULTS, ...stripLegacyAgentOrchestrationKey(parsed) } as AppSettings
     return cached!
   } catch {
     cached = { ...DEFAULTS }

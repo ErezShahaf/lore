@@ -4,21 +4,13 @@
 
 [`electron/services/agentService.ts`](../electron/services/agentService.ts) calls [`runMultiActionTurn`](../electron/services/multiActionOrchestrator.ts): unified classification produces an `actions` array; each action is executed in order by [`executeClassificationAction`](../electron/services/classificationActionExecutor.ts) (intent-specific handlers). Side-effect events (stored, retrieved, status, …) stream to the UI; outcomes (including touched document ids) are collected and passed to [`assistantReplyComposer`](../electron/services/assistantReplyComposer.ts) for a single turn-level user reply when needed.
 
-## Native tool loop (settings: `native_tool_loop`)
-
-When [`agentService`](../electron/services/agentService.ts) uses **`native_tool_loop`**, [`runNativeToolLoopTurn`](../electron/services/turnEngine.ts) runs **without** the upfront unified classifier. The model uses a single composed prompt from [`skill-native-unified-agent`](../skills/skill-classification/decisions/shared/shared/skill-native-unified-agent/entry.md) plus [`skill-shared-protocol`](../skills/skill-classification/decisions/shared/shared/skill-shared-protocol/entry.md), with tools for read, save, command, and optional [`summarize_context`](../electron/services/orchestratorTools.ts)—**not** `compose_reply`; the same model drafts final user text from tool JSON. Tool results are labeled as untrusted data when fed back into the loop. The only nested LLM inside a native-loop tool is `summarize_context` (context compression). Classic `classify_handlers` still uses [`assistantReplyComposer`](../electron/services/assistantReplyComposer.ts) and worker paths that may call `compose_reply` where applicable.
-
-## Routed JSON tool loop (experimental / alternate host)
-
-[`electron/services/toolOrchestrator.ts`](../electron/services/toolOrchestrator.ts) implements an LLM-driven tool loop that still **classifies first** via [`resolveWorkerForTurn`](../electron/services/workerRouter.ts), then restricts tools per worker kind. It is a separate entry path from `agentService`’s native loop.
-
 ## Deprecated: Classification-based orchestrator
 
-[`electron/services/orchestratorService.ts`](../electron/services/orchestratorService.ts) is deprecated. Kept for potential rollback.
+[`electron/services/orchestratorService.ts`](../electron/services/orchestratorService.ts) is an older single-action orchestrator kept for reference. The live app uses `agentService` → `multiActionOrchestrator` only.
 
 ## Skill prompts on disk
 
-All prompts live under **`skills/skill-classification/`**: the root **`entry.md`** is the unified classifier only. **Classifier** intents sit under **`decisions/`** (`read`, `save`, `command`, `speak`, plus pipeline branches **`reply/`** and **`shared/`**). Everything else at the repository root of that tree is under **`shared/`** (for example **`shared/auxiliary/`** for situation extraction, routing hints, metadata, and similar—not classifier outputs). Each node may repeat **`entry.md`**, **`decisions/`**, and **`shared/`**. `loadSkill` ids are unchanged; paths are in **[`shared/skillTreeSpec.ts`](../shared/skillTreeSpec.ts)**. **`npm test`** runs [`electron/services/skillTreeAlignment.test.ts`](../electron/services/skillTreeAlignment.test.ts) to keep the tree aligned.
+All prompts live under **`skills/skill-classification/`**: the root **`entry.md`** is the unified classifier only. **Classifier** intents sit under **`decisions/`** (`read`, `save`, `command`, `speak`, plus pipeline branches **`reply/`** and **`shared/`**). Everything else at the repository root of that tree is under **`shared/`** (for example **`shared/auxiliary/`** for situation extraction, routing hints, metadata, and similar—not classifier outputs). Each node may repeat **`entry.md`**, **`decisions/`**, and **`shared/`**. `loadSkill` ids are unchanged; paths are in **[`shared/skillTreeSpec.ts`](../shared/skillTreeSpec.ts)**.
 
 ## Services used by the main multi-action path
 

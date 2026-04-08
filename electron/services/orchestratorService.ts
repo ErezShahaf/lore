@@ -1,6 +1,6 @@
 /**
- * @deprecated The main flow now uses toolOrchestrator (orchestratorTools + toolOrchestrator).
- * This classification-based orchestrator is kept for potential rollback or reference.
+ * @deprecated Legacy single-step orchestrator. The live app uses `agentService` → `multiActionOrchestrator`.
+ * Kept for reference.
  */
 import { classifyInputWithStatusEvents } from './classifierService'
 import { logger } from '../logger'
@@ -159,6 +159,7 @@ async function* dispatchIntentHandlers(
           [...priorHistory],
           todoOverrides,
           turn.userInstructionsBlock,
+          null,
         )) {
           if (event.type === 'chunk') turn.assistantResponse += event.content
           if (event.type === 'retrieved') turn.lastDocumentIds = [...event.documentIds]
@@ -178,7 +179,14 @@ async function* dispatchIntentHandlers(
           }),
         }
         recordDispatcher(turn, 'CommandHandler')
-        for await (const event of handleCommand(userInput, classification, priorHistory, undefined, turn.userInstructionsBlock)) {
+        for await (const event of handleCommand(
+          userInput,
+          classification,
+          priorHistory,
+          undefined,
+          turn.userInstructionsBlock,
+          null,
+        )) {
           if (event.type === 'chunk') turn.assistantResponse += event.content
           if (event.type === 'retrieved') turn.lastDocumentIds = [...event.documentIds]
           if (event.type !== 'turn_step_summary' && event.type !== 'read_retrieval_context') {
@@ -216,6 +224,7 @@ async function* dispatchIntentHandlers(
             [...priorHistory],
             undefined,
             turn.userInstructionsBlock,
+            null,
           )) {
             if (event.type === 'chunk') turn.assistantResponse += event.content
             if (event.type === 'retrieved') turn.lastDocumentIds = [...event.documentIds]

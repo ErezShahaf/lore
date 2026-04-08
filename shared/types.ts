@@ -94,9 +94,6 @@ export interface ChatMessage {
   isStreaming?: boolean
 }
 
-/** How [agentService](electron/services/agentService.ts) runs a turn. */
-export type AgentOrchestrationMode = 'classify_handlers' | 'native_tool_loop'
-
 export interface AppSettings {
   shortcut: string
   startOnLogin: boolean
@@ -108,11 +105,6 @@ export interface AppSettings {
   ollamaPath: string
   ollamaModelsPath: string
   ollamaSetupComplete: boolean
-  /**
-   * `classify_handlers`: unified classifier then intent handlers (default, most compatible).
-   * `native_tool_loop`: Ollama native tool_calls + TurnEngine (needs a tool-capable chat model).
-   */
-  agentOrchestrationMode: AgentOrchestrationMode
 }
 
 export interface DisplayInfo {
@@ -350,15 +342,15 @@ export interface ActionOutcome {
 }
 
 /** Bump when pipeline stage record shapes change (summarizer heuristics may depend on version). */
-export const PIPELINE_TRACE_SCHEMA_VERSION = 1 as const
+export const PIPELINE_TRACE_SCHEMA_VERSION = 2 as const
 
 export type PipelineStageId =
   | 'unified_classifier'
   | 'action_execution'
   | 'assistant_reply_composer'
   | 'session_compaction'
-  | 'turn_engine_router'
-  | 'turn_engine_native_round'
+  | 'command_decomposition'
+  | 'question_strategist'
 
 /** Subset of {@link ActionOutcome} stored in eval traces (compact; message truncated elsewhere). */
 export interface PipelineActionExecutionTraceOutput {
@@ -385,22 +377,25 @@ export interface PipelineSessionCompactionTraceOutput {
   readonly stopReason: 'none' | 'message_cap' | 'char_cap'
 }
 
-export interface TurnEngineRouterTraceOutput {
-  readonly workerKind: string
+/** Verbose trace only: command decomposition resolver outcome (no full model raw JSON). */
+export interface PipelineCommandDecompositionTraceOutput {
+  readonly status: 'execute' | 'clarify'
+  readonly operationSummaries: readonly {
+    readonly action: 'delete' | 'update'
+    readonly targetDocumentIdCount: number
+    readonly confidence: number
+  }[]
+  readonly clarificationCandidateDocumentIdCount: number | null
+  readonly clarifyPresentationStyle: string | null
+  readonly clarificationMessagePreview: string | null
 }
 
-export interface TurnEngineNativeRoundTraceOutput {
-  readonly loopStep: number
-  readonly hadToolCalls: boolean
-  readonly toolNames: readonly string[]
-  readonly stopReason:
-    | 'model_reply'
-    | 'stream_result'
-    | 'max_rounds'
-    | 'cancelled'
-    | 'tool_round'
-    | 'invalid_json_retry'
-  readonly assistantPreview: string
+/** Verbose trace only: question strategist routing (no document preview bodies). */
+export interface PipelineQuestionStrategistTraceOutput {
+  readonly mode: 'answer' | 'ask_clarification'
+  readonly clarificationMessagePreview: string | null
+  readonly documentPreviewCount: number
+  readonly totalRetrievedDocumentCount: number | null
 }
 
 export type PipelineStageRecord =
@@ -429,16 +424,16 @@ export type PipelineStageRecord =
       readonly output: PipelineSessionCompactionTraceOutput
     }
   | {
-      readonly stageId: 'turn_engine_router'
+      readonly stageId: 'command_decomposition'
       readonly ordinal: number
       readonly timestamp?: string
-      readonly output: TurnEngineRouterTraceOutput
+      readonly output: PipelineCommandDecompositionTraceOutput
     }
   | {
-      readonly stageId: 'turn_engine_native_round'
+      readonly stageId: 'question_strategist'
       readonly ordinal: number
       readonly timestamp?: string
-      readonly output: TurnEngineNativeRoundTraceOutput
+      readonly output: PipelineQuestionStrategistTraceOutput
     }
 
 /** Serialized trace for one user message (eval / Promptfoo metadata). */

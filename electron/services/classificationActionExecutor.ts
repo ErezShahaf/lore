@@ -14,6 +14,7 @@ import type {
   ClassificationAction,
   ConversationEntry,
   LoreDocument,
+  MutablePipelineTraceSink,
   RetrievalContextDocument,
 } from '../../shared/types'
 
@@ -97,6 +98,7 @@ type HandlerInvocation = (
   userInstructionDocuments: readonly LoreDocument[],
   userInstructionsBlock: string,
   originalUserMessage: string,
+  pipelineTraceSink: MutablePipelineTraceSink | null,
 ) => AsyncGenerator<AgentEvent>
 
 function selectHandler(
@@ -105,31 +107,32 @@ function selectHandler(
 ): HandlerInvocation {
   switch (action.intent) {
     case 'save':
-      return async function* (input, classification, history, _, instructions, originalUserMessage) {
+      return async function* (input, classification, history, _, instructions, originalUserMessage, sink) {
+        void sink
         yield* handleThought(input, classification, history, instructions, originalUserMessage, {
           totalActionsInTurn,
         })
       }
     case 'read':
-      return async function* (input, classification, history, instructionDocuments, instructions, originalUserMessage) {
+      return async function* (input, classification, history, instructionDocuments, instructions, originalUserMessage, sink) {
         void instructionDocuments
-        void originalUserMessage
         const isTodoQuery =
           classification.extractedTags.some((tag) => tag === 'todo')
           || isTodoListingUserIntent(input)
           || isTodoListingUserIntent(originalUserMessage)
         const todoOverrides = isTodoQuery ? ({ type: 'todo' } as const) : undefined
-        yield* handleQuestion(input, classification, history, todoOverrides, instructions)
+        yield* handleQuestion(input, classification, history, todoOverrides, instructions, sink)
       }
     case 'edit':
     case 'delete':
-      return async function* (input, classification, history, _, instructions, originalUserMessage) {
+      return async function* (input, classification, history, _, instructions, originalUserMessage, sink) {
         void originalUserMessage
-        yield* handleCommand(input, classification, history, undefined, instructions)
+        yield* handleCommand(input, classification, history, undefined, instructions, sink)
       }
     case 'speak':
-      return async function* (input, classification, history, _, instructions, originalUserMessage) {
+      return async function* (input, classification, history, _, instructions, originalUserMessage, sink) {
         void originalUserMessage
+        void sink
         yield* handleConversational(input, classification, history, instructions)
       }
   }
@@ -148,6 +151,8 @@ export interface ExecuteClassificationActionParams {
   readonly totalActionsInTurn?: number
   /** Hydrated previews from the previous turn’s retrieval; not persisted in chat history. */
   readonly priorTurnRetrievedContextBlock?: string | null
+  /** When verbose tracing is enabled, sub-agent stages are appended here. */
+  readonly pipelineTraceSink?: MutablePipelineTraceSink | null
 }
 
 /**
@@ -167,6 +172,7 @@ export async function* executeClassificationAction(
     originalUserMessage,
     totalActionsInTurn = 1,
     priorTurnRetrievedContextBlock = null,
+    pipelineTraceSink = null,
   } = params
 
   const historyForLanguageModel = augmentConversationHistoryWithPriorTurnContext(
@@ -196,6 +202,7 @@ export async function* executeClassificationAction(
       userInstructionDocuments,
       userInstructionsBlock,
       originalUserMessage,
+      pipelineTraceSink ?? null,
     )) {
       if (event.type === 'turn_step_summary') {
         explicitHandlerSummary = event.summary

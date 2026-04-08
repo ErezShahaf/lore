@@ -23,31 +23,12 @@ export const SKILL_MOUNT_SEGMENTS: Readonly<Record<string, readonly string[]>> =
   'skill-worker-conversational': ['decisions', 'speak', 'shared', 'skill-worker-conversational'],
   'assistant-user-reply': ['decisions', 'reply', 'shared', 'assistant-user-reply'],
   'skill-shared-protocol': ['decisions', 'shared', 'shared', 'skill-shared-protocol'],
-  'skill-native-tool-protocol': ['decisions', 'shared', 'shared', 'skill-native-tool-protocol'],
-  'skill-native-unified-agent': ['decisions', 'shared', 'shared', 'skill-native-unified-agent'],
   'situation': ['shared', 'auxiliary', 'decisions', 'situation'],
   'intent-route': ['shared', 'auxiliary', 'decisions', 'intent-route'],
   'metadata-extraction': ['shared', 'auxiliary', 'decisions', 'metadata-extraction'],
   'orchestrator-low-confidence': ['shared', 'auxiliary', 'decisions', 'orchestrator-low-confidence'],
   'ui-status-phrase': ['shared', 'auxiliary', 'decisions', 'ui-status-phrase'],
 } as const
-
-/**
- * Maps `WorkerKind` in `workerRouter` to `SKILL_MOUNT_SEGMENTS` keys.
- * Keeps tool-orchestrator workers aligned with the classification tree after directory moves.
- */
-export const WORKER_KIND_TO_SKILL_MOUNT_ID: Readonly<
-  Record<
-    'question' | 'thought' | 'command' | 'conversational' | 'unified',
-    keyof typeof SKILL_MOUNT_SEGMENTS
-  >
-> = {
-  question: 'skill-worker-question',
-  thought: 'skill-worker-thought',
-  command: 'skill-worker-command',
-  conversational: 'skill-worker-conversational',
-  unified: 'skill-native-unified-agent',
-}
 
 /** Matches `questionHandler` → `loadSkill('question-answer', questionAnswerSelectors)`. */
 export const QUESTION_ANSWER_FORK_OUTCOMES: Readonly<Record<string, readonly string[]>> = {

@@ -34,7 +34,6 @@ export interface ScenarioMetadata {
   readonly scenarioId?: string
   readonly scenarioTitle?: string
   readonly model?: string
-  readonly agentOrchestrationMode?: string
   readonly judgeModel?: string
   readonly failures?: readonly string[]
   readonly failedChecks?: readonly FailedCheck[]

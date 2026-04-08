@@ -13,6 +13,10 @@ import { formatLocalDate, getLocalDateRangeForDay, getLocalDateRangeForWeek } fr
 import { getSettings } from '../settingsService'
 import { loadSkill } from '../skillLoader'
 import { decideQuestionStrategy } from '../questionStrategistService'
+import {
+  appendVerbosePipelineStageRecord,
+  truncateForSubAgentPipelineTraceDefault,
+} from '../pipelineTraceVerbose'
 import { appendUserInstructionsToSystemPrompt } from '../userInstructionsContext'
 import {
   buildNoDocumentsQuestionUserMessage,
@@ -31,10 +35,32 @@ import type {
   ClassificationForHandler,
   AgentEvent,
   LoreDocument,
+  MutablePipelineTraceSink,
+  QuestionStrategyResult,
   RetrievalContextDocument,
   RetrievalOptions,
   ScoredDocument,
 } from '../../../shared/types'
+
+function recordQuestionStrategistPipelineStage(
+  pipelineTraceSink: MutablePipelineTraceSink | null | undefined,
+  strategy: QuestionStrategyResult,
+  documentPreviewCount: number,
+  totalRetrievedDocumentCount: number | null,
+): void {
+  const clarification = strategy.clarificationMessage?.trim() ?? ''
+  appendVerbosePipelineStageRecord(pipelineTraceSink, {
+    stageId: 'question_strategist',
+    ordinal: 0,
+    output: {
+      mode: strategy.mode,
+      clarificationMessagePreview:
+        clarification.length > 0 ? truncateForSubAgentPipelineTraceDefault(clarification) : null,
+      documentPreviewCount,
+      totalRetrievedDocumentCount,
+    },
+  })
+}
 
 /** The answer model receives every retrieved document; the strategist only needs a bounded preview list. */
 const STRATEGIST_DOCUMENT_PREVIEW_MAX_COUNT = 28
@@ -155,6 +181,7 @@ interface AnswerFromRetrievedNotesParams {
   readonly conversationContext?: Array<{ role: 'user' | 'assistant'; content: string }>
   readonly userInstructionsBlock: string
   readonly skipStrategistClarification: boolean
+  readonly pipelineTraceSink: MutablePipelineTraceSink | null
 }
 
 async function* answerQuestionFromRetrievedCandidateNotes(
@@ -167,6 +194,7 @@ async function* answerQuestionFromRetrievedCandidateNotes(
     conversationContext,
     userInstructionsBlock,
     skipStrategistClarification,
+    pipelineTraceSink,
   } = params
 
   yield {
@@ -226,6 +254,12 @@ async function* answerQuestionFromRetrievedCandidateNotes(
       userInstructionsBlock,
       recentConversation: conversationContext,
     })
+    recordQuestionStrategistPipelineStage(
+      pipelineTraceSink,
+      strategy,
+      strategistPreviews.previews.length,
+      strategistPreviews.totalCount,
+    )
 
     if (strategy.mode === 'ask_clarification' && strategy.clarificationMessage) {
       setPendingQuestionClarification({
@@ -318,6 +352,7 @@ export async function* handleQuestion(
   conversationContext?: Array<{ role: 'user' | 'assistant'; content: string }>,
   retrievalOverrides?: RetrievalOptions,
   userInstructionsBlock: string = '',
+  pipelineTraceSink: MutablePipelineTraceSink | null = null,
 ): AsyncGenerator<AgentEvent> {
   const narrowConsumed = takeConsumedQuestionFollowUp()
   if (narrowConsumed !== null) {
@@ -353,6 +388,7 @@ export async function* handleQuestion(
         conversationContext,
         userInstructionsBlock,
         skipStrategistClarification: scored.length === 1,
+        pipelineTraceSink,
       })
       return
     }
@@ -510,6 +546,12 @@ export async function* handleQuestion(
       userInstructionsBlock,
       recentConversation: conversationContext,
     })
+    recordQuestionStrategistPipelineStage(
+      pipelineTraceSink,
+      strategy,
+      strategistPreviewsMain.previews.length,
+      strategistPreviewsMain.totalCount,
+    )
 
     if (strategy.mode === 'ask_clarification' && strategy.clarificationMessage) {
       setPendingQuestionClarification({
