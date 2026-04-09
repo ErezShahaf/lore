@@ -13,21 +13,15 @@ const defaultRepositoryRoot = resolve(providerDirectory, '../..')
 const activeServersByKey = new Map()
 const judgeSystemPrompt = [
   'You are an evaluation judge for Lore conversation tests.',
-  'The "actual state" payload includes the assistant response you must grade (for example a "response" field).',
-  'That assistant is a conversational product: it answers in natural language.',
-  'Do not require the assistant to output JSON, code fences, or any particular format unless the rubric explicitly says so.',
-  'Never fail because the assistant used conversational text, emojis, or markdown; those are expected from Lore.',
-  'If the rubric asks whether the assistant asked for clarification or disambiguation, pass when they invite the user to specify, choose among options, or narrow down—even with friendly tone.',
-  'For those clarification rubrics, pass when the assistant asks any reasonable question that waits on the user before changing data— including which item applies, how broadly to apply a change (e.g. one match vs several vs all), or how to interpret an ambiguous request.',
-  'Do not fail merely because the assistant clarified a different angle than a "perfect" phrasing (for example asking remove-some vs remove-all when several todos could match, or mirroring the user\'s words like "finished" while also asking about delete or archive).',
-  'A short acknowledgment of what the user said ("Got it", "I understand") before a clarifying question is acceptable and is not premature action unless the assistant also claims the database or list was already updated.',
-  'Numbered lists, bullets, and markdown in the assistant response are allowed and are not a reason to fail by themselves.',
-  'Evaluate only whether the assistant behavior satisfies the rubric.',
-  'Your own reply to this task must be only valid JSON with exactly two keys: "pass" (boolean) and "reason" (string).',
-  'Never use keys named "answer", "source", "explanation", or "result" for your verdict—only "pass" and "reason".',
-  'Do not wrap your verdict in markdown fences and do not add any text outside that single JSON object.',
-  'Use "pass": true only when the behavior clearly satisfies the rubric.',
-  'Be strict about actually executing or claiming completed state changes without user confirmation when the rubric requires clarification first; do not be strict about harmless paraphrase or which clarification dimension the assistant chose.',
+  'Each grading turn sends you a user message with a rubric and an "actual state" JSON payload; grade the Lore assistant using fields such as "response" or transcript text inside that payload.',
+  'The assistant under test is conversational: natural language, markdown, numbered lists, bullets, and emojis are expected.',
+  'Never require Lore to output JSON, code fences, or a rigid format unless the rubric explicitly demands it.',
+  'If your reason would blame the assistant for JSON, verdict keys, or code fences, you confused roles: judge only whether their natural-language reply satisfies the rubric.',
+  'For clarification rubrics, pass when they invite the user to specify, choose among options, or narrow scope—including which item, how many, or how broadly to apply a change—with reasonable wording or friendly tone.',
+  'Do not fail for a different but valid clarification angle (for example remove-some vs remove-all when several todos could match, or echoing words like "finished" while asking about delete or archive).',
+  'A short acknowledgment before a clarifying question is fine unless the assistant also claims the database or list was already updated.',
+  'Use pass true only when behavior clearly satisfies the rubric; be strict about claiming completed data changes without user confirmation when the rubric requires waiting on the user first.',
+  'Your verdict uses exactly two fields: pass (boolean) and reason (string). The API schema enforces this shape; do not use other top-level keys (no answer, source, explanation, or result).',
 ].join(' ')
 
 const clarificationRequiredRubric =
@@ -43,9 +37,8 @@ const judgeVerdictJsonSchema = {
 }
 
 const judgeRepairUserMessage =
-  'Your last reply was not a single JSON object with exactly two keys: "pass" (boolean) and "reason" (string). '
-  + 'Reply again with only that JSON verdict. No markdown fences and no text before or after the JSON. '
-  + 'This applies only to you as the judge, not to the assistant response you are evaluating.'
+  'Your last verdict did not parse as the required schema: exactly pass (boolean) and reason (string), no other top-level keys. '
+  + 'Reply again matching that schema only. This applies to you as the judge, not to the Lore assistant response you graded.'
 
 function normalizeText(value) {
   return String(value || '').toLowerCase().replace(/\s+/g, ' ').trim()
@@ -280,6 +273,7 @@ function heuristicAssistantAsksForClarification(response) {
     'there are multiple',
     'reply with a number',
     'pick a number',
+    'just the option number',
     'paste the exact wording',
     'numbered candidates',
     '1, 2,',
@@ -730,13 +724,10 @@ async function evaluateSimulatedUserFollowUp({
 
 async function judgeRubric({ judgeModel, ollamaHost, rubric, actualState }) {
   const initialUserContent = [
-    'You are the judge. Your entire reply must be one JSON object: {"pass":boolean,"reason":"string"}.',
-    'Use only those two key names. Do not use "answer", "source", "explanation", or "result" as key names.',
-    'The Lore assistant\'s message in actual state (e.g. "response") may be plain language, numbered lists, or markdown — that is correct for Lore and is not a format error.',
-    'Do not fail Lore for "not outputting JSON"; only you output JSON.',
-    'If your reason would mention JSON, pass/reason keys, or code fences in connection with the assistant\'s message, you are mixing up roles: stop and grade only the rubric against that natural-language response.',
+    'Apply the rubric to the actual state below.',
     '',
     `Rubric:\n${rubric}`,
+    '',
     'Actual state:',
     JSON.stringify(actualState, null, 2),
   ].join('\n')

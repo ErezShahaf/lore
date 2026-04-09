@@ -74,7 +74,7 @@ When **one message** mixes that kind of **standing instruction** **and** new tod
 
 If the **assistant** just asked which note, person, or record the user meant (for example two people named Alex) and the user answers with a **narrowing** reply (“I mean the finance one”, “number 1”, “the first”), classify **`read`**, not **`speak`**. Merge their answer with the **prior question** in `data` / `situationSummary` so retrieval can target the right note.
 
-If the **assistant** just asked **which stored item to delete or edit** (numbered options, “paste the exact wording”, or equivalent) and the user answers by **repeating one line’s text**, giving a **number**, or another **short, unambiguous pick**, classify **`delete`** or **`edit`**—the operation being clarified—not **`speak`**. Bare task/note wording alone still counts as that command when it clearly selects one candidate.
+If the **assistant** just asked **which stored item to delete or edit** (numbered options, or equivalent), a **numeric-only** reply (for example `2`) is the **preferred** follow-up; **`delete`** or **`edit`** still applies when the user **pastes the exact line**, repeats one line’s text, or gives another **short, unambiguous pick**—never **`speak`** when they are clearly choosing among those options.
 
 ---
 

@@ -209,7 +209,7 @@ export const ambiguousReferenceScenarios = [
   {
     id: 'ambiguous-run-delete-exact-content-follow-up-executes',
     topic: 'ambiguous-reference',
-    title: 'Exact content follow-up after clarification executes delete',
+    title: 'Numeric follow-up after delete clarification executes removal',
     suites: ['full'],
     steps: [
       {
@@ -228,13 +228,14 @@ export const ambiguousReferenceScenarios = [
         },
       },
       {
-        userInput: 'run 5 mile',
+        userInput: '2',
         expect: {
           deletedCount: 1,
           todoCount: 1,
           todoContentsIncludeExact: ['run 10 mile'],
           todoContentsExcludeExact: ['run 5 mile'],
-          responseJudge: 'The assistant should treat "run 5 mile" as selecting that specific option from the clarification list. It should complete the deletion and confirm instead of asking again.',
+          responseJudge:
+            'The assistant should treat "2" as selecting the second numbered option from the prior clarification list (the 5-mile run), complete that deletion, and confirm—without restarting clarification or acting confused.',
         },
       },
     ],

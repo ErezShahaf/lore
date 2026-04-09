@@ -196,7 +196,8 @@ export function buildFallbackAssistantReply(facts: AssistantReplyFacts): string 
         '',
         facts.verbatimNumberedOptionsBlock,
         '',
-        'Reply with the number or paste the exact wording of the item you mean.',
+        'Reply with just the option number (for example, 2)—that is the most reliable.',
+        'If you prefer, you can paste the exact line text instead.',
       ].join('\n')
     }
     case 'command_clarify_uncertain': {
