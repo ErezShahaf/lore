@@ -132,4 +132,30 @@ export const instructionPersistenceScenarios = [
       },
     ],
   },
+  {
+    id: 'instruction-list-order-survives-conversation-reset',
+    topic: 'instruction-persistence',
+    title: 'Todo list ordering instruction still applies after a fresh conversation',
+    suites: ['full'],
+    seedDocuments: datedTodoSeedDocuments,
+    steps: [
+      {
+        userInput: 'From now on, when you list my todos, show them from newest to oldest.',
+        expect: {
+          storedCount: 1,
+          todoCount: 3,
+        },
+      },
+      {
+        clearConversationBeforeStep: true,
+        userInput: 'What are my todos?',
+        expect: {
+          todoCount: 3,
+          responseJudge:
+            'The answer should list all three todos and order them newest to oldest by their saved dates: buy cat food first, then book dentist, then renew passport.',
+          responseExcludes: ['From now on'],
+        },
+      },
+    ],
+  },
 ]

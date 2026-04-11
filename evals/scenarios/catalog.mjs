@@ -4,6 +4,7 @@ import { conversationRobustnessScenarios } from './conversationRobustnessScenari
 import { instructionPersistenceScenarios } from './instructionPersistenceScenarios.mjs'
 import { largeCorpusRetrievalScenarios } from './largeCorpusRetrievalScenarios.mjs'
 import { memoryRetrievalScenarios } from './memoryRetrievalScenarios.mjs'
+import { newChatTodoScenarios } from './newChatTodoScenarios.mjs'
 import { safetyBoundaryScenarios } from './safetyBoundaryScenarios.mjs'
 import { structuredDataScenarios } from './structuredDataScenarios.mjs'
 import { technicalReferenceRetrievalScenarios } from './technicalReferenceRetrievalScenarios.mjs'
@@ -22,6 +23,7 @@ export const scenarios = [
   ...todoRetrievalScenarios,
   ...instructionPersistenceScenarios,
   ...memoryRetrievalScenarios,
+  ...newChatTodoScenarios,
   ...largeCorpusRetrievalScenarios,
   ...todoUpdateScenarios,
   ...todoDeleteScenarios,

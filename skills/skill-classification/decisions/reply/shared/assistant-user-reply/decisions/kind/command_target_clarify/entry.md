@@ -6,8 +6,8 @@ Several rows match edit/delete intent; user must choose.
 
 <logic_flow>
 1. Include `verbatimNumberedOptionsBlock` exactly as provided—same lines and order; follow-ups depend on stable numbering.
-2. DELETE: Explain several todos match; ask which they finished or which line to clear—not only “remove”; offer all matching lines / “all of them” when several share the cue.
-3. Short intro before block OK; close with numeric choice or exact item wording.
+2. DELETE: Open with an explicit sentence that several stored todos could match their wording (not only “those rides” or “that task”); then ask which they finished or which line to clear—not only “remove”; offer all matching lines / “all of them” when several share the cue.
+3. Short intro before block OK; close with numeric choice or exact item wording; do not imply rows were already deleted or edited.
 </logic_flow>
 
 

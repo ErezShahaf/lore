@@ -1368,6 +1368,10 @@ async function runScenarioStep({
   stepIndex,
   judgeConfig,
 }) {
+  if (step.clearConversationBeforeStep === true) {
+    await requestJson(evalServer.baseUrl, '/conversation/reset', 'POST')
+  }
+
   await seedDocuments(evalServer, step.seedDocuments)
 
   const interactionTurns = []

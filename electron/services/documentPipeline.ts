@@ -226,6 +226,64 @@ export function narrowRetrievedDocumentsByQueryCategoryTokens(
   return filtered.length > 0 ? filtered : [...documents]
 }
 
+const GEOGRAPHIC_FOCUS_PATTERN =
+  /\b(tokyo|kyoto|osaka|yokohama|nagoya|sapporo|fukuoka|kobe|paris|lyon|marseille|london|manchester|edinburgh|berlin|munich|hamburg|madrid|barcelona|rome|milan|naples|amsterdam|rotterdam|brussels|zurich|geneva|vienna|prague|stockholm|copenhagen|oslo|helsinki|dublin|lisbon|seattle|portland|boston|chicago|denver|austin|atlanta|miami|dallas|houston|philadelphia|sydney|melbourne|brisbane|perth|auckland|toronto|vancouver|montreal|calgary|tel aviv|jerusalem|dubai|singapore|hong kong|taipei|seoul|bangkok|mumbai|delhi|beijing|shanghai)\b/gi
+
+/**
+ * When the question names a specific city or region, drop retrieved notes that omit that place
+ * (reduces semantically adjacent “same topic, different city” leakage).
+ */
+export function narrowRetrievedDocumentsByGeographicFocus(
+  referenceText: string,
+  documents: readonly ScoredDocument[],
+): ScoredDocument[] {
+  if (documents.length <= 1) {
+    return [...documents]
+  }
+  const matches = referenceText.match(GEOGRAPHIC_FOCUS_PATTERN)
+  if (matches === null || matches.length === 0) {
+    return [...documents]
+  }
+  const requiredPlaces = [...new Set(matches.map((token) => token.toLowerCase()))]
+  const filtered = documents.filter((document) => {
+    const contentLower = document.content.toLowerCase()
+    return requiredPlaces.every((place) => contentLower.includes(place))
+  })
+  return filtered.length > 0 ? filtered : [...documents]
+}
+
+/**
+ * Caps read-path retrieval after scoring so broad vector search cannot flood the answer model.
+ * URL-heavy and multi-needle questions get tighter caps; otherwise only trims very long tails.
+ */
+export function capRetrievedDocumentsForReadPath(
+  userInput: string,
+  documents: readonly ScoredDocument[],
+): ScoredDocument[] {
+  if (documents.length <= 1) {
+    return [...documents]
+  }
+  const sorted = [...documents].sort((left, right) => right.score - left.score)
+  const needles = extractLiteralSearchNeedles(userInput)
+  const hasUrlNeedle = needles.some((needle) => /^https?:\/\//i.test(needle))
+  const substantiveNeedleCount = needles.filter(
+    (needle) => needle.length >= 6 && !/^https?:\/\//i.test(needle),
+  ).length
+  let maxDocuments = sorted.length
+  if (hasUrlNeedle) {
+    maxDocuments = Math.min(maxDocuments, 12)
+  } else if (needles.some((needle) => needle.length >= 44 && !/^https?:\/\//i.test(needle))) {
+    maxDocuments = Math.min(maxDocuments, 8)
+  } else if (substantiveNeedleCount >= 3 && sorted.length > 8) {
+    maxDocuments = 8
+  } else if (sorted.length > 40) {
+    maxDocuments = 24
+  } else if (sorted.length > 24) {
+    maxDocuments = 16
+  }
+  return sorted.slice(0, maxDocuments)
+}
+
 function boostByLexicalOverlap(docs: ScoredDocument[], referenceText: string): ScoredDocument[] {
   if (referenceText.trim().length === 0) return docs
   return docs.map((document) => {

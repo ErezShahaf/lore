@@ -60,6 +60,28 @@ export async function* handleCommand(
     retrievalOpts.type = 'todo'
   }
 
+  const pendingForRetrievalScope = getPendingCommandClarification()
+  const earlyNumericSelection = parseClarificationNumericReply(userInput.trim())
+  if (
+    pendingForRetrievalScope !== null
+    && earlyNumericSelection !== null
+    && earlyNumericSelection >= 1
+    && earlyNumericSelection <= pendingForRetrievalScope.candidateDocumentIds.length
+    && (classification.intent === 'delete' || classification.intent === 'edit')
+    && pendingForRetrievalScope.commandIntent === classification.intent
+  ) {
+    retrievalOpts.ids = [...pendingForRetrievalScope.candidateDocumentIds]
+    if (pendingForRetrievalScope.retrievalOptions?.type === 'todo') {
+      retrievalOpts.type = 'todo'
+    }
+  } else if (
+    !retrievalOpts.type
+    && (classification.intent === 'delete' || classification.intent === 'edit')
+    && /\b(todo|todos|tasks?)\b/i.test(`${userInput}\n${classification.data}`)
+  ) {
+    retrievalOpts.type = 'todo'
+  }
+
   const documents =
     retrievalOpts.type === 'todo'
       ? await retrieveTodoCandidatesForCommand(retrievalOpts)

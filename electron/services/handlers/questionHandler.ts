@@ -3,7 +3,9 @@ import {
   DEFAULT_MAX_RESULTS,
   lexicalMatchRatio,
   multiQueryRetrieve,
+  capRetrievedDocumentsForReadPath,
   narrowRetrievedDocumentsByClassifierFocus,
+  narrowRetrievedDocumentsByGeographicFocus,
   narrowRetrievedDocumentsByLexicalFocus,
   narrowRetrievedDocumentsByQueryCategoryTokens,
   retrieveByFilters,
@@ -452,9 +454,15 @@ export async function* handleQuestion(
   const afterCategoryTokens = isTodoQuery
     ? afterLexicalNarrowing
     : narrowRetrievedDocumentsByQueryCategoryTokens(narrowingReference, afterLexicalNarrowing)
-  const documents = isTodoQuery
+  const afterGeographic = isTodoQuery
     ? afterCategoryTokens
-    : narrowRetrievedDocumentsByClassifierFocus(classification, afterCategoryTokens)
+    : narrowRetrievedDocumentsByGeographicFocus(narrowingReference, afterCategoryTokens)
+  const afterClassifierFocus = isTodoQuery
+    ? afterGeographic
+    : narrowRetrievedDocumentsByClassifierFocus(classification, afterGeographic)
+  const documents = isTodoQuery
+    ? afterClassifierFocus
+    : capRetrievedDocumentsForReadPath(narrowingReference, afterClassifierFocus)
 
   const questionAnswerSelectors = {
     retrievalStatus: documents.length === 0 ? 'empty' : 'non_empty',
