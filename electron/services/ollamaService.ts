@@ -919,8 +919,21 @@ function extractFirstBalancedJsonObject(value: string): string | null {
   return null
 }
 
+function stripLeadingThinkingBlock(rawResponse: string): string {
+  const trimmedStart = rawResponse.trimStart()
+  if (!trimmedStart.toLowerCase().startsWith('<thinking>')) {
+    return rawResponse
+  }
+  const closeTag = '</thinking>'
+  const closeIndex = trimmedStart.toLowerCase().indexOf(closeTag)
+  if (closeIndex === -1) {
+    return rawResponse
+  }
+  return trimmedStart.slice(closeIndex + closeTag.length).trimStart()
+}
+
 function sanitizeStructuredJsonResponse(rawResponse: string): string {
-  let cleaned = rawResponse.trim()
+  let cleaned = stripLeadingThinkingBlock(rawResponse).trim()
   cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/g, '')
 
   const balanced = extractFirstBalancedJsonObject(cleaned)

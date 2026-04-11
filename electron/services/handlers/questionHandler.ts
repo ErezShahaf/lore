@@ -5,6 +5,7 @@ import {
   multiQueryRetrieve,
   narrowRetrievedDocumentsByClassifierFocus,
   narrowRetrievedDocumentsByLexicalFocus,
+  narrowRetrievedDocumentsByQueryCategoryTokens,
   retrieveByFilters,
   hybridRetrieveWithAdaptiveThreshold,
 } from '../documentPipeline'
@@ -448,9 +449,12 @@ export async function* handleQuestion(
   const afterLexicalNarrowing = isTodoQuery
     ? sortedFallbackDocuments
     : narrowRetrievedDocumentsByLexicalFocus(narrowingReference, sortedFallbackDocuments)
-  const documents = isTodoQuery
+  const afterCategoryTokens = isTodoQuery
     ? afterLexicalNarrowing
-    : narrowRetrievedDocumentsByClassifierFocus(classification, afterLexicalNarrowing)
+    : narrowRetrievedDocumentsByQueryCategoryTokens(narrowingReference, afterLexicalNarrowing)
+  const documents = isTodoQuery
+    ? afterCategoryTokens
+    : narrowRetrievedDocumentsByClassifierFocus(classification, afterCategoryTokens)
 
   const questionAnswerSelectors = {
     retrievalStatus: documents.length === 0 ? 'empty' : 'non_empty',

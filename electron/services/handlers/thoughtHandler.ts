@@ -28,6 +28,69 @@ export interface HandleThoughtOptions {
   readonly totalActionsInTurn?: number
 }
 
+function isMinimalSaveOrStoreItAcknowledgement(handlerPayload: string): boolean {
+  return /^(save it|store it)\.?$/i.test(handlerPayload.trim())
+}
+
+function threadContainsPriorUserStructuredBlob(
+  conversationHistory: readonly ConversationEntry[],
+): boolean {
+  return conversationHistory.some(
+    (entry) =>
+      entry.role === 'user'
+      && entry.content.trim().length > 1
+      && looksLikeStructuredBlob(entry.content),
+  )
+}
+
+function looksLikeStructuredBlob(content: string): boolean {
+  const trimmed = content.trim()
+  if (trimmed.startsWith('{') && trimmed.includes('}')) {
+    return true
+  }
+  if (trimmed.startsWith('[')) {
+    return true
+  }
+  return false
+}
+
+/**
+ * When the classifier returns one `save` + `todo` but bundles several tasks
+ * (common with small models), persist one document per distinct task.
+ */
+function splitDistinctTodoBodies(resolvedTodoText: string): readonly string[] {
+  const trimmed = resolvedTodoText.trim()
+  if (trimmed.length === 0) {
+    return []
+  }
+
+  const todosPrefixedMatch: RegExpMatchArray | null = trimmed.match(/^\s*Todos?\s*:\s*(.+)$/is)
+  if (todosPrefixedMatch !== null) {
+    const afterLabel = todosPrefixedMatch[1]!.trim()
+    if (afterLabel.length === 0) {
+      return []
+    }
+    const commaPieces = afterLabel
+      .split(',')
+      .map((segment: string) => segment.trim())
+      .filter((segment: string) => segment.length > 0)
+    if (commaPieces.length >= 2) {
+      return commaPieces
+    }
+    return [afterLabel]
+  }
+
+  const linePieces = trimmed
+    .split(/\r?\n/)
+    .map((line: string) => line.trim())
+    .filter((line: string) => line.length > 0)
+  if (linePieces.length >= 2) {
+    return linePieces
+  }
+
+  return [trimmed]
+}
+
 function tagsForSaveDocument(
   documentType: DecomposedDocumentType,
   extractedTags: readonly string[],
@@ -154,6 +217,30 @@ export async function* handleThought(
     if (shouldStoreRouterExtractedTodoBody) {
       resolvedContent = routerExtractedData
     } else {
+      const documentTypeNeedsTitleBeforeMinimalAck =
+        documentTypeForResolution === 'note' || documentTypeForResolution === 'meeting'
+
+      if (
+        documentTypeNeedsTitleBeforeMinimalAck
+        && isMinimalSaveOrStoreItAcknowledgement(trimmed)
+        && threadContainsPriorUserStructuredBlob(conversationHistory)
+      ) {
+        yield {
+          type: 'turn_step_summary',
+          summary:
+            'Save: short save acknowledgement after structured data; asking for title before persisting.',
+          reportedOutcomeStatus: 'succeeded',
+        }
+        for await (const chunk of streamAssistantUserReplyWithFallback({
+          userInstructionsBlock,
+          facts: { kind: 'save_body_clarify_short_title' },
+        })) {
+          yield { type: 'chunk', content: chunk }
+        }
+        yield { type: 'done' }
+        return
+      }
+
       const bodyResolution = await resolveSaveNoteBody({
         handlerPayload: trimmed,
         fullTurnUserMessage: fullTurn,
@@ -223,6 +310,37 @@ export async function* handleThought(
   const date = classification.extractedDate ?? today
   const documentType = documentTypeForResolution
   const tags = tagsForSaveDocument(documentType, classification.extractedTags)
+
+  const distinctTodoBodies =
+    !isMultiActionTurn && documentType === 'todo'
+      ? splitDistinctTodoBodies(resolvedContent)
+      : [resolvedContent]
+
+  if (distinctTodoBodies.length > 1) {
+    let sawDuplicateAbort = false
+    for (const body of distinctTodoBodies) {
+      for await (const event of storeSingleItem(
+        body,
+        body,
+        documentType,
+        date,
+        tags,
+        null,
+        userInstructionsBlock,
+        conversationHistory,
+      )) {
+        if (event.type === 'duplicate') {
+          sawDuplicateAbort = true
+        }
+        yield event
+      }
+      if (sawDuplicateAbort) {
+        break
+      }
+    }
+    yield { type: 'done' }
+    return
+  }
 
   yield* storeSingleItem(
     resolvedContent,

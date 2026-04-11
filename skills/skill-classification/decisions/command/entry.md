@@ -1,10 +1,18 @@
-# `edit` / `delete` branch
+<system_prompt id="command-branch-router">
 
-Classifier **`intent`: `edit`** or **`delete`** — both use this **`decisions/command/`** tree (same agents).
+<role>
+Orientation only: classifier `edit` and `delete` share this `decisions/command/` branch.
+</role>
 
-## Agents (`decisions/`)
+<logic_flow>
+1. ROUTE: Decomposition resolves targets → `command-decomposition`. Execution loop → `skill-worker-command`.
+</logic_flow>
 
+<formatting_rules>
 | Folder | `loadSkill` id | Role |
 |--------|----------------|------|
-| `decisions/command-decomposition/` | `command-decomposition` | Resolve targets / planning. |
-| `decisions/skill-worker-command/` | `skill-worker-command` | Tool-loop update specialist. |
+| `decisions/command-decomposition/` | `command-decomposition` | Targets / plan. |
+| `decisions/skill-worker-command/` | `skill-worker-command` | Tool-loop worker. |
+</formatting_rules>
+
+</system_prompt>

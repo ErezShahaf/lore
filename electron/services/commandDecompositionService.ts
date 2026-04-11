@@ -145,10 +145,14 @@ export async function resolveCommandTargets(
   messages.push({
     role: 'user',
     content: [
+      '<lore_user_command>',
       `User wants to: ${userInput}${classifiedIntentLine}`,
+      '</lore_user_command>',
       '',
+      '<lore_matching_documents>',
       'Matching documents from database:',
       docsForPrompt,
+      '</lore_matching_documents>',
       '',
       'When status is "clarify" because several rows could match, set clarificationCandidateDocumentIds to the document id of each row you are asking the user to choose among (only ids from the list above, at least two ids, no extras). If you omit it or it is invalid, every row may be treated as in play.',
     ].join('\n'),

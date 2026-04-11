@@ -1,23 +1,16 @@
-# Turn reply branch
+<system_prompt id="reply-branch-router">
 
-Not a classifier **`intent`** — runs **after** handlers to compose the user-visible chat line from structured **facts**.
+<role>
+Post-handler step: compose the user-visible line from structured `facts` (not a classifier intent).
+</role>
 
-## Agent (`shared/`)
+<logic_flow>
+1. AGENT: `assistant-user-reply` consumes `FACTS_JSON` and writes chat text.
+2. BRANCH: `decisions/kind/<value>/entry.md` matches `facts.kind`, plus `default`.
+</logic_flow>
 
-| Folder | `loadSkill` id | Role |
-|--------|----------------|------|
-| `shared/assistant-user-reply/` | `assistant-user-reply` | Writes final message from `FACTS_JSON`. |
+<formatting_rules>
+Kinds: `thought_saved_single`, `duplicate_save_clarification_pending`, `thought_saved_many`, `instruction_stored`, `command_no_documents`, `command_no_match`, `command_executed`, `save_input_empty`, `save_duplicate_replace_blocked`, `save_body_clarify_structured_intent`, `save_body_clarify_short_title`, `command_resolution_failed`, `command_target_clarify`, `command_clarify_uncertain`, `command_clarify_model_text`, `orchestrator_surface_fallback`, `todo_list_present`, `multi_action_summary`, `default`.
+</formatting_rules>
 
-## `assistant-user-reply` runtime branches
-
-`decisions/kind/<value>/entry.md` where **`<value>`** matches **`facts.kind`** from code (`AssistantReplyFacts`), plus **`default`**:
-
-- `thought_saved_single`
-- `duplicate_save_clarification_pending`
-- `thought_saved_many`
-- `instruction_stored`
-- `command_no_documents`
-- `command_no_match`
-- `command_executed`
-- `multi_action_summary`
-- `default`
+</system_prompt>

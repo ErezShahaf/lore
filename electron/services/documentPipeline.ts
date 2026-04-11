@@ -190,6 +190,42 @@ export function narrowRetrievedDocumentsByClassifierFocus(
   return filtered.length > 0 ? filtered : [...documents]
 }
 
+const QUERY_CATEGORY_FOCUS_WORDS: readonly string[] = [
+  'restaurant',
+  'hotel',
+  'cafe',
+  'subway',
+  'transit',
+  'flight',
+  'airport',
+]
+
+/**
+ * When the question names a venue or travel category, drop retrieved notes that lack that category
+ * (same city is not enough). Falls back to the full list if nothing would remain.
+ */
+export function narrowRetrievedDocumentsByQueryCategoryTokens(
+  referenceText: string,
+  documents: readonly ScoredDocument[],
+): ScoredDocument[] {
+  if (documents.length <= 1) {
+    return [...documents]
+  }
+  const requiredWords: string[] = []
+  for (const word of QUERY_CATEGORY_FOCUS_WORDS) {
+    if (new RegExp(`\\b${word}\\b`, 'i').test(referenceText)) {
+      requiredWords.push(word)
+    }
+  }
+  if (requiredWords.length === 0) {
+    return [...documents]
+  }
+  const filtered = documents.filter((document) =>
+    requiredWords.every((word) => new RegExp(`\\b${word}\\b`, 'i').test(document.content)),
+  )
+  return filtered.length > 0 ? filtered : [...documents]
+}
+
 function boostByLexicalOverlap(docs: ScoredDocument[], referenceText: string): ScoredDocument[] {
   if (referenceText.trim().length === 0) return docs
   return docs.map((document) => {

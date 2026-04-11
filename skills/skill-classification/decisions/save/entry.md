@@ -1,15 +1,28 @@
-# `save` branch
+<system_prompt id="save-branch-router">
 
-Classifier **`intent`: `save`**.
+<role>
+Orientation: classifier `save`; all listed `saveDocumentType` values share this branch.
+</role>
 
-`saveDocumentType` in JSON is one of **`todo`**, **`thought`**, **`instruction`**, **`note`**, **`meeting`** — all are handled by the same downstream save path (no separate prompt folder per type).
+<logic_flow>
+1. PRIMARY WORKER: `skill-worker-thought` for main save + `compose_reply`.
+2. DUPLICATES: `duplicate-resolution`, `duplicate-prompt-follow-up`.
+3. BODY/TITLE: `save-note-body-resolution`.
+4. LEGACY: `skill-worker-instruction` (reserved / side path).
+</logic_flow>
 
-## Agents (`decisions/`)
-
+<formatting_rules>
 | Folder | `loadSkill` id | Role |
 |--------|----------------|------|
-| `decisions/skill-worker-thought/` | `skill-worker-thought` | Main save / compose_reply path. |
-| `decisions/duplicate-resolution/` | `duplicate-resolution` | User intent after a likely duplicate (ask / add_new / update). |
-| `decisions/duplicate-prompt-follow-up/` | `duplicate-prompt-follow-up` | Interpret user reply after duplicate add-new vs update prompt. |
-| `decisions/save-note-body-resolution/` | `save-note-body-resolution` | Decide stored body vs title or intent clarification for save path. |
-| `decisions/skill-worker-instruction/` | `skill-worker-instruction` | Reserved; not referenced by main services today. |
+| `decisions/skill-worker-thought/` | `skill-worker-thought` | Main save path. |
+| `decisions/duplicate-resolution/` | `duplicate-resolution` | Duplicate intent. |
+| `decisions/duplicate-prompt-follow-up/` | `duplicate-prompt-follow-up` | After duplicate prompt. |
+| `decisions/save-note-body-resolution/` | `save-note-body-resolution` | Body/title/intent. |
+| `decisions/skill-worker-instruction/` | `skill-worker-instruction` | Reserved. |
+</formatting_rules>
+
+<constraints>
+- `saveDocumentType`: `todo` | `thought` | `instruction` | `note` | `meeting` — same downstream path.
+</constraints>
+
+</system_prompt>

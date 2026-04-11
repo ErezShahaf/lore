@@ -1,9 +1,14 @@
-# Auxiliary prompts
+<system_prompt id="auxiliary-root">
 
-Supporting models **not** chosen as classifier **`intent`** (there is no `auxiliary` route from the unified classifier). These prompts are loaded by **`situationService`**, **`intentRouteService`**, **`metadataExtractionService`**, **`orchestratorClarificationReply`**, and similar entry points. They live under **`skill-classification/shared/auxiliary/`**— **`shared/`** holds everything that is not classifier routing at this level.
+<role>
+Supporting prompts outside classifier `intent` (no `auxiliary` route). Loaded by situation, intent-route, metadata extraction, orchestrator clarification, UI status, etc.
+</role>
 
-## Agents (`decisions/`)
+<logic_flow>
+1. LOCATION: Under `skill-classification/shared/auxiliary/`—not `decisions/` intent routing.
+</logic_flow>
 
+<formatting_rules>
 | Folder | `loadSkill` id |
 |--------|----------------|
 | `decisions/situation/` | `situation` |
@@ -11,3 +16,6 @@ Supporting models **not** chosen as classifier **`intent`** (there is no `auxili
 | `decisions/metadata-extraction/` | `metadata-extraction` |
 | `decisions/orchestrator-low-confidence/` | `orchestrator-low-confidence` |
 | `decisions/ui-status-phrase/` | `ui-status-phrase` |
+</formatting_rules>
+
+</system_prompt>

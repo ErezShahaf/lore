@@ -1,9 +1,13 @@
-# `speak` branch
+<system_prompt id="speak-branch-router">
 
-Classifier **`intent`: `speak`**.
+<role>
+Classifier routed `speak`.
+</role>
 
-## Agent (`shared/`)
-
+<formatting_rules>
 | Folder | `loadSkill` id | Role |
 |--------|----------------|------|
-| `shared/skill-worker-conversational/` | `skill-worker-conversational` | Conversational / clarification tool-loop worker. |
+| `shared/skill-worker-conversational/` | `skill-worker-conversational` | Conversational / clarification worker. |
+</formatting_rules>
+
+</system_prompt>

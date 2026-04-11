@@ -11,7 +11,7 @@ export interface SkillFile {
 
 export type SkillPromptSelectors = Readonly<Partial<Record<string, string>>>
 
-/** Loader id for the unified classifier (`skills/skill-classification/entry.md` only — no subtree). */
+/** Loader id for the unified classifier: root `entry.md` plus optional `shared/first-turn-classifier/*.md` fragments. */
 export const FIRST_TURN_SKILL_ID = 'skill-classification' as const
 
 const CLASSIFICATION_FOLDER_NAME = 'skill-classification' as const
@@ -158,11 +158,33 @@ function collectAncestorEntryFragments(
 }
 
 function loadClassificationRootOnly(skillsDir: string): string {
-  const entryPath = join(getClassificationRootDirectory(skillsDir), 'entry.md')
+  const classificationRoot = getClassificationRootDirectory(skillsDir)
+  const entryPath = join(classificationRoot, 'entry.md')
   if (!fileExists(entryPath)) {
     throw new Error(`Classification skill not found at ${entryPath}`)
   }
-  return readTextFile(entryPath).trim()
+  const parts: string[] = [readTextFile(entryPath).trim()]
+  const supplementDir = join(classificationRoot, 'shared', 'first-turn-classifier')
+  if (directoryExists(supplementDir)) {
+    const names = readdirSync(supplementDir)
+      .filter((name) => extname(name).toLowerCase() === '.md')
+      .sort((a, b) => a.localeCompare(b))
+    for (const name of names) {
+      const fragmentPath = join(supplementDir, name)
+      try {
+        if (!statSync(fragmentPath).isFile()) {
+          continue
+        }
+      } catch {
+        continue
+      }
+      const body = readTextFile(fragmentPath).trim()
+      if (body.length > 0) {
+        parts.push(body)
+      }
+    }
+  }
+  return parts.join('\n\n---\n\n')
 }
 
 function loadForkedSkillAtDirectory(skillDir: string, selectors: SkillPromptSelectors): string {

@@ -1,21 +1,27 @@
-# `read` branch
+<system_prompt id="read-branch-router">
 
-Classifier **`intent`: `read`** (and general-knowledge questions you classify as read).
+<role>
+Orientation: classifier `read` (including general-knowledge reads routed here).
+</role>
 
-## Agents (`decisions/`)
+<logic_flow>
+1. ANSWER PATH: `question-answer` after retrieval.
+2. STRATEGY: `question-strategist` for clarify vs answer.
+3. TOOL LOOP: `skill-worker-question` for search-driven reads.
+</logic_flow>
 
+<formatting_rules>
 | Folder | `loadSkill` id | Role |
 |--------|----------------|------|
-| `decisions/question-answer/` | `question-answer` | Answer after retrieval; see **decisions** below. |
-| `decisions/question-strategist/` | `question-strategist` | Choose clarify vs answer. |
-| `decisions/skill-worker-question/` | `skill-worker-question` | Tool-loop read specialist. |
+| `decisions/question-answer/` | `question-answer` | Post-retrieval answer. |
+| `decisions/question-strategist/` | `question-strategist` | Clarify vs answer. |
+| `decisions/skill-worker-question/` | `skill-worker-question` | Read worker. |
 
-## `question-answer` runtime branches
+`question-answer` branches (merge order `retrievalStatus` → `todoListing` → `structuredRetrieved`):
 
-Under `decisions/question-answer/decisions/`, each decision key matches **`questionHandler`** selectors (merge order: `retrievalStatus` → `todoListing` → `structuredRetrieved`):
+- `retrievalStatus`: `empty` | `non_empty` | `default`
+- `todoListing`: `yes` | `no` | `default`
+- `structuredRetrieved`: `yes` | `no` | `default`
+</formatting_rules>
 
-- **`retrievalStatus`**: `empty` | `non_empty` | `default`
-- **`todoListing`**: `yes` | `no` | `default`
-- **`structuredRetrieved`**: `yes` | `no` | `default`
-
-Each outcome folder contains its own `entry.md` fragment.
+</system_prompt>

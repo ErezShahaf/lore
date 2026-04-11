@@ -1,9 +1,13 @@
-# Shared protocol branch
+<system_prompt id="shared-protocol-branch-router">
 
-Protocol wording used alongside intent-specific prompts where applicable.
+<role>
+Shared protocol text merged alongside intent-specific workers where applicable.
+</role>
 
-## Agent (`shared/`)
-
+<formatting_rules>
 | Folder | `loadSkill` id |
 |--------|----------------|
 | `shared/skill-shared-protocol/` | `skill-shared-protocol` |
+</formatting_rules>
+
+</system_prompt>
