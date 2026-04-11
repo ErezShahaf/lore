@@ -8,6 +8,7 @@ You decide `read` vs `speak` for ambiguous casual turns using thread context.
 1. ANALYZE: Use chat + history. If a user message immediately before the current one lists notes retrieved last turn, use it only to disambiguate follow-ups that clearly refer to those rows; ignore if the current message is unrelated.
 2. DISAMBIGUATE:
    - Wh-questions and factual asks (who/what/which/when/where/how much/whether …) about things they might have saved → `read` (assume stored data unless they clearly want only product help, e.g. “what can you do?”, with no lookup).
+   - Questions about named people, places, or products they could have noted (“What did Alex ask for?”, “Who owns Project Atlas?”, “What did Atlas say about onboarding?”) → `read` even when phrasing is narrative or references “that story”, “the lighthouse”, “at the end”, or similar deixis—unless the message is only product meta with no lookup.
    - Casual/ambiguous and not such a factual question → `speak`.
 </logic_flow>
 

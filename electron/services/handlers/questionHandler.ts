@@ -5,6 +5,7 @@ import {
   multiQueryRetrieve,
   capRetrievedDocumentsForReadPath,
   narrowRetrievedDocumentsByClassifierFocus,
+  narrowRetrievedDocumentsByConjunctiveFocusGroups,
   narrowRetrievedDocumentsByGeographicFocus,
   narrowRetrievedDocumentsByLexicalFocus,
   narrowRetrievedDocumentsByQueryCategoryTokens,
@@ -457,9 +458,12 @@ export async function* handleQuestion(
   const afterGeographic = isTodoQuery
     ? afterCategoryTokens
     : narrowRetrievedDocumentsByGeographicFocus(narrowingReference, afterCategoryTokens)
-  const afterClassifierFocus = isTodoQuery
+  const afterConjunctive = isTodoQuery
     ? afterGeographic
-    : narrowRetrievedDocumentsByClassifierFocus(classification, afterGeographic)
+    : narrowRetrievedDocumentsByConjunctiveFocusGroups(narrowingReference, afterGeographic)
+  const afterClassifierFocus = isTodoQuery
+    ? afterConjunctive
+    : narrowRetrievedDocumentsByClassifierFocus(classification, afterConjunctive)
   const documents = isTodoQuery
     ? afterClassifierFocus
     : capRetrievedDocumentsForReadPath(narrowingReference, afterClassifierFocus)

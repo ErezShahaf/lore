@@ -252,6 +252,49 @@ export function narrowRetrievedDocumentsByGeographicFocus(
   return filtered.length > 0 ? filtered : [...documents]
 }
 
+const CONJUNCTIVE_FOCUS_TOKEN_GROUPS: readonly (readonly string[])[] = [
+  ['stripe', 'checkout'],
+  ['stripe', 'endpoint'],
+  ['webhook', 'retry'],
+]
+
+function escapeRegExpForConjunctiveToken(token: string): string {
+  return token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * When the question names multiple distinctive tokens together (for example Stripe + checkout),
+ * drop retrieved notes that omit any of those tokens to reduce semantically near but wrong rows.
+ */
+export function narrowRetrievedDocumentsByConjunctiveFocusGroups(
+  referenceText: string,
+  documents: readonly ScoredDocument[],
+): ScoredDocument[] {
+  if (documents.length <= 1) {
+    return [...documents]
+  }
+  const lowerReference = referenceText.toLowerCase()
+  let filtered: ScoredDocument[] = [...documents]
+  for (const group of CONJUNCTIVE_FOCUS_TOKEN_GROUPS) {
+    const everyTokenInReference = group.every((token) =>
+      new RegExp(`\\b${escapeRegExpForConjunctiveToken(token)}\\b`, 'i').test(lowerReference),
+    )
+    if (!everyTokenInReference) {
+      continue
+    }
+    const narrowed = filtered.filter((document) => {
+      const contentLower = document.content.toLowerCase()
+      return group.every((token) =>
+        new RegExp(`\\b${escapeRegExpForConjunctiveToken(token)}\\b`, 'i').test(contentLower),
+      )
+    })
+    if (narrowed.length > 0) {
+      filtered = narrowed
+    }
+  }
+  return filtered
+}
+
 /**
  * Caps read-path retrieval after scoring so broad vector search cannot flood the answer model.
  * URL-heavy and multi-needle questions get tighter caps; otherwise only trims very long tails.

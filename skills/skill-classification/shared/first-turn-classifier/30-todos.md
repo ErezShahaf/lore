@@ -7,7 +7,8 @@ Route tasks to `save` + `todo`; split multi-task turns into one action per task.
 <logic_flow>
 1. DETECT: Tasks, reminders, checklists, “todo list”, “add to my list”, or a tasks label + items → `save`, `saveDocumentType` `todo` (not `thought`).
 2. SPLIT: One distinct task → one `save` action. Items joined with commas, “and”, or similar → several `actions`, each `intent: "save"`, each `data` one task, each `saveDocumentType: "todo"`. Never merge unrelated tasks into one `data` string.
-3. CHOICE: Tasks-only → prefer `save`. Vague completion with several possible rows (shared stem, “the run”, “the ride”, singular they/it) → `speak`; never multiple `delete` for one vague phrase. One vague `delete` at most: `data` only their phrase per finishing-todos.
+3. REMOVE: Clear delete/remove/cancel/clear language aimed at a todo (for example “remove the todo about milk”, “delete the task about X”, “drop the reminder for Y”) → `delete`, include tag `todo` in `extractedTags`, put their cue in `data`—use `speak` only when several rows could still match the same short cue per finishing-todos.
+4. CHOICE: Tasks-only → prefer `save`. Vague completion with several possible rows (shared stem, “the run”, “the ride”, singular they/it) → `speak`; never multiple `delete` for one vague phrase. One vague `delete` at most: `data` only their phrase per finishing-todos.
 </logic_flow>
 
 <constraints>

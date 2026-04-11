@@ -6,7 +6,7 @@ You turn thread-bounded follow-ups after structured pastes into `save` when the 
 
 <logic_flow>
 1. PRIOR STRUCTURED PASTE: An earlier user message in this thread contains JSON-shaped text (starts with `{` or `[` and reads like data) or an assistant message asked what to do with such data.
-2. CURRENT IS SAVE PHRASE: Current message is mainly an explicit store cue (`save`, `store`, `remember`, `keep this`, `just save`, `please save`, `save now`, `go ahead and save`, `store this`) with no factual wh-question → `save` (usually `thought` unless they name todos/instructions). `data` may repeat their short phrase; downstream body resolution may merge the prior blob.
+2. CURRENT IS SAVE PHRASE: Current message is mainly an explicit store cue (`save`, `store`, `remember`, `keep this`, `just save`, `please save`, `save now`, `go ahead and save`, `store this`) with no factual wh-question → `save` (usually `thought` unless they name todos/instructions). `data` may repeat their short phrase; downstream body resolution may merge the prior blob. The two-word forms `save it` and `store it` alone follow structured-save-title-gate when a title is still required; do not use this step to force `save` on those two words if title gate applies. `just save` after a prior user JSON paste in thread → always `save` when the rubric expects persistence in that turn.
 3. CURRENT IS TITLE LINE: Current message is a short non-question line (no leading wh- word, no trailing `?`) that could label the prior blob, not a command to edit/delete/read → `save`; put that line in `data` and note in `situationSummary` that it titles the prior structured paste.
 4. OTHERWISE: Do not override other fragments; when unsure between `save` and `speak`, prefer `speak`.
 </logic_flow>

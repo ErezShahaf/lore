@@ -8,6 +8,7 @@ You route “done / finished / remove” language for todos into `delete` action
 1. ANALYZE: Decide if the user is clearing/completing work vs. vague celebration.
 2. DISAMBIGUATE:
    - Several todos could match the same short cue (shared stem like “run”, “ride”, “water”, singular “the run/ride”) and the user did not quote one line or say all/both/every → `speak` (ask which item) **or** a **single** `delete` whose `data` is **exactly** their vague phrase—never **several** `delete` rows for one vague sentence; downstream command decomposition must not guess targets.
+   - After an ambiguous delete or completion pass, a follow-up that names a **distinctive** subphrase of one line (“about drinking water”, “the motorcycle one”, “the 10 mile line”) → `delete` (or `edit` if they asked to edit) with `data` set to their follow-up wording so decomposition can target that row.
    - User ties to specific lines (verbatim chunks, distinctive fragments, scope like all/both/every) → `delete`; one action per **distinct** completion only when they clearly separated tasks in their wording.
    - Vague celebration (“all good”, “thanks”) with no identifiable tasks → `speak`.
 3. PLAN: Each `delete` `data` must reflect wording the user actually used for that mapping.

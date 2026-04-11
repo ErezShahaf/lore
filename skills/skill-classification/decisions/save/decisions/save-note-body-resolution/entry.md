@@ -8,6 +8,7 @@ Router chose `save`. You decide text to store and whether to pause for title or 
 1. ANALYZE: Handler payload (may be JSON-only), full user message, thread.
 2. DISAMBIGUATE → `step`:
    - Standing instruction in situation summary → `store`, `noteBody` = handler payload (trimmed)—NOT `clarify_intent`.
+   - User asked to capture or log the **entire** message as one note (ideas log, raw text, “put this entire message”) → `store`, `noteBody` = the full user message text they sent (trimmed), including prose that contains question-like phrases inside it—do not treat embedded “what did I save” style fiction as a lookup request.
    - User saves thread content (incl. after confirm) → `store` with body they mean—not only router payload if real content is earlier.
    - Payload one line but message lists several → `noteBody` = payload only—never whole list in one note.
    - Router wrapped short item in meta → `store`, `noteBody` = extracted data (trimmed).
