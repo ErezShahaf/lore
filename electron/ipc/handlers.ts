@@ -25,12 +25,32 @@ import { retrieveRelevantDocuments } from '../services/documentPipeline'
 import { getDocumentsByType } from '../services/lanceService'
 import { processUserInput, clearConversation } from '../services/agentService'
 import { getSystemInfo, getHardwareProfile } from '../services/systemInfoService'
+import { refreshObsidianAutoSyncScheduler } from '../services/obsidianAutoSyncScheduler'
 import {
   fetchLatestVersion,
   getLastUpdatePromptShownAt,
   setLastUpdatePromptShownAt,
 } from '../services/updateCheckService'
-import type { RetrievalOptions, PullProgress, AppSettings, DisplayInfo } from '../../shared/types'
+import {
+  syncVault,
+  syncAllVaults,
+  getSyncStatus,
+  getAllSyncStatuses,
+  listTemplates,
+  startWatcher,
+  stopWatcher,
+  removeVaultData,
+} from '../services/obsidianService'
+import { createObsidianNote } from '../services/obsidianNoteWriter'
+import { getAllTags, getTagCount, buildRegistry as buildTagRegistry } from '../services/tagRegistry'
+import { v4 as uuidv4 } from 'uuid'
+import type {
+  RetrievalOptions,
+  PullProgress,
+  AppSettings,
+  DisplayInfo,
+  ObsidianVaultConfig,
+} from '../../shared/types'
 
 const activePulls = new Map<string, PullProgress>()
 
@@ -247,6 +267,7 @@ export function registerIpcHandlers(): void {
 
     const prev = getSettings()
     const updated = updateSettings(partial as Partial<AppSettings>)
+    refreshObsidianAutoSyncScheduler(prev, updated)
 
     if ('startOnLogin' in (partial as Record<string, unknown>)) {
       setAutoStart(updated.startOnLogin)
@@ -402,5 +423,241 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('update:set-last-prompt-shown', async () => {
     await setLastUpdatePromptShownAt()
+  })
+
+  // ── Obsidian integration ───────────────────────────────────────
+
+  ipcMain.handle('obsidian:pick-vault-folder', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const result = await dialog.showOpenDialog(win!, {
+      properties: ['openDirectory'],
+      title: 'Select Obsidian Vault Folder',
+    })
+    if (result.canceled) return null
+    return result.filePaths[0]
+  })
+
+  ipcMain.handle('obsidian:add-vault', async (_event, args: unknown) => {
+    const { name, vaultPath, templateFolder, noteDestination } = (args ?? {}) as {
+      name?: string
+      vaultPath?: string
+      templateFolder?: string
+      noteDestination?: string
+    }
+    if (!isString(vaultPath) || vaultPath.trim().length === 0) {
+      return { success: false, error: 'Invalid vault path' }
+    }
+
+    const vaultConfig: ObsidianVaultConfig = {
+      id: uuidv4(),
+      name: isString(name) && name.trim() ? name.trim() : 'My Vault',
+      vaultPath: vaultPath.trim(),
+      templateFolder: isString(templateFolder) ? templateFolder.trim() : '',
+      noteDestination: isString(noteDestination) ? noteDestination.trim() : '',
+      enabled: true,
+      lastSyncedAt: null,
+    }
+
+    const settings = getSettings()
+    const updatedVaults = [...settings.obsidianVaults, vaultConfig]
+    const updated = updateSettings({ obsidianVaults: updatedVaults })
+
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send('settings:changed', updated)
+    }
+
+    // Start watcher and trigger initial sync in background
+    startWatcher(vaultConfig)
+    syncVault(vaultConfig, (status) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send('obsidian:sync-progress', status)
+      }
+    }).then((status) => {
+      if (status.phase === 'done') {
+        const latestSettings = getSettings()
+        const vaultIndex = latestSettings.obsidianVaults.findIndex(v => v.id === vaultConfig.id)
+        if (vaultIndex >= 0) {
+          const vaults = [...latestSettings.obsidianVaults]
+          vaults[vaultIndex] = { ...vaults[vaultIndex], lastSyncedAt: new Date().toISOString() }
+          updateSettings({ obsidianVaults: vaults })
+        }
+      }
+    }).catch(err => {
+      logger.error({ err }, '[Obsidian] Initial sync failed')
+    })
+
+    return { success: true, vault: vaultConfig }
+  })
+
+  ipcMain.handle('obsidian:remove-vault', async (_event, args: unknown) => {
+    const { vaultId } = (args ?? {}) as { vaultId?: string }
+    if (!isString(vaultId)) return { success: false, error: 'Invalid vault ID' }
+
+    const settings = getSettings()
+    const updatedVaults = settings.obsidianVaults.filter(v => v.id !== vaultId)
+    const updated = updateSettings({ obsidianVaults: updatedVaults })
+
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send('settings:changed', updated)
+    }
+
+    await removeVaultData(vaultId)
+    return { success: true }
+  })
+
+  ipcMain.handle('obsidian:update-vault', async (_event, args: unknown) => {
+    const { vaultId, updates } = (args ?? {}) as {
+      vaultId?: string
+      updates?: Partial<ObsidianVaultConfig>
+    }
+    if (!isString(vaultId) || !updates) return { success: false, error: 'Invalid arguments' }
+
+    const settings = getSettings()
+    const vaultIndex = settings.obsidianVaults.findIndex(v => v.id === vaultId)
+    if (vaultIndex < 0) return { success: false, error: 'Vault not found' }
+
+    const vaults = [...settings.obsidianVaults]
+    vaults[vaultIndex] = { ...vaults[vaultIndex], ...updates, id: vaultId }
+    const updated = updateSettings({ obsidianVaults: vaults })
+
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send('settings:changed', updated)
+    }
+
+    // Restart watcher if config changed
+    if (vaults[vaultIndex].enabled) {
+      startWatcher(vaults[vaultIndex])
+    } else {
+      stopWatcher(vaultId)
+    }
+
+    return { success: true }
+  })
+
+  ipcMain.handle('obsidian:sync-vault', async (_event, args: unknown) => {
+    const { vaultId } = (args ?? {}) as { vaultId?: string }
+    if (!isString(vaultId)) return { success: false, error: 'Invalid vault ID' }
+
+    const settings = getSettings()
+    const config = settings.obsidianVaults.find(v => v.id === vaultId)
+    if (!config) return { success: false, error: 'Vault not found' }
+
+    syncVault(config, (status) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send('obsidian:sync-progress', status)
+      }
+    }).then((status) => {
+      if (status.phase === 'done') {
+        const latestSettings = getSettings()
+        const idx = latestSettings.obsidianVaults.findIndex(v => v.id === vaultId)
+        if (idx >= 0) {
+          const vaults = [...latestSettings.obsidianVaults]
+          vaults[idx] = { ...vaults[idx], lastSyncedAt: new Date().toISOString() }
+          const updatedSettings = updateSettings({ obsidianVaults: vaults })
+          for (const win of BrowserWindow.getAllWindows()) {
+            win.webContents.send('settings:changed', updatedSettings)
+          }
+        }
+      }
+    }).catch(err => {
+      logger.error({ err, vaultId }, '[Obsidian] Sync failed')
+    })
+
+    return { success: true }
+  })
+
+  ipcMain.handle('obsidian:wipe-and-resync', async (_event, args: unknown) => {
+    const { vaultId } = (args ?? {}) as { vaultId?: string }
+    if (!isString(vaultId)) return { success: false, error: 'Invalid vault ID' }
+
+    const settings = getSettings()
+    const config = settings.obsidianVaults.find(v => v.id === vaultId)
+    if (!config) return { success: false, error: 'Vault not found' }
+
+    try {
+      await removeVaultData(vaultId)
+    } catch (err) {
+      logger.error({ err, vaultId }, '[Obsidian] Failed to wipe vault data before resync')
+      return { success: false, error: 'Failed to wipe data' }
+    }
+
+    syncVault(config, (status) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send('obsidian:sync-progress', status)
+      }
+    }).then((status) => {
+      if (status.phase === 'done') {
+        const latestSettings = getSettings()
+        const idx = latestSettings.obsidianVaults.findIndex(v => v.id === vaultId)
+        if (idx >= 0) {
+          const vaults = [...latestSettings.obsidianVaults]
+          vaults[idx] = { ...vaults[idx], lastSyncedAt: new Date().toISOString() }
+          const updatedSettings = updateSettings({ obsidianVaults: vaults })
+          for (const win of BrowserWindow.getAllWindows()) {
+            win.webContents.send('settings:changed', updatedSettings)
+          }
+        }
+      }
+    }).catch(err => {
+      logger.error({ err, vaultId }, '[Obsidian] Sync failed after wipe')
+    })
+
+    return { success: true }
+  })
+
+  ipcMain.handle('obsidian:sync-all', async () => {
+    const settings = getSettings()
+    syncAllVaults(settings.obsidianVaults, (status) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send('obsidian:sync-progress', status)
+      }
+    }).catch(err => {
+      logger.error({ err }, '[Obsidian] Sync all failed')
+    })
+    return { success: true }
+  })
+
+  ipcMain.handle('obsidian:sync-status', () => {
+    return getAllSyncStatuses()
+  })
+
+  ipcMain.handle('obsidian:list-templates', (_event, args: unknown) => {
+    const { vaultId } = (args ?? {}) as { vaultId?: string }
+    if (!isString(vaultId)) return []
+
+    const settings = getSettings()
+    const config = settings.obsidianVaults.find(v => v.id === vaultId)
+    if (!config) return []
+
+    return listTemplates(config)
+  })
+
+  ipcMain.handle('obsidian:create-note', async (_event, args: unknown) => {
+    const { vaultId, userIntent, templateName } = (args ?? {}) as {
+      vaultId?: string
+      userIntent?: string
+      templateName?: string
+    }
+    if (!isString(vaultId) || !isString(userIntent)) {
+      return { success: false, error: 'Invalid arguments' }
+    }
+
+    const settings = getSettings()
+    const config = settings.obsidianVaults.find(v => v.id === vaultId)
+    if (!config) return { success: false, error: 'Vault not found' }
+
+    try {
+      const result = await createObsidianNote(config, userIntent, templateName)
+      return { success: true, ...result }
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Note creation failed',
+      }
+    }
+  })
+
+  ipcMain.handle('obsidian:get-tags', () => {
+    return { tags: getAllTags(), count: getTagCount() }
   })
 }

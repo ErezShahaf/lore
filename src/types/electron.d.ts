@@ -10,6 +10,10 @@ import type {
   RetrievalOptions,
   SystemInfo,
   HardwareProfile,
+  ObsidianVaultConfig,
+  ObsidianSyncStatus,
+  ObsidianTemplate,
+  ObsidianNoteCreationResult,
 } from '../../shared/types'
 
 declare global {
@@ -68,6 +72,29 @@ declare global {
       getLatestVersion: () => Promise<{ version: string } | null>
       getLastUpdatePromptShownAt: () => Promise<number | null>
       setLastUpdatePromptShownAt: () => Promise<void>
+
+      // Obsidian integration
+      obsidianPickVaultFolder: () => Promise<string | null>
+      obsidianAddVault: (
+        config: { name: string; vaultPath: string; templateFolder?: string; noteDestination?: string },
+      ) => Promise<{ success: boolean; vault?: ObsidianVaultConfig; error?: string }>
+      obsidianRemoveVault: (vaultId: string) => Promise<{ success: boolean; error?: string }>
+      obsidianUpdateVault: (
+        vaultId: string,
+        updates: Partial<ObsidianVaultConfig>,
+      ) => Promise<{ success: boolean; error?: string }>
+      obsidianWipeAndResync: (vaultId: string) => Promise<{ success: boolean; error?: string }>
+      obsidianSyncVault: (vaultId: string) => Promise<{ success: boolean; error?: string }>
+      obsidianSyncAll: () => Promise<{ success: boolean }>
+      obsidianSyncStatus: () => Promise<ObsidianSyncStatus[]>
+      obsidianListTemplates: (vaultId: string) => Promise<ObsidianTemplate[]>
+      obsidianCreateNote: (
+        vaultId: string,
+        userIntent: string,
+        templateName?: string,
+      ) => Promise<{ success: boolean; error?: string } & Partial<ObsidianNoteCreationResult>>
+      obsidianGetTags: () => Promise<{ tags: string[]; count: number }>
+      onObsidianSyncProgress: (callback: (status: ObsidianSyncStatus) => void) => () => void
     }
   }
 }

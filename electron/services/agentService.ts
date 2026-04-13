@@ -5,6 +5,7 @@ import { handleQuestion } from './handlers/questionHandler'
 import { handleCommand } from './handlers/commandHandler'
 import { handleInstruction } from './handlers/instructionHandler'
 import { handleConversational } from './handlers/conversationalHandler'
+import { handleObsidianCreate } from './handlers/obsidianHandler'
 import {
   looksLikeExplicitStorageRequest,
   looksLikeExplicitModificationRequest,
@@ -13,6 +14,7 @@ import {
   looksLikeShortReaction,
   looksLikeStoredDataQuestion,
   looksLikeTodoQuery,
+  looksLikeObsidianCreateRequest,
 } from './userIntentHeuristics'
 import type {
   AgentEvent,
@@ -97,6 +99,14 @@ export function applyDeterministicRoutingHints(
     classification.confidence = Math.max(classification.confidence, CLASSIFICATION_CONFIDENCE_THRESHOLD)
     classification.reasoning = 'Heuristic override: short reaction-like input should not be stored by default.'
   }
+
+  // Detect "create obsidian note" / "save to vault" intent
+  if (looksLikeObsidianCreateRequest(userInput)) {
+    classification.intent = 'thought'
+    classification.subtype = 'obsidian-create'
+    classification.confidence = Math.max(classification.confidence, CLASSIFICATION_CONFIDENCE_THRESHOLD)
+    classification.reasoning = 'Heuristic override: explicit Obsidian note creation request.'
+  }
 }
 
 // ── Main processing loop ─────────────────────────────────────
@@ -140,6 +150,16 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
   try {
     switch (classification.intent) {
         case 'thought': {
+          // Check for Obsidian create subtype
+          if (classification.subtype === 'obsidian-create') {
+            for await (const event of handleObsidianCreate(userInput, classification, priorHistory)) {
+              if (event.type === 'chunk') assistantResponse += event.content
+              if (event.type === 'stored') session.lastDocumentIds.push(event.documentId)
+              yield event
+            }
+            break
+          }
+
           const storedDocumentIds: string[] = []
           for await (const event of handleThought(userInput, classification, priorHistory)) {
             if (event.type === 'chunk') assistantResponse += event.content

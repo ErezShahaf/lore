@@ -11,6 +11,10 @@ import type {
   RetrievalOptions,
   SystemInfo,
   HardwareProfile,
+  ObsidianVaultConfig,
+  ObsidianSyncStatus,
+  ObsidianTemplate,
+  ObsidianNoteCreationResult,
 } from '../shared/types'
 
 const loreAPI = {
@@ -192,6 +196,57 @@ const loreAPI = {
 
   setLastUpdatePromptShownAt: (): Promise<void> =>
     ipcRenderer.invoke('update:set-last-prompt-shown'),
+
+  // ── Obsidian integration ───────────────────────────────────
+
+  obsidianPickVaultFolder: (): Promise<string | null> =>
+    ipcRenderer.invoke('obsidian:pick-vault-folder'),
+
+  obsidianAddVault: (
+    config: { name: string; vaultPath: string; templateFolder?: string; noteDestination?: string },
+  ): Promise<{ success: boolean; vault?: ObsidianVaultConfig; error?: string }> =>
+    ipcRenderer.invoke('obsidian:add-vault', config),
+
+  obsidianRemoveVault: (vaultId: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('obsidian:remove-vault', { vaultId }),
+
+  obsidianUpdateVault: (
+    vaultId: string,
+    updates: Partial<ObsidianVaultConfig>,
+  ): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('obsidian:update-vault', { vaultId, updates }),
+
+  obsidianWipeAndResync: (vaultId: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('obsidian:wipe-and-resync', { vaultId }),
+
+  obsidianSyncVault: (vaultId: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('obsidian:sync-vault', { vaultId }),
+
+  obsidianSyncAll: (): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('obsidian:sync-all'),
+
+  obsidianSyncStatus: (): Promise<ObsidianSyncStatus[]> =>
+    ipcRenderer.invoke('obsidian:sync-status'),
+
+  obsidianListTemplates: (vaultId: string): Promise<ObsidianTemplate[]> =>
+    ipcRenderer.invoke('obsidian:list-templates', { vaultId }),
+
+  obsidianCreateNote: (
+    vaultId: string,
+    userIntent: string,
+    templateName?: string,
+  ): Promise<{ success: boolean; error?: string } & Partial<ObsidianNoteCreationResult>> =>
+    ipcRenderer.invoke('obsidian:create-note', { vaultId, userIntent, templateName }),
+
+  obsidianGetTags: (): Promise<{ tags: string[]; count: number }> =>
+    ipcRenderer.invoke('obsidian:get-tags'),
+
+  onObsidianSyncProgress: (callback: (status: ObsidianSyncStatus) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, status: ObsidianSyncStatus) =>
+      callback(status)
+    ipcRenderer.on('obsidian:sync-progress', handler)
+    return () => ipcRenderer.removeListener('obsidian:sync-progress', handler)
+  },
 }
 
 contextBridge.exposeInMainWorld('loreAPI', loreAPI)

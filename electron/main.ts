@@ -12,6 +12,12 @@ import { startHealthCheck, stopHealthCheck, preloadModels } from './services/oll
 import { bootstrapOllama, stopOllama, isOllamaSetupNeeded } from './services/ollamaBootstrap'
 import { initialize as initLanceDB, cleanupOldDeleted, compactTable } from './services/lanceService'
 import { applyAutoStart } from './services/autoStartService'
+import { syncAllVaults, startWatcher, stopAllWatchers } from './services/obsidianService'
+import {
+  startObsidianAutoSyncScheduler,
+  stopObsidianAutoSyncScheduler,
+} from './services/obsidianAutoSyncScheduler'
+import { buildRegistry as buildTagRegistry } from './services/tagRegistry'
 
 function logErrorToFile(label: string, err: unknown): void {
   try {
@@ -114,6 +120,40 @@ if (!gotLock) {
         .catch((err) => {
           logger.error({ err }, '[Lore] Ollama bootstrap error')
         })
+
+      // ── Obsidian integration bootstrap ──────────────────────────
+      const obsidianVaults = settings.obsidianVaults ?? []
+      const enabledVaults = obsidianVaults.filter(v => v.enabled)
+
+      if (enabledVaults.length > 0) {
+        // Build tag registry from existing data
+        buildTagRegistry().catch((err) => {
+          logger.error({ err }, '[Lore] Failed to build tag registry')
+        })
+
+        // Start file watchers for enabled vaults
+        for (const vault of enabledVaults) {
+          startWatcher(vault)
+        }
+
+        // Run initial sync if auto-sync is enabled
+        if (settings.obsidianAutoSync) {
+          syncAllVaults(enabledVaults).catch((err) => {
+            logger.error({ err }, '[Lore] Obsidian auto-sync failed')
+          })
+        }
+
+        // Start periodic auto-sync scheduler (respects obsidianAutoSync + interval settings)
+        startObsidianAutoSyncScheduler(settings)
+
+        logger.info({ vaultCount: enabledVaults.length }, '[Lore] Obsidian integration started')
+      } else {
+        // Still build tag registry for Lore-native tags
+        buildTagRegistry().catch(() => {})
+
+        // Scheduler is still started so it can react if vaults/settings change later
+        startObsidianAutoSyncScheduler(settings)
+      }
     }
   })
 
@@ -137,6 +177,8 @@ if (!gotLock) {
     unregisterShortcuts()
     destroyTray()
     stopHealthCheck()
+    stopObsidianAutoSyncScheduler()
+    stopAllWatchers()
     stopOllama()
       .then(() => app.quit())
       .catch((err) => {

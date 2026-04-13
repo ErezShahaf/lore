@@ -14,6 +14,10 @@ const DEFAULTS: AppSettings = {
   ollamaPath: '',
   ollamaModelsPath: '',
   ollamaSetupComplete: false,
+  // ── Obsidian integration ───────────────────────────────────
+  obsidianVaults: [],
+  obsidianAutoSync: true,
+  obsidianSyncIntervalMinutes: 15,
 }
 
 function getSettingsPath(): string {

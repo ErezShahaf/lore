@@ -39,6 +39,8 @@ Intent policy:
 Critical routing rules:
 - Requests to list, show, find, search, recall, summarize, or answer from stored data are ALWAYS "question", even if phrased casually.
 - Questions about how Lore works or how to use Lore are ALWAYS "conversational".
+- Requests to create, write, add, or save a note in Obsidian/vault are ALWAYS "thought" (creation flow), not "command".
+- Requests to search, list, summarize, or answer from Obsidian/vault notes are ALWAYS "question".
 - If the user confirms a previously discussed creation task, classify as "thought", not "conversational".
 - If the user references something from prior conversation and asks to add, create, save, store, or remember it, classify as "thought", not "command".
 - Requests like "add to my todos: buy milk", "add to my todo list: call mom", or "todos: buy milk, call mom" are ALWAYS "thought" because they create new stored items.
