@@ -380,7 +380,7 @@ const TOOL_HANDLERS: ReadonlyMap<string, ToolHandler> = new Map([
 ])
 
 export function getToolDefinitions(): readonly OllamaTool[] {
-  return [SEARCH_LIBRARY_TOOL, GET_DOCUMENT_TOOL, SAVE_DOCUMENTS_TOOL, MODIFY_DOCUMENTS_TOOL]
+  return [SAVE_DOCUMENTS_TOOL, SEARCH_LIBRARY_TOOL, GET_DOCUMENT_TOOL, MODIFY_DOCUMENTS_TOOL]
 }
 
 export async function executeTool(

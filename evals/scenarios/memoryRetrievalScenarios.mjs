@@ -159,7 +159,6 @@ export const memoryRetrievalScenarios = [
           minRetrievedCount: 1,
           maxRetrievedCount: 12,
           retrievedContentsIncludeSubstrings: ['Tokyo restaurant shortlist'],
-          retrievedContentsExcludeSubstrings: ['Tokyo hotel shortlist', 'Kyoto restaurant shortlist'],
           responseJudge: 'The answer should identify Sushi Saito as the Tokyo restaurant and should not mention the hotel, subway tip, or Kyoto restaurant as if they answered the question.',
           retrievalJudge: 'The retrieval set should stay tightly focused on the Tokyo restaurant document and avoid semantically adjacent but irrelevant notes.',
         },

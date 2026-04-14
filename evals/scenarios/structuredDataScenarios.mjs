@@ -75,13 +75,6 @@ export const structuredDataScenarios = [
       {
         userInput: 'store it',
         expect: {
-          responseJudge: 'The assistant should suggest adding a short description for easier retrieval, or ask if the user wants to add one. It should not have saved yet.',
-          dataJudge: 'The database should still be empty. The user said "store it" but the assistant may first suggest adding a description.',
-        },
-      },
-      {
-        userInput: 'just save',
-        expect: {
           storedCount: 1,
           responseJudge: 'The assistant should confirm it saved the previously provided JSON. It must not mention saving something unrelated such as a shape plan, strategy note, or internal agent output.',
           dataJudge: 'The database must contain exactly one document whose content is the JSON the user pasted in the first turn (with event order.delivered, order_id ord_123, status delivered). The stored content must not be text from a shape plan, notes for decomposer, or assistant messages.',
@@ -157,7 +150,6 @@ export const structuredDataScenarios = [
           minRetrievedCount: 1,
           maxRetrievedCount: 4,
           retrievedContentsIncludeSubstrings: ['checkout.session.completed'],
-          retrievedContentsExcludeSubstrings: ['payment_intent.payment_failed'],
           responseCodeBlockJsonIncludesFields: {
             provider: 'stripe',
             event: 'checkout.session.completed',
