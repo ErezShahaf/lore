@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useLayoutEffect, useCallback } from 'react'
 import { Settings, X, ExternalLink } from 'lucide-react'
 import { MessageList } from './MessageList'
+import { ThinkingStream } from './ThinkingStream'
 import { InputBar } from './InputBar'
 import { useChat } from '@/hooks/useChat'
 import { useWindowResize } from '@/hooks/useWindowResize'
@@ -15,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { compareSemver } from '@/lib/semver'
+import { THINKING_STRIP_LAYOUT_RESERVE_PX } from '../../../shared/chatWindowConstants'
 
 const LORE_REPO_URL = 'https://github.com/ErezShahaf/Lore'
 const UPDATE_PROMPT_INTERVAL_MS = 2.5 * 24 * 60 * 60 * 1000
@@ -63,7 +65,7 @@ function NeedsModels({ missingChat, missingEmbedding }: { missingChat: boolean; 
 }
 
 export function ChatWindow() {
-  const { messages, isLoading, progressMessage, sendMessage } = useChat()
+  const { messages, isLoading, thinkingPaneText, sendMessage } = useChat()
   const containerRef = useRef<HTMLDivElement>(null)
   const setupState = useSetupStatus()
   const [isClosing, setIsClosing] = useState(false)
@@ -71,8 +73,6 @@ export function ChatWindow() {
   const [latestVersion, setLatestVersion] = useState<string | null>(null)
   const updateCheckDoneRef = useRef(false)
   const isLinuxPlatform = navigator.userAgent.toLowerCase().includes('linux')
-
-  useWindowResize(containerRef)
 
   useLayoutEffect(() => {
     document.documentElement.dataset.window = 'chat'
@@ -143,6 +143,19 @@ export function ChatWindow() {
     }
   }, [isLinuxPlatform])
 
+  const hasStreamingAssistantMessage = messages.some(
+    (message) => message.role === 'assistant' && message.isStreaming === true,
+  )
+
+  const reserveThinkingStripLayoutSlot =
+    setupState.status === 'ready' && isLoading && hasStreamingAssistantMessage
+
+  useWindowResize(containerRef, {
+    extraBottomContentHeightPx: reserveThinkingStripLayoutSlot
+      ? THINKING_STRIP_LAYOUT_RESERVE_PX
+      : 0,
+  })
+
   const chatDisabled = setupState.status !== 'ready' || isLoading
   const disabledReason =
     setupState.status === 'setting-up'
@@ -182,9 +195,17 @@ export function ChatWindow() {
               missingEmbedding={setupState.missingEmbedding}
             />
           ) : (
-            <MessageList messages={messages} isLoading={isLoading} progressMessage={progressMessage} />
+            <MessageList messages={messages} isLoading={isLoading} />
           )}
         </div>
+        {setupState.status === 'ready' ? (
+          <ThinkingStream
+            text={thinkingPaneText}
+            isAwaitingFirstPipelineTrace={
+              isLoading && hasStreamingAssistantMessage && thinkingPaneText.length === 0
+            }
+          />
+        ) : null}
         <InputBar
           onSend={sendMessage}
           onRequestClose={handleRequestClose}

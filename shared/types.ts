@@ -178,6 +178,11 @@ export interface ToolChatRequest {
 
 export interface ToolChatResponse {
   readonly message: ToolChatMessage
+  /**
+   * Full `thinking` / reasoning text from the model for this completion (when the engine provides it).
+   * Used for the thinking strip only; not part of conversation history.
+   */
+  readonly assistantThinkingText: string
 }
 
 export interface OrchestratorCallAction {
@@ -532,6 +537,11 @@ export interface RetrievedAgentEvent {
 export type AgentEvent =
   | { type: 'status'; message: string }
   | { type: 'chunk'; content: string }
+  /**
+   * Model-internal reasoning streamed by the inference engine (for example Ollama `thinking`).
+   * Never persisted as chat history; cleared when user-visible assistant content begins.
+   */
+  | { type: 'thinking_chunk'; content: string }
   | RetrievedAgentEvent
   | { type: 'stored'; documentId: string }
   | { type: 'deleted'; documentId: string }

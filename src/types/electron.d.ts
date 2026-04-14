@@ -25,6 +25,7 @@ declare global {
         history?: Array<{ role: 'user' | 'assistant'; content: string }>,
       ) => Promise<null>
       onMessageChunk: (callback: (chunk: string) => void) => () => void
+      onThinkingChunk: (callback: (chunk: string) => void) => () => void
       onResponseEnd: (callback: () => void) => () => void
       onResponseError: (callback: (error: string) => void) => () => void
       onStatus: (callback: (message: string) => void) => () => void

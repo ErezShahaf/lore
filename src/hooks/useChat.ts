@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import type { ChatMessage } from '../../shared/types'
 
 /** Shorter waits usually mean the model is already resident; longer waits often mean load from disk. */
@@ -11,13 +11,20 @@ function createId(): string {
 export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [statusMessage, setStatusMessage] = useState<string | null>(null)
+  const [thinkingPaneText, setThinkingPaneText] = useState('')
   const [loadingModelDelayed, setLoadingModelDelayed] = useState(false)
   const [likelyChatModelEvictedThisTurn, setLikelyChatModelEvictedThisTurn] = useState(false)
   const [hasChatModelInferenceCompletedThisTurn, setHasChatModelInferenceCompletedThisTurn] =
     useState(false)
   const streamingIdRef = useRef<string | null>(null)
   const loadingModelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isFirstModelThinkingChunkReference = useRef(true)
+  const loadingModelLineAppendedReference = useRef(false)
+
+  const resetThinkingPaneAuxiliaryReferences = useCallback((): void => {
+    isFirstModelThinkingChunkReference.current = true
+    loadingModelLineAppendedReference.current = false
+  }, [])
 
   const clearLoadingModelTimer = useCallback((): void => {
     if (loadingModelTimerRef.current !== null) {
@@ -33,9 +40,10 @@ export function useChat() {
     setHasChatModelInferenceCompletedThisTurn(false)
     setMessages([])
     setIsLoading(false)
-    setStatusMessage(null)
+    setThinkingPaneText('')
+    resetThinkingPaneAuxiliaryReferences()
     streamingIdRef.current = null
-  }, [clearLoadingModelTimer])
+  }, [clearLoadingModelTimer, resetThinkingPaneAuxiliaryReferences])
 
   useEffect(() => {
     const cleanupReset = window.loreAPI.onChatReset(() => {
@@ -46,6 +54,10 @@ export function useChat() {
       const id = streamingIdRef.current
       if (!id) return
 
+      if (chunk.length > 0) {
+        setThinkingPaneText('')
+        resetThinkingPaneAuxiliaryReferences()
+      }
       setMessages(prev =>
         prev.map(msg =>
           msg.id === id ? { ...msg, content: msg.content + chunk } : msg,
@@ -53,8 +65,18 @@ export function useChat() {
       )
     })
 
-    const cleanupStatus = window.loreAPI.onStatus((message: string) => {
-      setStatusMessage(message)
+    const cleanupThinkingChunk = window.loreAPI.onThinkingChunk((chunk: string) => {
+      if (!streamingIdRef.current) return
+      setThinkingPaneText((previous) => {
+        let prefix = ''
+        if (isFirstModelThinkingChunkReference.current) {
+          isFirstModelThinkingChunkReference.current = false
+          if (previous.length > 0 && !previous.endsWith('\n')) {
+            prefix = '\n'
+          }
+        }
+        return previous + prefix + chunk
+      })
     })
 
     const cleanupLikelyEvicted = window.loreAPI.onLikelyChatModelEvicted((likely: boolean) => {
@@ -78,7 +100,8 @@ export function useChat() {
         streamingIdRef.current = null
       }
       setIsLoading(false)
-      setStatusMessage(null)
+      setThinkingPaneText('')
+      resetThinkingPaneAuxiliaryReferences()
       setLikelyChatModelEvictedThisTurn(false)
       setHasChatModelInferenceCompletedThisTurn(false)
     })
@@ -106,7 +129,8 @@ export function useChat() {
       }
       streamingIdRef.current = null
       setIsLoading(false)
-      setStatusMessage(null)
+      setThinkingPaneText('')
+      resetThinkingPaneAuxiliaryReferences()
       setLikelyChatModelEvictedThisTurn(false)
       setHasChatModelInferenceCompletedThisTurn(false)
     })
@@ -114,13 +138,13 @@ export function useChat() {
     return () => {
       cleanupReset()
       cleanupChunk()
-      cleanupStatus()
+      cleanupThinkingChunk()
       cleanupLikelyEvicted()
       cleanupInferenceCompleted()
       cleanupEnd()
       cleanupError()
     }
-  }, [clearLoadingModelTimer, clearMessages])
+  }, [clearLoadingModelTimer, clearMessages, resetThinkingPaneAuxiliaryReferences])
 
   useEffect(() => {
     clearLoadingModelTimer()
@@ -153,23 +177,37 @@ export function useChat() {
     clearLoadingModelTimer,
   ])
 
-  const progressMessage = useMemo(() => {
+  useEffect(() => {
+    if (!isLoading || streamingIdRef.current === null) return
     if (
-      !likelyChatModelEvictedThisTurn ||
-      !loadingModelDelayed ||
-      hasChatModelInferenceCompletedThisTurn
+      !likelyChatModelEvictedThisTurn
+      || !loadingModelDelayed
+      || hasChatModelInferenceCompletedThisTurn
     ) {
-      return statusMessage
+      return
     }
-    return statusMessage !== null && statusMessage.length > 0
-      ? `${statusMessage} · Loading model…`
-      : 'Loading model…'
+    if (loadingModelLineAppendedReference.current) return
+    loadingModelLineAppendedReference.current = true
+    setThinkingPaneText((previous) =>
+      previous.includes('Loading model…')
+        ? previous
+        : previous + (previous.length > 0 ? '\n' : '') + 'Loading model…',
+    )
   }, [
-    statusMessage,
+    isLoading,
     likelyChatModelEvictedThisTurn,
     loadingModelDelayed,
     hasChatModelInferenceCompletedThisTurn,
   ])
+
+  useEffect(() => {
+    if (!hasChatModelInferenceCompletedThisTurn) return
+    if (!loadingModelLineAppendedReference.current) return
+    loadingModelLineAppendedReference.current = false
+    setThinkingPaneText((previous) =>
+      previous.replace(/\nLoading model…$/, '').replace(/^Loading model…$/, ''),
+    )
+  }, [hasChatModelInferenceCompletedThisTurn])
 
   const messagesRef = useRef<ChatMessage[]>([])
   messagesRef.current = messages
@@ -203,18 +241,27 @@ export function useChat() {
       setLikelyChatModelEvictedThisTurn(false)
       setHasChatModelInferenceCompletedThisTurn(false)
       setIsLoading(true)
+      setThinkingPaneText('')
+      resetThinkingPaneAuxiliaryReferences()
       setMessages(prev => [...prev, userMsg, assistantMsg])
 
       window.loreAPI.sendMessage(trimmed, history).catch(() => {
         streamingIdRef.current = null
         setIsLoading(false)
-        setStatusMessage(null)
+        setThinkingPaneText('')
+        resetThinkingPaneAuxiliaryReferences()
         setLikelyChatModelEvictedThisTurn(false)
         setHasChatModelInferenceCompletedThisTurn(false)
       })
     },
-    [isLoading],
+    [isLoading, resetThinkingPaneAuxiliaryReferences],
   )
 
-  return { messages, isLoading, statusMessage, progressMessage, sendMessage, clearMessages }
+  return {
+    messages,
+    isLoading,
+    thinkingPaneText,
+    sendMessage,
+    clearMessages,
+  }
 }

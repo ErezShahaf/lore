@@ -107,6 +107,9 @@ export function registerIpcHandlers(): void {
             case 'chunk':
               sender.send('chat:response-chunk', { chunk: agentEvent.content })
               break
+            case 'thinking_chunk':
+              sender.send('chat:thinking-chunk', { chunk: agentEvent.content })
+              break
             case 'status':
               sender.send('chat:status', { message: agentEvent.message })
               break

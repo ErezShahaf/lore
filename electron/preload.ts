@@ -35,6 +35,13 @@ const loreAPI = {
     return () => ipcRenderer.removeListener('chat:response-chunk', handler)
   },
 
+  onThinkingChunk: (callback: (chunk: string) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, { chunk }: { chunk: string }) =>
+      callback(chunk)
+    ipcRenderer.on('chat:thinking-chunk', handler)
+    return () => ipcRenderer.removeListener('chat:thinking-chunk', handler)
+  },
+
   onResponseEnd: (callback: () => void) => {
     const handler = () => callback()
     ipcRenderer.on('chat:response-end', handler)

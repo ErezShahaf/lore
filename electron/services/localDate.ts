@@ -28,6 +28,26 @@ export function getLocalDateRangeForDay(dateString: string): { fromIso: string; 
   }
 }
 
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const
+
+export function dayOfWeekName(date: Date): string {
+  return DAY_NAMES[date.getDay()] ?? 'Unknown'
+}
+
+export function subtractDays(date: Date, days: number): Date {
+  const result = new Date(date)
+  result.setDate(result.getDate() - days)
+  return result
+}
+
+export function startOfWeek(date: Date): Date {
+  const result = new Date(date)
+  const day = result.getDay()
+  const diff = day === 0 ? 6 : day - 1
+  result.setDate(result.getDate() - diff)
+  return result
+}
+
 export function getLocalDateRangeForWeek(startDateString: string): { fromIso: string; toIso: string } {
   const start = parseLocalDate(startDateString)
   const end = new Date(start)

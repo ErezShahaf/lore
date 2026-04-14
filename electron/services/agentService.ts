@@ -1,12 +1,5 @@
 import { logger } from '../logger'
-import { clearPendingCommandClarification } from './commandClarificationState'
-import { clearPendingDuplicateSaveClarification } from './duplicateSaveClarificationState'
-import { clearAllQuestionClarificationState } from './questionClarificationState'
-import {
-  buildPriorTurnRetrievedContextBlock,
-  dedupeDocumentIdsPreservingOrder,
-} from './priorTurnContextService'
-import { runMultiActionTurn } from './multiActionOrchestrator'
+import { runLoopAgentTurn } from './loopAgentService'
 import { compactSessionHistoryIfNeeded } from './sessionCompaction'
 import {
   PIPELINE_TRACE_SCHEMA_VERSION,
@@ -19,7 +12,6 @@ import {
 interface SessionContext {
   history: ConversationEntry[]
   lastDocumentIds: string[]
-  /** Document ids from `retrieved` events in the last completed turn; used to hydrate prior-turn LLM context. */
   lastTurnRetrievedDocumentIds: string[]
   lastPipelineTrace: PipelineTracePayload | null
 }
@@ -34,9 +26,6 @@ let session: SessionContext = {
 let sessionResetEpoch = 0
 
 export function clearConversation(): void {
-  clearPendingCommandClarification()
-  clearPendingDuplicateSaveClarification()
-  clearAllQuestionClarificationState()
   sessionResetEpoch += 1
   session = {
     history: [],
@@ -52,6 +41,19 @@ export function getConversationHistory(): ConversationEntry[] {
 
 export function getLastPipelineTrace(): PipelineTracePayload | null {
   return session.lastPipelineTrace
+}
+
+function dedupeIdsPreservingOrder(ids: readonly string[]): string[] {
+  const seen = new Set<string>()
+  const ordered: string[] = []
+  for (const id of ids) {
+    if (id.trim().length === 0 || seen.has(id)) {
+      continue
+    }
+    seen.add(id)
+    ordered.push(id)
+  }
+  return ordered
 }
 
 export async function* processUserInput(userInput: string): AsyncGenerator<AgentEvent> {
@@ -73,20 +75,15 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
   session.history = [...compactedPriorHistory, userMessage]
   const priorHistory = compactedPriorHistory
 
-  const priorTurnRetrievedContextBlock = await buildPriorTurnRetrievedContextBlock(
-    session.lastTurnRetrievedDocumentIds,
-  )
-
   let assistantResponse = ''
   const documentIds: string[] = []
   const retrievedDocumentIdsThisTurn: string[] = []
 
   try {
-    for await (const event of runMultiActionTurn(
+    for await (const event of runLoopAgentTurn(
       userInput,
       priorHistory,
       traceSink,
-      priorTurnRetrievedContextBlock,
     )) {
       void isCancelled
       if (event.type === 'chunk') {
@@ -132,5 +129,5 @@ export async function* processUserInput(userInput: string): AsyncGenerator<Agent
   }
 
   session.lastDocumentIds = documentIds
-  session.lastTurnRetrievedDocumentIds = dedupeDocumentIdsPreservingOrder(retrievedDocumentIdsThisTurn)
+  session.lastTurnRetrievedDocumentIds = dedupeIdsPreservingOrder(retrievedDocumentIdsThisTurn)
 }

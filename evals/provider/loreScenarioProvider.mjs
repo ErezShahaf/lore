@@ -745,7 +745,7 @@ async function judgeRubric({ judgeModel, ollamaHost, rubric, actualState }) {
     const schemaPayload = {
       model: judgeModel,
       stream: false,
-      think: false,
+      think: true,
       format: judgeVerdictJsonSchema,
       messages,
     }

@@ -17,7 +17,7 @@ import type {
   RetrievedDocumentSet,
 } from '../../shared/types'
 
-export const DEFAULT_MAX_RESULTS = 1000
+export const DEFAULT_MAX_RESULTS = 10
 const DUPLICATE_THRESHOLD = 0.92
 const DUPLICATE_THRESHOLD_TODO = 0.97
 const MINIMUM_RELEVANCE_SCORE = 0.24

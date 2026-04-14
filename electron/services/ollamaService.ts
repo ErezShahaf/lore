@@ -15,7 +15,7 @@ import type {
   ToolCall,
 } from '../../shared/types'
 
-export const CHAT_NUM_CTX = 8192
+export const CHAT_NUM_CTX = 16384
 
 export interface ChatPromptMessage {
   readonly role: 'system' | 'user' | 'assistant'
@@ -23,6 +23,7 @@ export interface ChatPromptMessage {
 }
 
 export type ToolChatStreamEvent =
+  | { readonly type: 'thinking_stream_chunk'; readonly text: string }
   | { readonly type: 'content_chunk'; readonly text: string }
   | { readonly type: 'assistant_message'; readonly message: ToolChatMessage }
 
@@ -155,7 +156,7 @@ export async function preloadModels(): Promise<void> {
             model: chatModel,
             messages: [],
             keep_alive: keepAlive,
-            think: false,
+            think: true,
             options: { num_ctx: CHAT_NUM_CTX },
           }),
           signal: AbortSignal.timeout(120_000),
@@ -427,6 +428,33 @@ function normalizeOllamaAssistantTextField(raw: unknown): string {
   return ''
 }
 
+function extractStreamableAssistantContentDelta(
+  rawMessage: Record<string, unknown>,
+  previousFullContent: string,
+): { readonly delta: string; readonly nextFullContent: string } {
+  const rawContent = rawMessage.content
+  if (typeof rawContent === 'string') {
+    if (rawContent.length === 0) {
+      return { delta: '', nextFullContent: previousFullContent }
+    }
+    return { delta: rawContent, nextFullContent: previousFullContent + rawContent }
+  }
+  const normalizedSnapshot = normalizeOllamaAssistantTextField(rawContent)
+  if (normalizedSnapshot.length === 0) {
+    return { delta: '', nextFullContent: previousFullContent }
+  }
+  if (normalizedSnapshot.startsWith(previousFullContent)) {
+    return {
+      delta: normalizedSnapshot.slice(previousFullContent.length),
+      nextFullContent: normalizedSnapshot,
+    }
+  }
+  return {
+    delta: normalizedSnapshot,
+    nextFullContent: previousFullContent + normalizedSnapshot,
+  }
+}
+
 function appendStreamAssistantTextDeltas(
   messageRecord: Record<string, unknown>,
   accumulated: { readonly content: { value: string }; readonly thinking: { value: string } },
@@ -494,7 +522,6 @@ function parseToolChatMessage(message: Record<string, unknown>): ToolChatMessage
   }
 }
 
-/** Ollama `/api/chat` expects `function.arguments` as a JSON string on wire. */
 export function normalizeToolChatMessagesForOllamaApi(
   messages: readonly ToolChatMessage[],
 ): unknown[] {
@@ -508,7 +535,7 @@ export function normalizeToolChatMessagesForOllamaApi(
           type: 'function',
           function: {
             name: toolCall.function.name,
-            arguments: JSON.stringify(toolCall.function.arguments),
+            arguments: toolCall.function.arguments,
           },
         })),
       }
@@ -596,9 +623,154 @@ export async function chatWithTools(request: ToolChatRequest): Promise<ToolChatR
     }
 
     recordChatModelActivity()
-    return { message: responseMessage }
+    const assistantThinkingText = normalizeOllamaAssistantTextField(message.thinking)
+    return { message: responseMessage, assistantThinkingText }
   } finally {
     finishTracking()
+  }
+}
+
+export type PlainChatStreamTokenEvent =
+  | { readonly type: 'thinking_token'; readonly text: string }
+  | { readonly type: 'content_token'; readonly text: string }
+
+/**
+ * Streams a plain text response (no tools) with real-time token delivery.
+ * Use this after tool calling is complete to stream the final user-facing response.
+ */
+export async function* streamPlainResponse(request: {
+  readonly model: string
+  readonly messages: readonly ToolChatMessage[]
+  readonly options?: ChatRequestOptions
+}): AsyncGenerator<PlainChatStreamTokenEvent | { readonly type: 'done'; readonly fullText: string }> {
+  const { signal, finishTracking } = beginTrackedChatRequest()
+  let completedSuccessfully = false
+  try {
+    const payload = {
+      model: request.model,
+      messages: normalizeToolChatMessagesForOllamaApi(request.messages),
+      stream: true,
+      keep_alive: resolveOllamaKeepAlive(getSettings()),
+      options: { num_ctx: CHAT_NUM_CTX, ...request.options },
+    }
+
+    const res = await fetch(`${getHost()}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal,
+    })
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText)
+      throw new Error(`Ollama chat failed: ${text}`)
+    }
+
+    if (!res.body) {
+      throw new Error('No response body for streaming')
+    }
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let lineBuffer = ''
+    let aggregatedAssistantContent = ''
+    let latestDoneAssistantMessage: Record<string, unknown> | null = null
+
+    let isStreamDone = false
+    while (!isStreamDone) {
+      const { done, value } = await reader.read()
+      if (done) {
+        isStreamDone = true
+        break
+      }
+
+      lineBuffer += decoder.decode(value, { stream: true })
+      const lines = lineBuffer.split('\n')
+      lineBuffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        if (!line.trim()) continue
+        try {
+          const json = JSON.parse(line) as Record<string, unknown>
+          if (
+            json.done === true
+            && json.message
+            && typeof json.message === 'object'
+            && !Array.isArray(json.message)
+          ) {
+            latestDoneAssistantMessage = json.message as Record<string, unknown>
+          }
+          const rawMessage = json.message as Record<string, unknown> | undefined
+          if (rawMessage && typeof rawMessage === 'object' && !Array.isArray(rawMessage)) {
+            const thinkingDelta = rawMessage.thinking
+            if (typeof thinkingDelta === 'string' && thinkingDelta.length > 0) {
+              yield { type: 'thinking_token', text: thinkingDelta }
+            }
+            const { delta, nextFullContent } = extractStreamableAssistantContentDelta(
+              rawMessage,
+              aggregatedAssistantContent,
+            )
+            aggregatedAssistantContent = nextFullContent
+            if (delta.length > 0) {
+              yield { type: 'content_token', text: delta }
+            }
+          }
+        } catch {
+          // skip malformed lines
+        }
+      }
+    }
+
+    if (lineBuffer.trim()) {
+      try {
+        const json = JSON.parse(lineBuffer) as Record<string, unknown>
+        if (
+          json.done === true
+          && json.message
+          && typeof json.message === 'object'
+          && !Array.isArray(json.message)
+        ) {
+          latestDoneAssistantMessage = json.message as Record<string, unknown>
+        }
+        const rawMessage = json.message as Record<string, unknown> | undefined
+        if (rawMessage && typeof rawMessage === 'object' && !Array.isArray(rawMessage)) {
+          const thinkingDelta = rawMessage.thinking
+          if (typeof thinkingDelta === 'string' && thinkingDelta.length > 0) {
+            yield { type: 'thinking_token', text: thinkingDelta }
+          }
+          const { delta, nextFullContent } = extractStreamableAssistantContentDelta(
+            rawMessage,
+            aggregatedAssistantContent,
+          )
+          aggregatedAssistantContent = nextFullContent
+          if (delta.length > 0) {
+            yield { type: 'content_token', text: delta }
+          }
+        }
+      } catch {
+        // ignore trailing garbage
+      }
+    }
+
+    if (aggregatedAssistantContent.length === 0 && latestDoneAssistantMessage !== null) {
+      const recoveredContent = normalizeOllamaAssistantTextField(
+        latestDoneAssistantMessage.content,
+      )
+      if (recoveredContent.length > 0) {
+        aggregatedAssistantContent = recoveredContent
+        for (const piece of splitForTypingEffect(recoveredContent)) {
+          yield { type: 'content_token', text: piece }
+        }
+      }
+    }
+
+    completedSuccessfully = true
+    yield { type: 'done', fullText: aggregatedAssistantContent }
+  } finally {
+    finishTracking()
+    if (completedSuccessfully) {
+      recordChatModelActivity()
+    }
   }
 }
 
@@ -628,7 +800,6 @@ export async function* streamChatWithTools(
       messages: normalizeToolChatMessagesForOllamaApi(request.messages),
       tools: request.tools,
       stream: true,
-      think: false,
       keep_alive: resolveOllamaKeepAlive(getSettings()),
       options: { num_ctx: CHAT_NUM_CTX, ...request.options },
     }
@@ -660,6 +831,12 @@ export async function* streamChatWithTools(
       thinking: { value: '' },
     }
     let lastDoneMessage: Record<string, unknown> | null = null
+    /**
+     * Ollama often emits `tool_calls` on NDJSON lines with `done: false`; the final `done: true`
+     * line may omit them. Without this snapshot, the loop agent treats every turn as plain text
+     * and hits the empty-content fallback.
+     */
+    let latestStreamChunkWithToolCalls: Record<string, unknown> | null = null
 
     let isStreamDone = false
     while (!isStreamDone) {
@@ -681,7 +858,17 @@ export async function* streamChatWithTools(
           const json = JSON.parse(line) as Record<string, unknown>
           const rawMessage = json.message
           if (rawMessage && typeof rawMessage === 'object' && !Array.isArray(rawMessage)) {
-            appendStreamAssistantTextDeltas(rawMessage as Record<string, unknown>, accumulated)
+            const messageRecord = rawMessage as Record<string, unknown>
+            const streamedToolCalls = messageRecord.tool_calls
+            if (Array.isArray(streamedToolCalls) && streamedToolCalls.length > 0) {
+              latestStreamChunkWithToolCalls = messageRecord
+            }
+            const thinkingLengthBefore = accumulated.thinking.value.length
+            appendStreamAssistantTextDeltas(messageRecord, accumulated)
+            const thinkingAdded = accumulated.thinking.value.slice(thinkingLengthBefore)
+            if (thinkingAdded.length > 0) {
+              yield { type: 'thinking_stream_chunk', text: thinkingAdded }
+            }
           }
           if (json.done === true && json.message && typeof json.message === 'object') {
             lastDoneMessage = json.message as Record<string, unknown>
@@ -697,7 +884,17 @@ export async function* streamChatWithTools(
         const json = JSON.parse(lineBuffer) as Record<string, unknown>
         const rawMessage = json.message
         if (rawMessage && typeof rawMessage === 'object' && !Array.isArray(rawMessage)) {
-          appendStreamAssistantTextDeltas(rawMessage as Record<string, unknown>, accumulated)
+          const messageRecord = rawMessage as Record<string, unknown>
+          const streamedToolCalls = messageRecord.tool_calls
+          if (Array.isArray(streamedToolCalls) && streamedToolCalls.length > 0) {
+            latestStreamChunkWithToolCalls = messageRecord
+          }
+          const thinkingLengthBefore = accumulated.thinking.value.length
+          appendStreamAssistantTextDeltas(messageRecord, accumulated)
+          const thinkingAdded = accumulated.thinking.value.slice(thinkingLengthBefore)
+          if (thinkingAdded.length > 0) {
+            yield { type: 'thinking_stream_chunk', text: thinkingAdded }
+          }
         }
         if (json.done === true && json.message && typeof json.message === 'object') {
           lastDoneMessage = json.message as Record<string, unknown>
@@ -725,10 +922,21 @@ export async function* streamChatWithTools(
     const mergedThinking =
       accumulated.thinking.value.length > 0 ? accumulated.thinking.value : thinkingFromDone
 
+    const doneToolCallsRaw = lastDoneMessage.tool_calls
+    const doneHasToolCalls =
+      Array.isArray(doneToolCallsRaw) && doneToolCallsRaw.length > 0
+
     const mergedMessage: Record<string, unknown> = {
       ...lastDoneMessage,
       content: mergedContent,
       thinking: mergedThinking,
+    }
+
+    if (!doneHasToolCalls && latestStreamChunkWithToolCalls !== null) {
+      const rescuedToolCalls = latestStreamChunkWithToolCalls.tool_calls
+      if (Array.isArray(rescuedToolCalls) && rescuedToolCalls.length > 0) {
+        mergedMessage.tool_calls = rescuedToolCalls
+      }
     }
 
     const finalMessage = parseToolChatMessage(mergedMessage)
