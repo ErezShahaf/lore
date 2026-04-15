@@ -3,7 +3,7 @@ export const todoUpdateScenarios = [
     id: 'update-specific-todo',
     topic: 'todo-update',
     title: 'Update a specific todo by description',
-    suites: ['smoke', 'full'],
+    suites: ['smoke', 'full', 'crucial'],
     steps: [
       {
         userInput: 'Todos: buy milk, call mom',
@@ -27,7 +27,7 @@ export const todoUpdateScenarios = [
     id: 'ambiguous-update-needs-clarification',
     topic: 'todo-update',
     title: 'Ambiguous update asks for clarification',
-    suites: ['smoke', 'full'],
+    suites: ['full', 'problematic'],
     steps: [
       {
         userInput: 'Todos: jump on the water, drink the water',
@@ -51,7 +51,7 @@ export const todoUpdateScenarios = [
     id: 'clarification-resolves-ambiguous-update',
     topic: 'todo-update',
     title: 'Clarification follow-up resolves the right todo',
-    suites: ['full'],
+    suites: ['full', 'crucial', 'problematic'],
     steps: [
       {
         userInput: 'Todos: jump on the water, drink the water',
@@ -87,7 +87,7 @@ export const todoUpdateScenarios = [
     id: 'change-word-text-substitution-not-unit-conversion',
     topic: 'todo-update',
     title: 'Change word in todos uses text substitution not unit conversion',
-    suites: ['full'],
+    suites: ['full', 'problematic'],
     steps: [
       {
         userInput: 'Todos: run 5 miles, run 10 miles',

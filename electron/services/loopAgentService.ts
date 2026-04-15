@@ -4,7 +4,7 @@ import { join } from 'node:path'
 
 import { logger } from '../logger'
 import { getSettings } from './settingsService'
-import { chatWithTools, splitForTypingEffect, streamPlainResponse } from './ollamaService'
+import { streamChatWithTools, streamPlainResponse } from './ollamaService'
 import { getToolDefinitions, executeTool } from './toolRegistry'
 import { formatLocalDate, dayOfWeekName, subtractDays, startOfWeek } from './localDate'
 import {
@@ -102,8 +102,13 @@ function summarizeToolResult(toolName: string, rawOutput: string): string {
     }
 
     if (toolName === 'save_documents') {
+      if (typeof parsed.error === 'string' && parsed.error.length > 0) {
+        return `Save failed: ${parsed.error}`
+      }
       const results = parsed.results as ReadonlyArray<Record<string, unknown>> | undefined
-      if (!results) return 'Save completed (no details).'
+      if (!results) {
+        return 'Save returned no results.'
+      }
       const summaries = results.map((result) => {
         const status = result.status as string
         const id = result.id as string
@@ -116,8 +121,11 @@ function summarizeToolResult(toolName: string, rawOutput: string): string {
     }
 
     if (toolName === 'modify_documents') {
+      if (typeof parsed.error === 'string' && parsed.error.length > 0) {
+        return `Modify failed: ${parsed.error}`
+      }
       const results = parsed.results as ReadonlyArray<Record<string, unknown>> | undefined
-      if (!results) return 'Modify completed (no details).'
+      if (!results) return 'Modify returned no results.'
       const summaries = results.map((result) => {
         const documentId = result.documentId as string
         const action = result.action as string
@@ -239,19 +247,6 @@ function buildSystemPrompt(userInstructionsBlock: string): string {
   return prompt
 }
 
-function* relayAssistantThinkingToThinkingStream(
-  assistantThinkingText: string,
-): Generator<AgentEvent, void, unknown> {
-  const trimmed = assistantThinkingText.trim()
-  if (trimmed.length === 0) {
-    return
-  }
-  const pieces = splitForTypingEffect(trimmed)
-  for (const piece of pieces) {
-    yield { type: 'thinking_chunk', content: piece }
-  }
-}
-
 function buildConversationMessages(
   systemPrompt: string,
   conversationHistory: readonly ConversationEntry[],
@@ -304,14 +299,26 @@ export async function* runLoopAgentTurn(
       '[LoopAgent] Calling model',
     )
 
-    let response
+    let assistantMessage: ToolChatMessage | null = null
+    let receivedContentChunks = false
     try {
-      response = await chatWithTools({
+      const stream = streamChatWithTools({
         model: settings.selectedModel,
         messages: conversationMessages,
         tools: toolDefinitions,
         options: { num_ctx: 16384 },
       })
+
+      for await (const streamEvent of stream) {
+        if (streamEvent.type === 'thinking_stream_chunk') {
+          yield { type: 'thinking_chunk', content: streamEvent.text }
+        } else if (streamEvent.type === 'content_chunk') {
+          yield { type: 'chunk', content: streamEvent.text }
+          receivedContentChunks = true
+        } else if (streamEvent.type === 'assistant_message') {
+          assistantMessage = streamEvent.message
+        }
+      }
     } catch (error) {
       logger.error({ err: error, iteration }, '[LoopAgent] Model call failed')
       yield {
@@ -322,13 +329,15 @@ export async function* runLoopAgentTurn(
       return
     }
 
-    const assistantMessage = response.message
+    if (!assistantMessage) {
+      logger.error({ iteration }, '[LoopAgent] Stream ended without assistant message')
+      yield { type: 'error', message: 'Model returned no response' }
+      yield { type: 'done' }
+      return
+    }
+
     const hasToolCalls =
       assistantMessage.tool_calls !== undefined && assistantMessage.tool_calls.length > 0
-
-    if (hasToolCalls) {
-      yield* relayAssistantThinkingToThinkingStream(response.assistantThinkingText)
-    }
 
     if (!hasToolCalls) {
       if (traceSink) {
@@ -349,10 +358,7 @@ export async function* runLoopAgentTurn(
         })
       }
 
-      const alreadyGeneratedText = assistantMessage.content.trim()
-      if (alreadyGeneratedText.length > 0) {
-        yield* relayAssistantThinkingToThinkingStream(response.assistantThinkingText)
-        yield* emitTextAsChunks(alreadyGeneratedText)
+      if (receivedContentChunks) {
         yield { type: 'done' }
       } else {
         yield* streamFinalResponse(settings.selectedModel, conversationMessages, workingMemory)
@@ -425,13 +431,6 @@ export async function* runLoopAgentTurn(
 
   logger.warn('[LoopAgent] Reached max iterations, forcing response')
   yield* streamFinalResponse(settings.selectedModel, conversationMessages, workingMemory)
-}
-
-function* emitTextAsChunks(text: string): Generator<AgentEvent, void, unknown> {
-  const pieces = splitForTypingEffect(text)
-  for (const piece of pieces) {
-    yield { type: 'chunk', content: piece }
-  }
 }
 
 async function* streamFinalResponse(

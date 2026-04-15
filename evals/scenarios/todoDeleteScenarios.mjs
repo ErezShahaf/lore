@@ -3,7 +3,7 @@ export const todoDeleteScenarios = [
     id: 'delete-specific-todo',
     topic: 'todo-delete',
     title: 'Delete one matching todo',
-    suites: ['smoke', 'full'],
+    suites: ['smoke', 'full', 'crucial'],
     steps: [
       {
         userInput: 'Todos: buy milk, buy bread',
@@ -27,7 +27,7 @@ export const todoDeleteScenarios = [
     id: 'ambiguous-running-todos-delete-needs-clarification',
     topic: 'todo-delete',
     title: 'Vague “about running” delete does not remove multiple run todos',
-    suites: ['full'],
+    suites: ['full', 'crucial', 'problematic'],
     steps: [
       {
         userInput: 'Todos: run 10 km, run 5 km',
@@ -109,7 +109,7 @@ export const todoDeleteScenarios = [
     id: 'ambiguous-delete-needs-clarification',
     topic: 'todo-delete',
     title: 'Ambiguous delete does not act immediately',
-    suites: ['full'],
+    suites: ['full', 'crucial', 'problematic'],
     steps: [
       {
         userInput: 'Todos: jump on the water, drink the water',
@@ -132,7 +132,7 @@ export const todoDeleteScenarios = [
     id: 'clarification-resolves-ambiguous-delete',
     topic: 'todo-delete',
     title: 'Clarification follow-up deletes the intended todo',
-    suites: ['full'],
+    suites: ['full', 'crucial'],
     steps: [
       {
         userInput: 'Todos: jump on the water, drink the water',
@@ -169,7 +169,7 @@ export const todoDeleteScenarios = [
     id: 'delete-todos-when-completion-mentions-listed-items',
     topic: 'todo-delete',
     title: 'Delete completed todos after user confirms',
-    suites: ['smoke', 'full'],
+    suites: ['smoke', 'full', 'crucial'],
     seedDocuments: [
       {
         content: 'Launch Lore on Product Hunt',

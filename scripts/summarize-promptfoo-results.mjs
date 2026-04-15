@@ -125,13 +125,14 @@ const ATTRIBUTION_HEURISTIC_NOTE =
   'Heuristic only; confirm against pipelineTrace and rubric.'
 
 const PROMPT_LEVER_BY_COMPONENT = {
-  unified_classifier: 'skills/skill-classification/entry.md',
+  unified_classifier:
+    'skills/agent-prompt.md (the system prompt drives tool choice in the loop agent)',
   action_handlers:
-    'electron/services/classificationActionExecutor.ts and electron/services/handlers/',
+    'electron/services/loopAgentService.ts and electron/services/toolRegistry.ts',
   assistant_reply_composer:
-    'skills/skill-classification/decisions/reply/shared/assistant-user-reply/entry.md',
+    'skills/agent-prompt.md (Response Style section)',
   conversational_or_composer:
-    'electron/services/handlers/conversationalHandler.ts or assistant-user-reply (skills/skill-classification/decisions/reply/shared/assistant-user-reply/entry.md)',
+    'skills/agent-prompt.md or electron/services/loopAgentService.ts (streamFinalResponse)',
   unknown: '(inspect pipelineTrace and failedChecks in result JSON)',
 }
 

@@ -28,7 +28,7 @@ export const intentHeuristicTrapScenarios = [
     id: 'heuristic-trap-capture-note-ends-with-question-mark',
     topic: 'intent-heuristic-traps',
     title: 'Explicit capture: stored fiction ends with a question mark',
-    suites: ['full'],
+    suites: ['full', 'crucial'],
     steps: [
       {
         userInput:
@@ -48,7 +48,7 @@ export const intentHeuristicTrapScenarios = [
     id: 'heuristic-trap-todo-text-contains-remember-and-list-all-dialogue',
     topic: 'intent-heuristic-traps',
     title: 'Todo creation: task text embeds remember and list all as dialogue',
-    suites: ['full'],
+    suites: ['full', 'problematic'],
     steps: [
       {
         userInput:

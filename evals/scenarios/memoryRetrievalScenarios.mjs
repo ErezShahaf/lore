@@ -12,7 +12,7 @@ export const memoryRetrievalScenarios = [
     id: 'seeded-large-db-targeted-retrieval',
     topic: 'memory-retrieval',
     title: 'Retrieve the right fact from seeded large data',
-    suites: ['full'],
+    suites: ['full', 'crucial'],
     seedDocuments: [
       ...buildNoiseThoughtDocuments('Travel', 12),
       ...buildNoiseThoughtDocuments('Work', 12),

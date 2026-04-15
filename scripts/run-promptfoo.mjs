@@ -3,14 +3,6 @@ import { join, resolve } from 'path'
 import { fileURLToPath } from 'url'
 import { spawn } from 'child_process'
 import { scenarioTopics, scenarios } from '../evals/scenarios/catalog.mjs'
-import {
-  qwen35ProblemScenarioIds,
-  qwen35ProblemSuiteName,
-} from '../evals/scenarios/qwen35ProblemSuite.mjs'
-import {
-  focusedProblemScenarioIds,
-  focusedProblemSuiteName,
-} from '../evals/scenarios/focusedProblemSuite.mjs'
 
 const scriptDirectory = fileURLToPath(new URL('.', import.meta.url))
 const repositoryRoot = resolve(scriptDirectory, '..')
@@ -108,18 +100,9 @@ function parseTopics() {
   return [...new Set(topics)]
 }
 
-const qwen35ProblemScenarioIdSet = new Set(qwen35ProblemScenarioIds)
-const focusedProblemScenarioIdSet = new Set(focusedProblemScenarioIds)
-
-const supportedSuiteNames = new Set(['smoke', 'full', qwen35ProblemSuiteName, focusedProblemSuiteName])
+const supportedSuiteNames = new Set(['smoke', 'full', 'crucial', 'problematic'])
 
 function getScenariosForSuite(suiteName) {
-  if (suiteName === qwen35ProblemSuiteName) {
-    return scenarios.filter((scenario) => qwen35ProblemScenarioIdSet.has(scenario.id))
-  }
-  if (suiteName === focusedProblemSuiteName) {
-    return scenarios.filter((scenario) => focusedProblemScenarioIdSet.has(scenario.id))
-  }
   return scenarios.filter((scenario) => scenario.suites.includes(suiteName))
 }
 
@@ -271,7 +254,7 @@ function printUsageAndExit() {
 
 Options:
   --models <names>     Comma-separated Ollama model names (or repeat --model).
-  --suite smoke|full|qwen35-problem|focused-problem   Scenario suite (default: full). qwen35-problem = regression set from qwen3.5:9b failures. focused-problem = 10 representative scenarios for quick iteration.
+  --suite smoke|full|crucial|problematic   Scenario suite (default: full). smoke = fast sanity subset. crucial = data-integrity and core UX. problematic = scenarios that often fail on smaller models.
   --repeat <n>         Repeats per scenario (default: 3).
   --embedding-model    Ollama embedding model (default: auto-pick).
   --ollama-host <url>  Ollama base URL (default: http://127.0.0.1:11434).
@@ -301,7 +284,7 @@ async function main() {
   const suiteName = getSingleArgumentValue('--suite', 'full')
   if (!supportedSuiteNames.has(suiteName)) {
     throw new Error(
-      `Unsupported suite "${suiteName}". Use smoke, full, ${qwen35ProblemSuiteName}, or ${focusedProblemSuiteName}.`,
+      `Unsupported suite "${suiteName}". Use smoke, full, crucial, or problematic.`,
     )
   }
 

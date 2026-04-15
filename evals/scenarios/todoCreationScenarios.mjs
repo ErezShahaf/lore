@@ -3,7 +3,7 @@ export const todoCreationScenarios = [
     id: 'add-single-todo-explicit',
     topic: 'todo-creation',
     title: 'Add a single explicit todo',
-    suites: ['smoke', 'full'],
+    suites: ['smoke', 'full', 'crucial'],
     steps: [
       {
         userInput: 'Add to my todo list: buy milk',
@@ -36,7 +36,7 @@ export const todoCreationScenarios = [
     id: 'add-multiple-todos-inline-list',
     topic: 'todo-creation',
     title: 'Add multiple todos in one message',
-    suites: ['smoke', 'full'],
+    suites: ['smoke', 'full', 'crucial'],
     steps: [
       {
         userInput: 'Todos: buy milk, call mom, pay rent',
@@ -87,7 +87,7 @@ export const todoCreationScenarios = [
     id: 'similar-todos-km-batch-no-false-duplicate-message',
     topic: 'todo-creation',
     title: 'Run 5 km and run 10 km in one batch both save without false duplicate',
-    suites: ['full'],
+    suites: ['full', 'crucial'],
     steps: [
       {
         userInput: 'todo: run 5 km, run 10 km',
@@ -106,7 +106,7 @@ export const todoCreationScenarios = [
     id: 'identical-todo-repeat-clarifies-before-second-copy',
     topic: 'todo-creation',
     title: 'Repeating the same todo add clarifies instead of silently duplicating',
-    suites: ['full'],
+    suites: ['full', 'crucial', 'problematic'],
     steps: [
       {
         userInput: 'Add to my todo list: call the plumber',

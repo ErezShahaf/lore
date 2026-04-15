@@ -21,10 +21,11 @@
     "reset-db:eval": "node scripts/reset-db.mjs --profile eval",
     "eval:promptfoo": "node scripts/run-promptfoo.mjs",
     "eval:promptfoo:smoke": "node scripts/run-promptfoo.mjs --suite smoke",
+    "eval:promptfoo:crucial": "node scripts/run-promptfoo.mjs --suite crucial",
+    "eval:promptfoo:problematic": "node scripts/run-promptfoo.mjs --suite problematic",
     "eval:promptfoo:iterate": "node evals/run-and-summarize.mjs",
     "eval:promptfoo:summary": "node scripts/summarize-promptfoo-results.mjs",
-    "eval:promptfoo:viewer": "vite --config evals/promptfoo-viewer/vite.config.ts",
-    "eval:promptfoo:qwen35-problem": "node scripts/run-promptfoo.mjs --suite qwen35-problem --models qwen3.5:9b"
+    "eval:promptfoo:viewer": "vite --config evals/promptfoo-viewer/vite.config.ts"
   },
   "author": "",
   "license": "MIT",

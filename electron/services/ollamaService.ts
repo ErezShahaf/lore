@@ -864,10 +864,15 @@ export async function* streamChatWithTools(
               latestStreamChunkWithToolCalls = messageRecord
             }
             const thinkingLengthBefore = accumulated.thinking.value.length
+            const contentLengthBefore = accumulated.content.value.length
             appendStreamAssistantTextDeltas(messageRecord, accumulated)
             const thinkingAdded = accumulated.thinking.value.slice(thinkingLengthBefore)
             if (thinkingAdded.length > 0) {
               yield { type: 'thinking_stream_chunk', text: thinkingAdded }
+            }
+            const contentAdded = accumulated.content.value.slice(contentLengthBefore)
+            if (contentAdded.length > 0) {
+              yield { type: 'content_chunk', text: contentAdded }
             }
           }
           if (json.done === true && json.message && typeof json.message === 'object') {
@@ -890,10 +895,15 @@ export async function* streamChatWithTools(
             latestStreamChunkWithToolCalls = messageRecord
           }
           const thinkingLengthBefore = accumulated.thinking.value.length
+          const contentLengthBefore = accumulated.content.value.length
           appendStreamAssistantTextDeltas(messageRecord, accumulated)
           const thinkingAdded = accumulated.thinking.value.slice(thinkingLengthBefore)
           if (thinkingAdded.length > 0) {
             yield { type: 'thinking_stream_chunk', text: thinkingAdded }
+          }
+          const contentAdded = accumulated.content.value.slice(contentLengthBefore)
+          if (contentAdded.length > 0) {
+            yield { type: 'content_chunk', text: contentAdded }
           }
         }
         if (json.done === true && json.message && typeof json.message === 'object') {
@@ -960,24 +970,7 @@ export async function* streamChatWithTools(
       return
     }
 
-    const displayContent = finalMessage.content
-
-    const finalMessageForUi: ToolChatMessage = {
-      ...finalMessage,
-      content: displayContent,
-    }
-
-    const typingPieces = splitForTypingEffect(finalMessageForUi.content)
-    for (let pieceIndex = 0; pieceIndex < typingPieces.length; pieceIndex += 1) {
-      if (pieceIndex > 0) {
-        await new Promise<void>((resolve) => {
-          setTimeout(resolve, 0)
-        })
-      }
-      yield { type: 'content_chunk', text: typingPieces[pieceIndex]! }
-    }
-
-    yield { type: 'assistant_message', message: finalMessageForUi }
+    yield { type: 'assistant_message', message: finalMessage }
     completedSuccessfully = true
   } finally {
     finishTracking()

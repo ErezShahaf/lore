@@ -27,7 +27,7 @@ export const instructionPersistenceScenarios = [
     id: 'instruction-lists-todos-newest-first',
     topic: 'instruction-persistence',
     title: 'Todo ordering instruction is applied when listing todos',
-    suites: ['smoke', 'full'],
+    suites: ['smoke', 'full', 'crucial'],
     seedDocuments: datedTodoSeedDocuments,
     steps: [
       {
@@ -105,7 +105,7 @@ export const instructionPersistenceScenarios = [
     id: 'instruction-coexists-with-todo-creation',
     topic: 'instruction-persistence',
     title: 'Saved instruction stays separate while new todos are still created normally',
-    suites: ['full'],
+    suites: ['full', 'crucial'],
     steps: [
       {
         userInput: 'From now on, when you list my todos, show them from newest to oldest.',

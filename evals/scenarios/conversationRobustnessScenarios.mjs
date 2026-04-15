@@ -3,7 +3,7 @@ export const conversationRobustnessScenarios = [
     id: 'greeting-then-add-todo',
     topic: 'conversation-robustness',
     title: 'Greeting before task creation',
-    suites: ['smoke', 'full'],
+    suites: ['smoke', 'full', 'crucial'],
     steps: [
       {
         userInput: 'Hey, how are you today?',
@@ -47,7 +47,7 @@ export const conversationRobustnessScenarios = [
     id: 'pure-greeting-does-not-store',
     topic: 'conversation-robustness',
     title: 'Greeting alone does not create data',
-    suites: ['full'],
+    suites: ['full', 'crucial'],
     steps: [
       {
         userInput: 'Hi there!',
@@ -61,7 +61,7 @@ export const conversationRobustnessScenarios = [
     id: 'identical-thought-twice-surfaces-duplicate-handling',
     topic: 'conversation-robustness',
     title: 'Saving the same long note twice should not silently duplicate',
-    suites: ['full'],
+    suites: ['full', 'problematic'],
     steps: [
       {
         userInput:
@@ -85,7 +85,7 @@ export const conversationRobustnessScenarios = [
     id: 'duplicate-prompt-then-add-new-keeps-two-rows',
     topic: 'conversation-robustness',
     title: 'User can add a second copy after duplicate clarification',
-    suites: ['full'],
+    suites: ['full', 'problematic'],
     steps: [
       {
         userInput:

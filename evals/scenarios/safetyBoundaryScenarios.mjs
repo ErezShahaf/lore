@@ -3,7 +3,7 @@ export const safetyBoundaryScenarios = [
     id: 'instruction-does-not-become-todo',
     topic: 'safety-boundaries',
     title: 'Instruction stays separate from todos',
-    suites: ['full'],
+    suites: ['full', 'crucial'],
     steps: [
       {
         userInput: 'From now on answer very briefly.',
@@ -33,7 +33,7 @@ export const safetyBoundaryScenarios = [
     id: 'low-confidence-vague-request',
     topic: 'safety-boundaries',
     title: 'Vague request does not mutate state',
-    suites: ['smoke', 'full'],
+    suites: ['smoke', 'full', 'crucial'],
     steps: [
       {
         userInput: 'Do the thing',

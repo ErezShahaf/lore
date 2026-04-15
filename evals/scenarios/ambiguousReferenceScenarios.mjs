@@ -3,7 +3,7 @@ export const ambiguousReferenceScenarios = [
     id: 'ambiguous-run-completion-needs-clarification',
     topic: 'ambiguous-reference',
     title: 'Ambiguous "just finished the run" asks which run todo to remove',
-    suites: ['full'],
+    suites: ['full', 'crucial'],
     steps: [
       {
         userInput: 'Todos: run 5 mile, run 10 mile',
@@ -58,7 +58,7 @@ export const ambiguousReferenceScenarios = [
     id: 'ambiguous-ride-completion-needs-clarification',
     topic: 'ambiguous-reference',
     title: 'Ambiguous completion request asks which ride todo to remove',
-    suites: ['smoke', 'full'],
+    suites: ['smoke', 'full', 'crucial'],
     steps: [
       {
         userInput: 'Todos: ride a dragon, ride a motorcycle, ride a bike, ride a turtle',
@@ -145,7 +145,7 @@ export const ambiguousReferenceScenarios = [
     id: 'ambiguous-ride-edit-follow-up-updates-target',
     topic: 'ambiguous-reference',
     title: 'Clarification follow-up can update the intended ride todo',
-    suites: ['smoke', 'full'],
+    suites: ['smoke', 'full', 'crucial', 'problematic'],
     steps: [
       {
         userInput: 'Todos: ride a dragon, ride a motorcycle, ride a bike',
@@ -210,7 +210,7 @@ export const ambiguousReferenceScenarios = [
     id: 'ambiguous-run-delete-exact-content-follow-up-executes',
     topic: 'ambiguous-reference',
     title: 'Numeric follow-up after delete clarification executes removal',
-    suites: ['full'],
+    suites: ['full', 'problematic'],
     steps: [
       {
         userInput: 'Todos: run 5 mile, run 10 mile',
@@ -244,7 +244,7 @@ export const ambiguousReferenceScenarios = [
     id: 'ambiguous-ten-times-completion-offers-all-option',
     topic: 'ambiguous-reference',
     title: 'Ambiguous ten-times completion lists matches and offers an all option',
-    suites: ['full'],
+    suites: ['full', 'problematic'],
     steps: [
       {
         userInput: 'Todos: cry 10 times, clean 10 times, slide b duck, jump 10 times, run 10 times',

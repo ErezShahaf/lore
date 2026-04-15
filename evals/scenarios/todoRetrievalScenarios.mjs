@@ -3,7 +3,7 @@ export const todoRetrievalScenarios = [
     id: 'retrieve-todos-after-creation',
     topic: 'todo-retrieval',
     title: 'Retrieve todos after creating them',
-    suites: ['smoke', 'full'],
+    suites: ['smoke', 'full', 'crucial'],
     steps: [
       {
         userInput: 'Todos: buy milk, call mom',
@@ -25,7 +25,7 @@ export const todoRetrievalScenarios = [
     id: 'todo-list-each-item-on-own-line',
     topic: 'todo-retrieval',
     title: 'Listed todos appear one per line not concatenated',
-    suites: ['full'],
+    suites: ['full', 'crucial', 'problematic'],
     steps: [
       {
         userInput: 'Todos: swim 5 km, run 5 km, run 10 km',
@@ -81,7 +81,7 @@ export const todoRetrievalScenarios = [
     id: 'retrieve-todos-with-casual-phrasing',
     topic: 'todo-retrieval',
     title: 'Retrieve todos with casual wording',
-    suites: ['full'],
+    suites: ['full', 'crucial'],
     steps: [
       {
         userInput: 'Todos: pick up laundry, send the invoice',

@@ -48,7 +48,7 @@ export const structuredDataScenarios = [
     id: 'raw-json-without-instruction-needs-clarification',
     topic: 'structured-data',
     title: 'Raw JSON alone asks what to do before mutating state',
-    suites: ['smoke', 'full'],
+    suites: ['smoke', 'full', 'crucial'],
     steps: [
       {
         userInput: stripeCheckoutSessionCompletedJson,
@@ -86,7 +86,7 @@ export const structuredDataScenarios = [
     id: 'raw-json-clarification-then-save-and-retrieve-exactly',
     topic: 'structured-data',
     title: 'Clarified raw JSON can be saved and retrieved verbatim',
-    suites: ['full'],
+    suites: ['full', 'problematic'],
     steps: [
       {
         userInput: stripeCheckoutSessionCompletedJson,
@@ -122,7 +122,7 @@ export const structuredDataScenarios = [
     id: 'specific-structured-json-request-picks-the-right-stripe-event',
     topic: 'structured-data',
     title: 'Specific JSON retrieval can pick the right Stripe event among several',
-    suites: ['smoke', 'full'],
+    suites: ['smoke', 'full', 'crucial'],
     seedDocuments: [
       {
         content: stripeCheckoutSessionCompletedJson,
@@ -163,7 +163,7 @@ export const structuredDataScenarios = [
     id: 'generic-stripe-json-request-needs-event-clarification',
     topic: 'structured-data',
     title: 'Generic Stripe JSON request asks which Stripe webhook event',
-    suites: ['full'],
+    suites: ['full', 'problematic'],
     seedDocuments: [
       {
         content: stripeCheckoutSessionCompletedJson,

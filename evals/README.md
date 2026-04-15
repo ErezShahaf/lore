@@ -3,11 +3,11 @@
 ## Running scenarios
 
 - Full suite: `npm run eval:promptfoo -- --models <ollama-model>`
-- Smoke: `npm run eval:promptfoo:smoke -- --models <ollama-model>`
-- **Qwen 3.5 9B regression subset** (46 scenarios that failed at least once for `qwen3.5:9b` classic or native on the 2026-04-05 full run):  
-  `npm run eval:promptfoo:qwen35-problem`  
-  Or: `node scripts/run-promptfoo.mjs --suite qwen35-problem --models qwen3.5:9b`  
-  Scenario list: [scenarios/qwen35ProblemSuite.mjs](scenarios/qwen35ProblemSuite.mjs) — update that file after new baseline runs.
+- Smoke (fast sanity subset): `npm run eval:promptfoo:smoke -- --models <ollama-model>`
+- Crucial (data integrity and core UX): `npm run eval:promptfoo:crucial -- --models <ollama-model>`
+- Problematic (scenarios that often fail on smaller models): `npm run eval:promptfoo:problematic -- --models <ollama-model>`
+
+Suite membership is defined per scenario in `evals/scenarios/*.mjs` (`suites` arrays on each scenario).
 
 Summaries: `npm run eval:promptfoo:summary` (optionally `--file evals/results/promptfoo-….json`).
 

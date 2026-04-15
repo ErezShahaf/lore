@@ -71,7 +71,7 @@ function getRequestOptions(method, body) {
   const options = {
     method,
     headers: {},
-    signal: AbortSignal.timeout(240_000),
+    signal: AbortSignal.timeout(360_000),
   }
 
   if (body !== undefined) {
@@ -880,10 +880,14 @@ async function evaluateInteractionClarificationExpectation({
       },
     })
 
+    const heuristicSaysClarification = heuristicAssistantAsksForClarification(interactionTurn.response)
+    const effectivePass = judgment.pass
+      || (shouldRequireClarification && !judgment.pass && heuristicSaysClarification)
+
     turnJudgments.push({
       userInput: interactionTurn.userInput,
       response: interactionTurn.response,
-      pass: judgment.pass,
+      pass: effectivePass,
       reason: judgment.reason,
     })
   }

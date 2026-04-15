@@ -97,7 +97,7 @@ export const newChatTodoScenarios = [
     id: 'new-chat-seeded-casual-todo-list',
     topic: 'todo-new-chat',
     title: 'Cold thread: casual wording lists seeded todos',
-    suites: ['smoke', 'full'],
+    suites: ['smoke', 'full', 'crucial'],
     seedDocuments: casualListTodos,
     steps: [
       {
@@ -113,7 +113,7 @@ export const newChatTodoScenarios = [
     id: 'new-chat-seeded-update-milk-todo',
     topic: 'todo-new-chat',
     title: 'Cold thread: update a specific seeded todo by description',
-    suites: ['full'],
+    suites: ['full', 'crucial'],
     seedDocuments: milkAndMomTodos,
     steps: [
       {
@@ -132,7 +132,7 @@ export const newChatTodoScenarios = [
     id: 'new-chat-seeded-delete-milk-todo',
     topic: 'todo-new-chat',
     title: 'Cold thread: delete one seeded todo by description',
-    suites: ['full'],
+    suites: ['full', 'crucial'],
     seedDocuments: milkAndBreadTodos,
     steps: [
       {
@@ -185,7 +185,7 @@ export const newChatTodoScenarios = [
     id: 'new-chat-seeded-ambiguous-finished-run-needs-clarification',
     topic: 'todo-new-chat',
     title: 'Cold thread: ambiguous run completion on seeded run todos waits for user',
-    suites: ['full'],
+    suites: ['full', 'problematic'],
     seedDocuments: runMilePairTodos,
     steps: [
       {
@@ -258,7 +258,7 @@ export const newChatTodoScenarios = [
     id: 'new-chat-reset-after-user-created-todos-ambiguous-delete-resolves',
     topic: 'todo-new-chat',
     title: 'Fresh conversation after user created todos: ambiguous delete then resolution',
-    suites: ['full'],
+    suites: ['full', 'crucial', 'problematic'],
     steps: [
       {
         userInput: 'Todos: jump on the water, drink the water',

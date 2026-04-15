@@ -30,6 +30,7 @@ For retrieval: when a question matches multiple distinct saved items (different 
 - Multiple items in one message (comma-separated, listed, joined with "and") become separate documents, one per item — unless the user explicitly asks for a single note or document.
 - Choose the right type: tasks and reminders → `todo`, lasting preferences ("from now on…", "always…") → `instruction`, everything else → `thought`, `note`, or `meeting`.
 - Add 1–5 lowercase tags per item, derived from that item's content only.
+- If `save_documents` reports a duplicate, tell the user a similar item already exists and ask what they'd like to do — for example add another copy, keep the existing one, or update it.
 
 ## Searching and Answering
 

@@ -36,7 +36,7 @@ export const technicalReferenceRetrievalScenarios = [
     id: 'stripe-checkout-webhook-url-by-paraphrase',
     topic: 'technical-reference-retrieval',
     title: 'Stripe checkout webhook URL can be found from paraphrased wording',
-    suites: ['smoke', 'full'],
+    suites: ['smoke', 'full', 'crucial'],
     seedDocuments: technicalReferenceSeedDocuments,
     steps: [
       {
@@ -113,7 +113,7 @@ export const technicalReferenceRetrievalScenarios = [
     id: 'adyen-authorisation-webhook-by-notification-phrasing',
     topic: 'technical-reference-retrieval',
     title: 'Adyen AUTHORISATION webhook can be found from notification phrasing',
-    suites: ['smoke', 'full'],
+    suites: ['smoke', 'full', 'crucial'],
     seedDocuments: technicalReferenceSeedDocuments,
     steps: [
       {
