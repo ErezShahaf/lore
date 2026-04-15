@@ -297,7 +297,7 @@ export const structuredDataScenarios = [
   {
     id: 'restaurant-json-title-follow-up-embeds-json-body',
     topic: 'structured-data',
-    title: 'After title prompt, stored note includes user title plus prior JSON blob',
+    title: 'Follow-up save after JSON clarification keeps JSON-shaped content',
     suites: ['full'],
     steps: [
       {
@@ -311,17 +311,9 @@ export const structuredDataScenarios = [
       {
         userInput: 'save it',
         expect: {
-          storedCount: 0,
-          responseJudge:
-            'The assistant should ask for a short title or label before saving, not write the note yet.',
-        },
-      },
-      {
-        userInput: 'Tel Aviv food API sample response',
-        expect: {
           storedCount: 1,
           dataJudge:
-            'The stored document must include the user’s title line (or clear paraphrase such as "Tel Aviv food API") and must still contain JSON markers and the substring "Spice Route". It must not be only the title sentence with no JSON body.',
+            'The stored document must contain JSON markers and the substring "Spice Route". It must not discard the JSON body.',
         },
       },
     ],

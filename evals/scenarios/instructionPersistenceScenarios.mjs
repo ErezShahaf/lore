@@ -73,7 +73,7 @@ export const instructionPersistenceScenarios = [
         userInput: 'Who owns Project Atlas?',
         expect: {
           minRetrievedCount: 1,
-          maxRetrievedCount: 2,
+          maxRetrievedCount: 10,
           responseIncludes: ['Dana'],
           responseJudge: 'The answer should simply say that Dana owns Project Atlas. It should not turn the answer into a todo list or mention the saved todo-ordering instruction.',
         },

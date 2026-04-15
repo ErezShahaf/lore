@@ -379,6 +379,7 @@ function buildFailureExample(row) {
   const pipelineTrace = getPipelineTraceForFailedRow(row)
 
   return {
+    errorMessage: row.error || row.response?.error || null,
     failureReasons: getFailureReasons(row),
     failedChecks: failedChecks.slice(0, 3).map((failedCheck) => ({
       stepIndex: failedCheck.stepIndex,
@@ -432,7 +433,11 @@ function summarizeResults(rows) {
 
     const failureReasons = getFailureReasons(row)
     if (failureReasons.length === 0) {
-      incrementCount(scenarioSummary.failureReasons, 'Unknown failure')
+      const errorMessage = row.error || row.response?.error
+      const label = errorMessage
+        ? `Error: ${typeof errorMessage === 'string' ? errorMessage : String(errorMessage)}`
+        : 'Unknown failure'
+      incrementCount(scenarioSummary.failureReasons, label)
     } else {
       for (const failureReason of failureReasons) {
         incrementCount(scenarioSummary.failureReasons, failureReason)
@@ -480,6 +485,10 @@ function formatTopCounts(countMap, limit) {
 
 function renderFailureExampleMarkdown(failureExample) {
   const lines = []
+
+  if (failureExample.errorMessage) {
+    lines.push(`    Error: ${truncateText(String(failureExample.errorMessage), 300)}`)
+  }
 
   if (failureExample.attribution && failureExample.attribution.likelyBlameComponent) {
     const attribution = failureExample.attribution
@@ -656,6 +665,9 @@ function printSummary(resultPath, summaryRows, providerSummaries) {
     if (summaryRow.failureExamples.length > 0) {
       console.log('  Sample failures:')
       for (const failureExample of summaryRow.failureExamples) {
+        if (failureExample.errorMessage) {
+          console.log(`    error: ${truncateText(String(failureExample.errorMessage), 200)}`)
+        }
         if (failureExample.attribution) {
           console.log(
             `    blame (heuristic): ${failureExample.attribution.likelyBlameComponent} — ${truncateText(failureExample.attribution.rationale, 160)}`,
