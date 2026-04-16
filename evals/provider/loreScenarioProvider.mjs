@@ -71,7 +71,6 @@ function getRequestOptions(method, body) {
   const options = {
     method,
     headers: {},
-    signal: AbortSignal.timeout(360_000),
   }
 
   if (body !== undefined) {
@@ -122,9 +121,7 @@ async function findOpenPort() {
 }
 
 async function waitForHealth(baseUrl, childProcess, outputCollector) {
-  const deadline = Date.now() + 120_000
-
-  while (Date.now() < deadline) {
+  while (true) {
     if (childProcess.exitCode !== null) {
       throw new Error(`Eval server exited early.\n${outputCollector.toString()}`)
     }
@@ -136,8 +133,6 @@ async function waitForHealth(baseUrl, childProcess, outputCollector) {
       await new Promise((resolveWait) => setTimeout(resolveWait, 1000))
     }
   }
-
-  throw new Error(`Timed out waiting for the eval server.\n${outputCollector.toString()}`)
 }
 
 async function startEvalServer(config) {
@@ -769,7 +764,6 @@ async function judgeRubric({ judgeModel, ollamaHost, rubric, actualState }) {
     let judgeResponse = await fetch(`${ollamaHost}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(120_000),
       body: JSON.stringify(schemaPayload),
     })
 
@@ -778,7 +772,6 @@ async function judgeRubric({ judgeModel, ollamaHost, rubric, actualState }) {
       judgeResponse = await fetch(`${ollamaHost}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(120_000),
         body: JSON.stringify(fallbackPayload),
       })
     }

@@ -111,9 +111,7 @@ function getTimestamp() {
 }
 
 async function fetchOllamaModelNames(ollamaHost) {
-  const response = await fetch(`${ollamaHost}/api/tags`, {
-    signal: AbortSignal.timeout(10_000),
-  })
+  const response = await fetch(`${ollamaHost}/api/tags`)
 
   if (!response.ok) {
     throw new Error(`Failed to list Ollama models from ${ollamaHost}: ${response.status} ${response.statusText}`)

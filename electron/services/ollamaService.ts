@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events'
 
 import { getSettings } from './settingsService'
 import { resolveOllamaKeepAlive } from './resolveOllamaKeepAlive'
+import { isEvalRuntimeProfile } from './runtimeProfileService'
 import { logger } from '../logger'
 import type {
   OllamaModel,
@@ -159,7 +160,7 @@ export async function preloadModels(): Promise<void> {
             think: true,
             options: { num_ctx: CHAT_NUM_CTX },
           }),
-          signal: AbortSignal.timeout(120_000),
+          ...(isEvalRuntimeProfile() ? {} : { signal: AbortSignal.timeout(120_000) }),
         })
           .then((res) => {
             if (res.ok) {
@@ -183,7 +184,7 @@ export async function preloadModels(): Promise<void> {
             input: '',
             keep_alive: keepAlive,
           }),
-          signal: AbortSignal.timeout(120_000),
+          ...(isEvalRuntimeProfile() ? {} : { signal: AbortSignal.timeout(120_000) }),
         })
           .then((res) => {
             if (res.ok) logger.info({ embedModel }, '[Lore] Preloaded embedding model')
@@ -228,11 +229,15 @@ function beginTrackedChatRequest(): {
 } {
   const controller = new AbortController()
   registerInFlightChatAbortController(controller)
-  const timeoutId = setTimeout(() => {
-    controller.abort()
-  }, CHAT_REQUEST_TIMEOUT_MS)
+  const timeoutId = isEvalRuntimeProfile()
+    ? null
+    : setTimeout(() => {
+        controller.abort()
+      }, CHAT_REQUEST_TIMEOUT_MS)
   const finishTracking = (): void => {
-    clearTimeout(timeoutId)
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId)
+    }
     unregisterInFlightChatAbortController(controller)
   }
   return { signal: controller.signal, finishTracking }

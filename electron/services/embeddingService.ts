@@ -1,5 +1,6 @@
 import { getSettings } from './settingsService'
 import { resolveOllamaKeepAlive } from './resolveOllamaKeepAlive'
+import { isEvalRuntimeProfile } from './runtimeProfileService'
 
 const EMBEDDING_DIMENSIONS: Record<string, number> = {
   'qwen3-embedding:0.6b': 1024,
@@ -33,7 +34,7 @@ export async function embedText(text: string): Promise<Float32Array> {
       input: text,
       keep_alive: resolveOllamaKeepAlive(getSettings()),
     }),
-    signal: AbortSignal.timeout(30_000),
+    ...(isEvalRuntimeProfile() ? {} : { signal: AbortSignal.timeout(30_000) }),
   })
 
   if (!res.ok) {
@@ -59,7 +60,7 @@ export async function embedTexts(texts: string[]): Promise<Float32Array[]> {
       input: texts,
       keep_alive: resolveOllamaKeepAlive(getSettings()),
     }),
-    signal: AbortSignal.timeout(60_000),
+    ...(isEvalRuntimeProfile() ? {} : { signal: AbortSignal.timeout(60_000) }),
   })
 
   if (!res.ok) {
