@@ -123,7 +123,18 @@ export async function bootstrapOllama(customBasePath?: string): Promise<void> {
         broadcast({ phase: 'downloading', percent, message })
       },
       serverLog: (message) => {
-        logger.debug({ message }, '[Ollama]')
+        const normalizedMessage = message.trim()
+        if (normalizedMessage.length === 0) {
+          return
+        }
+        // Avoid flooding app logs with Ollama internal server output.
+        // Keep only server-side warning/error signals.
+        const isWarningOrErrorLine =
+          normalizedMessage.includes(' level=WARN ') || normalizedMessage.includes(' level=ERROR ')
+        if (!isWarningOrErrorLine) {
+          return
+        }
+        logger.warn({ message: normalizedMessage }, '[Ollama]')
       },
     })
 

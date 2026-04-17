@@ -1,0 +1,162 @@
+name: Build All Platforms
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build icons
+        run: npm run build:icons
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build renderer
+        run: npx vite build
+
+      - name: Build Windows installer
+        run: npx electron-builder --win --x64 --config electron-builder.json5 --publish never
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ github.sha }}
+          path: release/**/*.exe
+          if-no-files-found: error
+
+  build-mac-arm64:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build icons
+        run: npm run build:icons
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build renderer
+        run: npx vite build
+
+      - name: Write Apple API key
+        run: |
+          cat > "$RUNNER_TEMP/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8" <<'EOF'
+          ${{ secrets.APPLE_API_KEY_P8 }}
+          EOF
+
+      - name: Build macOS ARM64 DMG
+        run: npx electron-builder --mac --arm64 --config electron-builder.json5 --publish never
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ runner.temp }}/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+
+      - name: Upload macOS ARM64 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-arm64-${{ github.sha }}
+          path: release/**/*.dmg
+          if-no-files-found: error
+
+  build-mac-x64:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build icons
+        run: npm run build:icons
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build renderer
+        run: npx vite build
+
+      - name: Write Apple API key
+        run: |
+          cat > "$RUNNER_TEMP/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8" <<'EOF'
+          ${{ secrets.APPLE_API_KEY_P8 }}
+          EOF
+
+      - name: Build macOS x64 DMG
+        run: npx electron-builder --mac --x64 --config electron-builder.json5 --publish never
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ runner.temp }}/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+
+      - name: Upload macOS x64 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-x64-${{ github.sha }}
+          path: release/**/*.dmg
+          if-no-files-found: error
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build renderer
+        run: npx vite build
+
+      - name: Build Linux AppImage
+        run: npx electron-builder --linux --x64 --config electron-builder.json5 --publish never
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ github.sha }}
+          path: release/**/*.AppImage
+          if-no-files-found: error

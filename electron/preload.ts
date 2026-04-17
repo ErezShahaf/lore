@@ -11,6 +11,7 @@ import type {
   RetrievalOptions,
   SystemInfo,
   HardwareProfile,
+  EmbeddingMigrationStatus,
 } from '../shared/types'
 
 const loreAPI = {
@@ -34,6 +35,13 @@ const loreAPI = {
     return () => ipcRenderer.removeListener('chat:response-chunk', handler)
   },
 
+  onThinkingChunk: (callback: (chunk: string) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, { chunk }: { chunk: string }) =>
+      callback(chunk)
+    ipcRenderer.on('chat:thinking-chunk', handler)
+    return () => ipcRenderer.removeListener('chat:thinking-chunk', handler)
+  },
+
   onResponseEnd: (callback: () => void) => {
     const handler = () => callback()
     ipcRenderer.on('chat:response-end', handler)
@@ -52,6 +60,19 @@ const loreAPI = {
       callback(message)
     ipcRenderer.on('chat:status', handler)
     return () => ipcRenderer.removeListener('chat:status', handler)
+  },
+
+  onLikelyChatModelEvicted: (callback: (likely: boolean) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, { likely }: { likely: boolean }) =>
+      callback(likely)
+    ipcRenderer.on('chat:likely-chat-model-evicted', handler)
+    return () => ipcRenderer.removeListener('chat:likely-chat-model-evicted', handler)
+  },
+
+  onChatModelInferenceCompleted: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('chat:model-inference-completed', handler)
+    return () => ipcRenderer.removeListener('chat:model-inference-completed', handler)
   },
 
   onChatReset: (callback: () => void) => {
@@ -181,6 +202,29 @@ const loreAPI = {
 
   getDocumentsByType: (type: string): Promise<unknown[]> =>
     ipcRenderer.invoke('db:get-by-type', { type }),
+
+  // ── Embedding migration ───────────────────────────────────────
+
+  getEmbeddingMigrationStatus: (): Promise<EmbeddingMigrationStatus> =>
+    ipcRenderer.invoke('embedding-migration:get-status'),
+
+  onEmbeddingMigrationStatusChanged: (
+    callback: (status: EmbeddingMigrationStatus) => void,
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      status: EmbeddingMigrationStatus,
+    ): void => callback(status)
+    ipcRenderer.on('embedding-migration:status-changed', handler)
+    return () =>
+      ipcRenderer.removeListener('embedding-migration:status-changed', handler)
+  },
+
+  retryEmbeddingMigration: (): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('embedding-migration:retry'),
+
+  discardEmbeddingMigration: (): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('embedding-migration:discard'),
 
   // ── Update check ──────────────────────────────────────────────
 

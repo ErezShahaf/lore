@@ -11,6 +11,13 @@ interface GeneralSettingsProps {
 
 export function GeneralSettings({ settings, onUpdate }: GeneralSettingsProps) {
   const [displays, setDisplays] = useState<DisplayInfo[]>([])
+  const [keepAliveMinutesDraft, setKeepAliveMinutesDraft] = useState(
+    () => String(settings.ollamaKeepAliveMinutes),
+  )
+
+  useEffect(() => {
+    setKeepAliveMinutesDraft(String(settings.ollamaKeepAliveMinutes))
+  }, [settings.ollamaKeepAliveMinutes])
 
   useEffect(() => {
     let isMounted = true
@@ -123,6 +130,33 @@ export function GeneralSettings({ settings, onUpdate }: GeneralSettingsProps) {
           </div>
           <p className="text-xs text-muted-foreground">
             Where downloaded AI models are stored. The AI engine will restart automatically when changed.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-foreground">Keep model in memory (minutes)</label>
+          <Input
+            type="text"
+            inputMode="numeric"
+            value={keepAliveMinutesDraft}
+            onChange={(event) => {
+              setKeepAliveMinutesDraft(event.target.value)
+            }}
+            onBlur={() => {
+              const parsed = Number.parseInt(keepAliveMinutesDraft.trim(), 10)
+              if (Number.isNaN(parsed) || parsed < -1) {
+                setKeepAliveMinutesDraft(String(settings.ollamaKeepAliveMinutes))
+                return
+              }
+              onUpdate({ ollamaKeepAliveMinutes: parsed })
+              setKeepAliveMinutesDraft(String(parsed))
+            }}
+            className="max-w-xs"
+          />
+          <p className="text-xs text-muted-foreground">
+            After this idle period the AI engine may unload models to free memory (for example GPU VRAM
+            when using acceleration, otherwise system RAM). Use -1 to keep models loaded (uses more
+            memory, faster repeat use).
           </p>
         </div>
       </div>

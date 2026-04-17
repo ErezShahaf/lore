@@ -1,0 +1,73 @@
+---
+description: Modular structure for Lore skill-classification prompts (entry.md fragments)
+globs: skills/skill-classification/**/*.md
+alwaysApply: false
+---
+
+# Prompt modules (skill-classification)
+
+## Token budget
+
+- Target ≤300 instructional tokens per `entry.md` body (trimmed). Approximate: `Math.ceil(trimmedUtf8Length / 4)` for English-heavy text.
+- If content does not fit, split into another file under the same subtree (or for first-turn, another `shared/first-turn-classifier/*.md` fragment); never drop behavior silently.
+
+## First-turn classifier merge
+
+- [`skills/skill-classification/entry.md`](skills/skill-classification/entry.md) loads first.
+- Then all `*.md` in [`skills/skill-classification/shared/first-turn-classifier/`](skills/skill-classification/shared/first-turn-classifier/) in lexicographic order, joined with `\n\n---\n\n`.
+- See [`electron/services/skillLoader.ts`](electron/services/skillLoader.ts) `loadClassificationRootOnly`.
+- The merged prompt contains multiple `<system_prompt>` blocks separated by `---`; that is expected.
+
+## Outer wrapper
+
+Every fragment file uses one stable envelope:
+
+```markdown
+<system_prompt id="unique-stable-id">
+...
+</system_prompt>
+```
+
+- `id`: snake_case, unique across fragments in the same merged prompt (first-turn: unique across `entry.md` + all `first-turn-classifier/*.md`).
+- For forked skills, each leaf `entry.md` is one fragment; parent `entry.md` files stay thin (routing only).
+
+## Inner sections
+
+Inside `<system_prompt>`, use these XML blocks (lowercase tag names). Omit a section only when it is truly empty. Prefer one blank line between adjacent major tags; one line break between list items.
+
+| Tag | Purpose |
+|-----|---------|
+| `<role>` | 1–3 sentences: named agent + sole job. Plain text only (no markdown bold inside XML). |
+| `<logic_flow>` | Numbered steps (`1.`, `2.`, …). Imperative instructions; phase labels in plain caps with a colon (e.g. `ANALYZE:`). Sub-bullets for branches; positive defaults first (“Prefer X when …”). |
+| `<constraints>` | Hard rules: schema invariants, overrides, safety. |
+| `<verbatim_handling>` | Optional nested block inside `<constraints>` when quoting user or stored text must not be paraphrased. Numbered rules; state when to copy exact bytes or lines. |
+| `<formatting_rules>` | Output contract: JSON shape, “exactly one object”, no markdown fences, prose-only replies, optional `<thinking>` rules, markdown allowed for replay (e.g. blockquotes) when specified. |
+| `<examples>` | Optional; after `<formatting_rules>`. At most one `<example>` with `<input>` / `<response>` if token budget allows. |
+
+Do not use `**bold**` inside the XML instruction body; structure comes from tags and numbering. Backticks for literal tokens (`actions`, field names) are fine.
+
+Reserve long “Never …” lists for irreversible mistakes; prefer tight IF or ALWAYS bullets in `<constraints>`.
+
+## Structured output and `<thinking>`
+
+Callers of [`generateStructuredResponse`](electron/services/ollamaService.ts) parse JSON via `sanitizeStructuredJsonResponse`, which strips a leading `<thinking>...</thinking>` block when present, then extracts the first balanced `{...}` object.
+
+- Preferred instruction: ask for exactly one JSON object as the full reply (matches repair-turn wording).
+- Allowed: optional `<thinking>...</thinking>` before JSON for chain-of-thought; keep reasoning free of stray `{` / `}` or parsing can fail.
+
+Unstructured or chat-only prompts that never go through `parseStructuredResponse` may use richer formatting per their `<formatting_rules>`.
+
+## Few-shot
+
+- At most one minimal `<example>` per leaf if it fits the budget; otherwise omit or add a dedicated small fragment file.
+
+## Validation (manual)
+
+After edits, from repo root:
+
+```bash
+rg '<lore_fragment|</lore_fragment>|<output_format>|</output_format>' skills/skill-classification
+rg '\*\*' skills/skill-classification --glob '*.md'
+```
+
+Both commands should return no matches inside fragment bodies.

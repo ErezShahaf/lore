@@ -1,46 +1,37 @@
-import { classifyInput } from './classifierService'
 import { logger } from '../logger'
-import { handleThought } from './handlers/thoughtHandler'
-import { handleQuestion } from './handlers/questionHandler'
-import { handleCommand } from './handlers/commandHandler'
-import { handleInstruction } from './handlers/instructionHandler'
-import { handleConversational } from './handlers/conversationalHandler'
+import { runLoopAgentTurn } from './loopAgentService'
+import { compactSessionHistoryIfNeeded } from './sessionCompaction'
 import {
-  looksLikeExplicitStorageRequest,
-  looksLikeExplicitModificationRequest,
-  looksLikeInstructionManagementRequest,
-  looksLikeReferentialCommandRequest,
-  looksLikeShortReaction,
-  looksLikeStoredDataQuestion,
-  looksLikeTodoQuery,
-} from './userIntentHeuristics'
-import type {
-  AgentEvent,
-  ConversationEntry,
-  InputClassification,
-  RetrievalOptions,
+  PIPELINE_TRACE_SCHEMA_VERSION,
+  type AgentEvent,
+  type ConversationEntry,
+  type MutablePipelineTraceSink,
+  type PipelineTracePayload,
 } from '../../shared/types'
 
 interface SessionContext {
   history: ConversationEntry[]
   lastDocumentIds: string[]
-  lastTopic: string | null
-  lastIntent: InputClassification | null
+  lastTurnRetrievedDocumentIds: string[]
+  lastPipelineTrace: PipelineTracePayload | null
 }
 
 let session: SessionContext = {
   history: [],
   lastDocumentIds: [],
-  lastTopic: null,
-  lastIntent: null,
+  lastTurnRetrievedDocumentIds: [],
+  lastPipelineTrace: null,
 }
 
+let sessionResetEpoch = 0
+
 export function clearConversation(): void {
+  sessionResetEpoch += 1
   session = {
     history: [],
     lastDocumentIds: [],
-    lastTopic: null,
-    lastIntent: null,
+    lastTurnRetrievedDocumentIds: [],
+    lastPipelineTrace: null,
   }
 }
 
@@ -48,177 +39,95 @@ export function getConversationHistory(): ConversationEntry[] {
   return session.history
 }
 
-// ── Confidence thresholds ─────────────────────────────────────
-
-const CLASSIFICATION_CONFIDENCE_THRESHOLD = 0.75
-
-function toErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'An unexpected error occurred'
+export function getLastPipelineTrace(): PipelineTracePayload | null {
+  return session.lastPipelineTrace
 }
 
-export function applyDeterministicRoutingHints(
-  userInput: string,
-  classification: {
-    intent: 'thought' | 'question' | 'command' | 'instruction' | 'conversational'
-    subtype: string
-    confidence: number
-    reasoning: string
-  },
-): void {
-  if (classification.intent === 'conversational' && looksLikeStoredDataQuestion(userInput)) {
-    classification.intent = 'question'
-    classification.confidence = Math.max(classification.confidence, CLASSIFICATION_CONFIDENCE_THRESHOLD)
-    classification.reasoning = 'Heuristic override: explicit stored-data retrieval request.'
+function dedupeIdsPreservingOrder(ids: readonly string[]): string[] {
+  const seen = new Set<string>()
+  const ordered: string[] = []
+  for (const id of ids) {
+    if (id.trim().length === 0 || seen.has(id)) {
+      continue
+    }
+    seen.add(id)
+    ordered.push(id)
   }
-
-  if (classification.intent === 'instruction' && looksLikeInstructionManagementRequest(userInput)) {
-    classification.intent = 'command'
-    classification.confidence = Math.max(classification.confidence, CLASSIFICATION_CONFIDENCE_THRESHOLD)
-    classification.reasoning = 'Heuristic override: instruction management request should use the command pipeline.'
-  }
-
-  if (
-    classification.intent === 'command'
-    && looksLikeExplicitStorageRequest(userInput)
-    && !looksLikeExplicitModificationRequest(userInput)
-  ) {
-    classification.intent = 'thought'
-    classification.subtype = 'general'
-    classification.confidence = Math.max(classification.confidence, CLASSIFICATION_CONFIDENCE_THRESHOLD)
-    classification.reasoning = 'Heuristic override: explicit storage request should create new stored items.'
-  }
-
-  if (
-    classification.intent === 'thought'
-    && looksLikeShortReaction(userInput)
-    && !looksLikeExplicitStorageRequest(userInput)
-  ) {
-    classification.intent = 'conversational'
-    classification.confidence = Math.max(classification.confidence, CLASSIFICATION_CONFIDENCE_THRESHOLD)
-    classification.reasoning = 'Heuristic override: short reaction-like input should not be stored by default.'
-  }
+  return ordered
 }
-
-// ── Main processing loop ─────────────────────────────────────
 
 export async function* processUserInput(userInput: string): AsyncGenerator<AgentEvent> {
-  const priorHistory = session.history.slice()
+  const epochAtTurnStart = sessionResetEpoch
+  const isSessionStillOwnedByThisTurn = (): boolean => epochAtTurnStart === sessionResetEpoch
+  const isCancelled = (): boolean => !isSessionStillOwnedByThisTurn()
+
   session.history.push({ role: 'user', content: userInput })
+  const userMessage = session.history[session.history.length - 1]!
 
-  yield { type: 'status', message: 'Classifying your input...' }
-
-  let classification
-  try {
-    classification = await classifyInput(userInput, priorHistory)
-  } catch (err) {
-    logger.error({ err }, '[Agent] Classification failed')
-    yield { type: 'error', message: toErrorMessage(err) }
-    yield { type: 'done' }
-    return
+  const traceSink: MutablePipelineTraceSink = {
+    traceSchemaVersion: PIPELINE_TRACE_SCHEMA_VERSION,
+    stages: [],
   }
+  session.lastPipelineTrace = null
 
-  applyDeterministicRoutingHints(userInput, classification)
-
-  logger.debug(
-    { intent: classification.intent, subtype: classification.subtype, confidence: classification.confidence },
-    '[Agent] Classified',
-  )
-
-  if (classification.confidence < CLASSIFICATION_CONFIDENCE_THRESHOLD) {
-    logger.warn({ confidence: classification.confidence }, '[Agent] Classification confidence too low, refusing to act')
-    const lowConfidenceResponse =
-      "I'm not sure what you'd like me to do. Could you provide more detail or rephrase? " +
-      'You can also ask me "what can you do?" to learn about my capabilities.'
-    yield { type: 'chunk', content: lowConfidenceResponse }
-    yield { type: 'done' }
-    session.history.push({ role: 'assistant', content: lowConfidenceResponse })
-    return
-  }
+  const rawPriorHistory = session.history.slice(0, -1)
+  const { entries: compactedPriorHistory } = compactSessionHistoryIfNeeded(rawPriorHistory, traceSink)
+  session.history = [...compactedPriorHistory, userMessage]
+  const priorHistory = compactedPriorHistory
 
   let assistantResponse = ''
+  const documentIds: string[] = []
+  const retrievedDocumentIdsThisTurn: string[] = []
 
   try {
-    switch (classification.intent) {
-        case 'thought': {
-          const storedDocumentIds: string[] = []
-          for await (const event of handleThought(userInput, classification, priorHistory)) {
-            if (event.type === 'chunk') assistantResponse += event.content
-            if (event.type === 'stored') storedDocumentIds.push(event.documentId)
-            yield event
-          }
-          session.lastDocumentIds = storedDocumentIds
-          break
-        }
-        case 'question': {
-          session.lastDocumentIds = []
-          const isTodoQuery = looksLikeTodoQuery(userInput)
-            || classification.extractedTags.some((tag) => tag.toLowerCase() === 'todo')
-          const todoOverrides: RetrievalOptions | undefined = isTodoQuery
-            ? { type: 'todo' }
-            : undefined
-          for await (const event of handleQuestion(userInput, classification, priorHistory, todoOverrides)) {
-            if (event.type === 'chunk') assistantResponse += event.content
-            if (event.type === 'retrieved') session.lastDocumentIds = [...event.documentIds]
-            yield event
-          }
-          break
-        }
-        case 'command': {
-          const commandOverrides: RetrievalOptions | undefined = getCommandRetrievalOverrides(userInput)
-          for await (const event of handleCommand(userInput, classification, priorHistory, commandOverrides)) {
-            if (event.type === 'chunk') assistantResponse += event.content
-            yield event
-          }
-          break
-        }
-        case 'instruction': {
-          for await (const event of handleInstruction(userInput, classification)) {
-            if (event.type === 'chunk') assistantResponse += event.content
-            if (event.type === 'stored') session.lastDocumentIds = [event.documentId]
-            yield event
-          }
-          break
-        }
-        case 'conversational': {
-          for await (const event of handleConversational(userInput, classification, priorHistory)) {
-            if (event.type === 'chunk') assistantResponse += event.content
-            yield event
-          }
-          break
-        }
+    for await (const event of runLoopAgentTurn(
+      userInput,
+      priorHistory,
+      traceSink,
+    )) {
+      void isCancelled
+      if (event.type === 'chunk') {
+        assistantResponse += event.content
+      }
+      if (event.type === 'retrieved') {
+        documentIds.push(...event.documentIds)
+        retrievedDocumentIdsThisTurn.push(...event.documentIds)
+      }
+      if (event.type === 'stored') {
+        documentIds.push(event.documentId)
+      }
+      yield event
     }
   } catch (err) {
-    yield { type: 'error', message: toErrorMessage(err) }
+    logger.error({ err }, '[Agent] Orchestrator failed')
+    if (isSessionStillOwnedByThisTurn()) {
+      session.lastPipelineTrace = {
+        traceSchemaVersion: PIPELINE_TRACE_SCHEMA_VERSION,
+        stages: traceSink.stages.slice(),
+      }
+    }
+    yield {
+      type: 'error',
+      message: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
     yield { type: 'done' }
     return
+  }
+
+  if (!isSessionStillOwnedByThisTurn()) {
+    yield { type: 'done' }
+    return
+  }
+
+  session.lastPipelineTrace = {
+    traceSchemaVersion: traceSink.traceSchemaVersion,
+    stages: traceSink.stages.slice(),
   }
 
   if (assistantResponse) {
     session.history.push({ role: 'assistant', content: assistantResponse })
   }
 
-  if (classification.extractedTags.length > 0) {
-    session.lastTopic = classification.extractedTags[0]
-  }
-
-  session.lastIntent = classification.intent
-}
-
-function getCommandRetrievalOverrides(userInput: string): RetrievalOptions | undefined {
-  if (looksLikeInstructionManagementRequest(userInput)) {
-    return { type: 'instruction' }
-  }
-
-  if (session.lastIntent === 'question' && looksLikeReferentialCommandRequest(userInput) && session.lastDocumentIds.length > 0) {
-    return {
-      ids: [...session.lastDocumentIds],
-      maxResults: session.lastDocumentIds.length,
-    }
-  }
-
-  if (session.lastIntent === 'instruction' && looksLikeReferentialCommandRequest(userInput)) {
-    return { type: 'instruction' }
-  }
-
-  return undefined
+  session.lastDocumentIds = documentIds
+  session.lastTurnRetrievedDocumentIds = dedupeIdsPreservingOrder(retrievedDocumentIdsThisTurn)
 }

@@ -10,6 +10,7 @@ import type {
   RetrievalOptions,
   SystemInfo,
   HardwareProfile,
+  EmbeddingMigrationStatus,
 } from '../../shared/types'
 
 declare global {
@@ -24,9 +25,12 @@ declare global {
         history?: Array<{ role: 'user' | 'assistant'; content: string }>,
       ) => Promise<null>
       onMessageChunk: (callback: (chunk: string) => void) => () => void
+      onThinkingChunk: (callback: (chunk: string) => void) => () => void
       onResponseEnd: (callback: () => void) => () => void
       onResponseError: (callback: (error: string) => void) => () => void
       onStatus: (callback: (message: string) => void) => () => void
+      onLikelyChatModelEvicted: (callback: (likely: boolean) => void) => () => void
+      onChatModelInferenceCompleted: (callback: () => void) => () => void
       onChatReset: (callback: () => void) => () => void
       onChatShown: (callback: () => void) => () => void
       onChatWillHide: (callback: () => void) => () => void
@@ -64,6 +68,13 @@ declare global {
       getDbStats: () => Promise<DatabaseStats>
       searchDocuments: (query: string, options?: RetrievalOptions) => Promise<unknown[]>
       getDocumentsByType: (type: string) => Promise<unknown[]>
+
+      getEmbeddingMigrationStatus: () => Promise<EmbeddingMigrationStatus>
+      onEmbeddingMigrationStatusChanged: (
+        callback: (status: EmbeddingMigrationStatus) => void,
+      ) => () => void
+      retryEmbeddingMigration: () => Promise<{ success: boolean; error?: string }>
+      discardEmbeddingMigration: () => Promise<{ success: boolean; error?: string }>
 
       getLatestVersion: () => Promise<{ version: string } | null>
       getLastUpdatePromptShownAt: () => Promise<number | null>

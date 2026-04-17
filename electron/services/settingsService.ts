@@ -11,9 +11,18 @@ const DEFAULTS: AppSettings = {
   selectedModel: '',
   embeddingModel: '',
   ollamaHost: 'http://127.0.0.1:11434',
+  ollamaKeepAliveMinutes: 5,
   ollamaPath: '',
   ollamaModelsPath: '',
   ollamaSetupComplete: false,
+}
+
+function stripLegacyAgentOrchestrationKey(
+  parsed: Record<string, unknown>,
+): Record<string, unknown> {
+  const { agentOrchestrationMode: _legacy, ...rest } = parsed
+  void _legacy
+  return rest
 }
 
 function getSettingsPath(): string {
@@ -36,7 +45,8 @@ export function getSettings(): AppSettings {
 
   try {
     const raw = readFileSync(path, 'utf-8')
-    cached = { ...DEFAULTS, ...JSON.parse(raw) }
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    cached = { ...DEFAULTS, ...stripLegacyAgentOrchestrationKey(parsed) } as AppSettings
     return cached!
   } catch {
     cached = { ...DEFAULTS }

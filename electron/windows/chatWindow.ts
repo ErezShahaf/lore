@@ -9,6 +9,8 @@ import {
   SCREEN_MARGIN,
 } from '../../shared/chatWindowConstants'
 import { getPreferredDisplay } from '../services/displayService'
+import { resetChatSessionBeforeHidingWindow } from '../services/chatSessionResetService'
+import { preloadModels } from '../services/ollamaService'
 
 let chatWindow: BrowserWindow | null = null
 
@@ -116,15 +118,17 @@ export function showChatWindow(): void {
   win.show()
   win.focus()
   win.webContents.send('chat:shown')
+  void preloadModels()
 }
 
 export function hideChatWindow(): void {
   const win = getChatWindow()
   if (!win) return
 
-  win.hide()
+  resetChatSessionBeforeHidingWindow()
   win.setSize(CHAT_WINDOW_WIDTH, CHAT_WINDOW_DEFAULT_HEIGHT)
   win.webContents.send('chat:reset')
+  win.hide()
 }
 
 export function hideChatWindowAnimated(): void {

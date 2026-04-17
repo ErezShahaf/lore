@@ -15,6 +15,8 @@ import {
   RECOMMENDED_MODELS,
   pickBestVariant,
   sortModelsForSystem,
+  canRunEfficiently,
+  isVramKnown,
 } from '../../../shared/models'
 import type {
   AppSettings,
@@ -59,6 +61,8 @@ export function ModelSettings({ settings, onUpdate }: ModelSettingsProps) {
   useEffect(() => { setLocalEmbeddingModel(settings.embeddingModel) }, [settings.embeddingModel])
 
   const totalMemoryGB = systemInfo?.totalMemoryGB ?? null
+  const effectiveVramMB = systemInfo?.gpu?.vramMB ?? null
+  const vramKnown = isVramKnown(systemInfo)
 
   const refreshStatus = useCallback(async () => {
     const s = await window.loreAPI.getOllamaStatus()
@@ -195,26 +199,24 @@ export function ModelSettings({ settings, onUpdate }: ModelSettingsProps) {
   const sortedChat = useMemo(
     () => sortModelsForSystem(
       RECOMMENDED_MODELS.filter(m => m.category === 'chat'),
-      totalMemoryGB,
+      systemInfo,
     ),
-    [totalMemoryGB],
+    [systemInfo],
   )
 
   const sortedEmbedding = useMemo(
     () => sortModelsForSystem(
       RECOMMENDED_MODELS.filter(m => m.category === 'embedding'),
-      totalMemoryGB,
+      systemInfo,
     ),
-    [totalMemoryGB],
+    [systemInfo],
   )
 
-  const bestChatTag = sortedChat.length > 0
+  const bestChatTag = vramKnown && sortedChat.length > 0
     ? pickBestVariant(sortedChat[0], totalMemoryGB).tag
     : null
 
-  const bestEmbeddingTag = sortedEmbedding.length > 0
-    ? pickBestVariant(sortedEmbedding[0], totalMemoryGB).tag
-    : null
+  const bestEmbeddingTag: string | null = null
 
   return (
     <div className="space-y-6">
@@ -366,6 +368,9 @@ export function ModelSettings({ settings, onUpdate }: ModelSettingsProps) {
             const percent = progress?.total && progress?.completed
               ? Math.round((progress.completed / progress.total) * 100)
               : null
+            const unsupported = vramKnown && totalMemoryGB !== null
+              ? !canRunEfficiently(rec, effectiveVramMB, totalMemoryGB)
+              : false
             return (
               <RecommendedModelCard
                 key={variant.tag}
@@ -373,7 +378,7 @@ export function ModelSettings({ settings, onUpdate }: ModelSettingsProps) {
                 variant={variant}
                 installed={isModelInstalled(rec)}
                 isBest={variant.tag === bestChatTag}
-                compatible={rec.variants[0].minRAMGB <= (totalMemoryGB ?? 999)}
+                isUnsupported={unsupported}
                 pulling={activeDownloads.has(variant.tag)}
                 pullProgress={progress}
                 pullPercent={percent}
@@ -403,7 +408,7 @@ export function ModelSettings({ settings, onUpdate }: ModelSettingsProps) {
                 variant={variant}
                 installed={isModelInstalled(rec)}
                 isBest={variant.tag === bestEmbeddingTag}
-                compatible={true}
+                isUnsupported={false}
                 pulling={activeDownloads.has(variant.tag)}
                 pullProgress={progress}
                 pullPercent={percent}
@@ -438,21 +443,27 @@ export function ModelSettings({ settings, onUpdate }: ModelSettingsProps) {
               Change Embedding Model?
             </DialogTitle>
             <DialogDescription>
-              Switching the embedding model requires clearing all stored data
-              because different models produce incompatible vector dimensions.
+              Different embedding models produce vectors of different sizes, so your stored
+              documents need to be re-embedded with the new model.
               {docCount !== null && docCount > 0 && (
                 <span className="mt-2 block font-medium text-foreground">
-                  This will permanently delete {docCount} document{docCount !== 1 ? 's' : ''}.
+                  Lore will re-embed {docCount} document{docCount !== 1 ? 's' : ''} in the background.
                 </span>
               )}
+              <span className="mt-2 block">
+                This can take several minutes. Please keep the app open and your computer awake
+                until it finishes — progress will be shown in the chat window and chat will be
+                paused while the migration runs. If it fails (for example, because the model is
+                no longer available), you can retry or keep your previous model.
+              </span>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEmbeddingWarning(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={commitEmbeddingModel}>
-              Delete Data & Switch Model
+            <Button onClick={commitEmbeddingModel}>
+              Migrate and Switch
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -463,12 +474,22 @@ export function ModelSettings({ settings, onUpdate }: ModelSettingsProps) {
 
 // ── Subcomponents ──────────────────────────────────────────────────
 
+function formatOrdinalBestInLore(priority: number): string | undefined {
+  if (priority <= 0) return undefined
+  const suffix =
+    priority === 1 || (priority % 10 === 1 && priority % 100 !== 11) ? 'st'
+      : priority === 2 || (priority % 10 === 2 && priority % 100 !== 12) ? 'nd'
+        : priority === 3 || (priority % 10 === 3 && priority % 100 !== 13) ? 'rd'
+          : 'th'
+  return `${priority}${suffix} best in Lore`
+}
+
 interface RecommendedModelCardProps {
   model: RecommendedModel
   variant: ModelVariant
   installed: boolean
   isBest: boolean
-  compatible: boolean
+  isUnsupported: boolean
   pulling: boolean
   pullProgress: PullProgress | null
   pullPercent: number | null
@@ -482,7 +503,7 @@ function RecommendedModelCard({
   variant,
   installed,
   isBest,
-  compatible,
+  isUnsupported,
   pulling,
   pullProgress,
   pullPercent,
@@ -490,12 +511,14 @@ function RecommendedModelCard({
   onPull,
   onAbort,
 }: RecommendedModelCardProps) {
+  const ordinalBestInLore = formatOrdinalBestInLore(model.recommendationPriority)
+
   return (
     <div
       className={cn(
         'rounded-lg border px-4 py-3',
         isBest ? 'border-primary/40 bg-primary/5' : 'border-border/50',
-        !compatible && 'opacity-50',
+        isUnsupported && 'opacity-50',
       )}
     >
       <div className="flex items-center justify-between">
@@ -519,13 +542,19 @@ function RecommendedModelCard({
                 Best for your system
               </span>
             )}
+            {isUnsupported && (
+              <span className="flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-500">
+                <AlertTriangle className="size-2.5" />
+                Not suggested on this machine
+              </span>
+            )}
           </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">{model.description}</p>
-          {!compatible && (
-            <p className="mt-1 text-xs text-amber-400">
-              Requires at least {model.variants[0].minRAMGB}GB RAM
-            </p>
+          {ordinalBestInLore && (
+            <p className="mt-1 text-xs font-medium text-foreground">{ordinalBestInLore}</p>
           )}
+          <p className={cn('text-xs text-muted-foreground', ordinalBestInLore ? 'mt-1' : 'mt-0.5')}>
+            {model.description}
+          </p>
         </div>
 
         <div className="ml-3 shrink-0">

@@ -1,4 +1,8 @@
+import { EventEmitter } from 'node:events'
+
 import { getSettings } from './settingsService'
+import { resolveOllamaKeepAlive } from './resolveOllamaKeepAlive'
+import { isEvalRuntimeProfile } from './runtimeProfileService'
 import { logger } from '../logger'
 import type {
   OllamaModel,
@@ -6,14 +10,23 @@ import type {
   PullProgress,
   OllamaStatus,
   ChatRequestOptions,
+  ToolChatRequest,
+  ToolChatResponse,
+  ToolChatMessage,
+  ToolCall,
 } from '../../shared/types'
 
-export const CHAT_NUM_CTX = 8192
+export const CHAT_NUM_CTX = 16384
 
 export interface ChatPromptMessage {
   readonly role: 'system' | 'user' | 'assistant'
   readonly content: string
 }
+
+export type ToolChatStreamEvent =
+  | { readonly type: 'thinking_stream_chunk'; readonly text: string }
+  | { readonly type: 'content_chunk'; readonly text: string }
+  | { readonly type: 'assistant_message'; readonly message: ToolChatMessage }
 
 interface StructuredResponseRequest<T> {
   readonly model: string
@@ -27,6 +40,40 @@ interface StructuredResponseRequest<T> {
 
 let connectionStatus: OllamaStatus = { connected: false }
 let healthCheckTimer: ReturnType<typeof setInterval> | null = null
+
+/** Wall time after the last successful `/api/chat` using the app chat model; used for keep-alive eviction UI. */
+let lastChatModelActivityAtMs: number | null = null
+
+export const chatModelInferenceCompletedEmitter = new EventEmitter()
+
+export interface RecordChatModelActivityOptions {
+  readonly isWarmupOnly?: boolean
+}
+
+export function recordChatModelActivity(options?: RecordChatModelActivityOptions): void {
+  lastChatModelActivityAtMs = Date.now()
+  if (options?.isWarmupOnly !== true) {
+    chatModelInferenceCompletedEmitter.emit('inference-completed')
+  }
+}
+
+let preloadModelsInFlight: Promise<void> | null = null
+
+/**
+ * True when configured keep-alive is timed (not infinite) and idle time since the last successful
+ * chat-model request likely exceeds Ollama's keep_alive, so weights may need loading again.
+ */
+export function getLikelyChatModelWasEvicted(): boolean {
+  const settings = getSettings()
+  if (settings.ollamaKeepAliveMinutes < 0) {
+    return false
+  }
+  if (lastChatModelActivityAtMs === null) {
+    return false
+  }
+  const keepAliveMilliseconds = settings.ollamaKeepAliveMinutes * 60_000
+  return Date.now() - lastChatModelActivityAtMs > keepAliveMilliseconds
+}
 
 function getHost(): string {
   return getSettings().ollamaHost || 'http://127.0.0.1:11434'
@@ -87,60 +134,114 @@ export async function listModels(): Promise<OllamaModel[]> {
 }
 
 export async function preloadModels(): Promise<void> {
-  const settings = getSettings()
-  const host = getHost()
-
-  const chatModel = settings.selectedModel
-  const embedModel = settings.embeddingModel || 'nomic-embed-text'
-
-  const jobs: Promise<void>[] = []
-
-  if (chatModel) {
-    jobs.push(
-      fetch(`${host}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: chatModel,
-          messages: [],
-          keep_alive: -1,
-          think: false,
-          options: { num_ctx: CHAT_NUM_CTX },
-        }),
-        signal: AbortSignal.timeout(120_000),
-      })
-        .then((res) => {
-          if (res.ok) logger.info({ chatModel }, '[Lore] Preloaded chat model')
-          else logger.warn({ chatModel, status: res.statusText }, '[Lore] Failed to preload chat model')
-        })
-        .catch((err) => logger.warn({ err, chatModel }, '[Lore] Failed to preload chat model')),
-    )
+  if (preloadModelsInFlight !== null) {
+    return preloadModelsInFlight
   }
 
-  if (embedModel) {
-    jobs.push(
-      fetch(`${host}/api/embed`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: embedModel,
-          input: '',
-          keep_alive: -1,
-        }),
-        signal: AbortSignal.timeout(120_000),
-      })
-        .then((res) => {
-          if (res.ok) logger.info({ embedModel }, '[Lore] Preloaded embedding model')
-          else logger.warn({ embedModel, status: res.statusText }, '[Lore] Failed to preload embedding model')
-        })
-        .catch((err) => logger.warn({ err, embedModel }, '[Lore] Failed to preload embedding model')),
-    )
-  }
+  preloadModelsInFlight = (async (): Promise<void> => {
+    const settings = getSettings()
+    const host = getHost()
+    const keepAlive = resolveOllamaKeepAlive(settings)
 
-  await Promise.allSettled(jobs)
+    const chatModel = settings.selectedModel
+    const embedModel = settings.embeddingModel || 'nomic-embed-text'
+
+    const jobs: Promise<void>[] = []
+
+    if (chatModel) {
+      jobs.push(
+        fetch(`${host}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: chatModel,
+            messages: [],
+            keep_alive: keepAlive,
+            think: true,
+            options: { num_ctx: CHAT_NUM_CTX },
+          }),
+          ...(isEvalRuntimeProfile() ? {} : { signal: AbortSignal.timeout(120_000) }),
+        })
+          .then((res) => {
+            if (res.ok) {
+              logger.info({ chatModel }, '[Lore] Preloaded chat model')
+              recordChatModelActivity({ isWarmupOnly: true })
+            } else {
+              logger.warn({ chatModel, status: res.statusText }, '[Lore] Failed to preload chat model')
+            }
+          })
+          .catch((err) => logger.warn({ err, chatModel }, '[Lore] Failed to preload chat model')),
+      )
+    }
+
+    if (embedModel) {
+      jobs.push(
+        fetch(`${host}/api/embed`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: embedModel,
+            input: '',
+            keep_alive: keepAlive,
+          }),
+          ...(isEvalRuntimeProfile() ? {} : { signal: AbortSignal.timeout(120_000) }),
+        })
+          .then((res) => {
+            if (res.ok) logger.info({ embedModel }, '[Lore] Preloaded embedding model')
+            else logger.warn({ embedModel, status: res.statusText }, '[Lore] Failed to preload embedding model')
+          })
+          .catch((err) => logger.warn({ err, embedModel }, '[Lore] Failed to preload embedding model')),
+      )
+    }
+
+    await Promise.allSettled(jobs)
+  })().finally(() => {
+    preloadModelsInFlight = null
+  })
+
+  return preloadModelsInFlight
 }
 
 const activeAbortControllers = new Map<string, AbortController>()
+
+const inFlightChatAbortControllers = new Set<AbortController>()
+
+const CHAT_REQUEST_TIMEOUT_MS = 120_000
+
+function registerInFlightChatAbortController(controller: AbortController): void {
+  inFlightChatAbortControllers.add(controller)
+}
+
+function unregisterInFlightChatAbortController(controller: AbortController): void {
+  inFlightChatAbortControllers.delete(controller)
+}
+
+export function abortAllInFlightChatRequests(): void {
+  for (const controller of inFlightChatAbortControllers) {
+    controller.abort()
+  }
+  inFlightChatAbortControllers.clear()
+}
+
+function beginTrackedChatRequest(): {
+  readonly signal: AbortSignal
+  readonly finishTracking: () => void
+} {
+  const controller = new AbortController()
+  registerInFlightChatAbortController(controller)
+  const timeoutId = isEvalRuntimeProfile()
+    ? null
+    : setTimeout(() => {
+        controller.abort()
+      }, CHAT_REQUEST_TIMEOUT_MS)
+  const finishTracking = (): void => {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId)
+    }
+    unregisterInFlightChatAbortController(controller)
+  }
+  return { signal: controller.signal, finishTracking }
+}
 
 export function abortPull(modelName: string): boolean {
   const controller = activeAbortControllers.get(modelName)
@@ -174,10 +275,13 @@ export async function pullModel(
   let buffer = ''
 
   try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
+    let done = false
+    while (!done) {
+      const result = await reader.read()
+      done = result.done
+      const value = result.value
 
+      if (done) break
       buffer += decoder.decode(value, { stream: true })
       const lines = buffer.split('\n')
       buffer = lines.pop() ?? ''
@@ -224,53 +328,659 @@ export async function getModelInfo(modelName: string): Promise<Record<string, un
 }
 
 export async function* chat(request: ChatRequest): AsyncGenerator<string> {
-  const payload = {
-    keep_alive: -1,
-    ...request,
-    options: { num_ctx: CHAT_NUM_CTX, ...request.options },
+  const { signal, finishTracking } = beginTrackedChatRequest()
+  let completedSuccessfully = false
+  try {
+    const payload = {
+      ...request,
+      keep_alive: request.keep_alive ?? resolveOllamaKeepAlive(getSettings()),
+      options: { num_ctx: CHAT_NUM_CTX, ...request.options },
+    }
+    const res = await fetch(`${getHost()}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal,
+    })
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText)
+      throw new Error(`Ollama chat failed: ${text}`)
+    }
+
+    if (!request.stream) {
+      const data = await res.json()
+      yield data.message?.content ?? ''
+      completedSuccessfully = true
+      return
+    }
+
+    if (!res.body) throw new Error('No response body for streaming')
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let previousStreamContent = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        if (!line.trim()) continue
+        try {
+          const json = JSON.parse(line) as Record<string, unknown>
+          const rawMessage = json.message
+          if (!rawMessage || typeof rawMessage !== 'object' || Array.isArray(rawMessage)) {
+            continue
+          }
+          const piece = normalizeOllamaAssistantTextField(
+            (rawMessage as Record<string, unknown>).content,
+          )
+          if (piece.length === 0) {
+            continue
+          }
+          let delta: string
+          if (previousStreamContent.length > 0 && piece.startsWith(previousStreamContent)) {
+            delta = piece.slice(previousStreamContent.length)
+            previousStreamContent = piece
+          } else {
+            delta = piece
+            previousStreamContent += piece
+          }
+          if (delta.length > 0) {
+            yield delta
+          }
+        } catch {
+          // skip malformed lines
+        }
+      }
+    }
+    completedSuccessfully = true
+  } finally {
+    finishTracking()
+    if (completedSuccessfully) {
+      recordChatModelActivity()
+    }
   }
-  const res = await fetch(`${getHost()}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(120_000),
+}
+
+function normalizeOllamaAssistantTextField(raw: unknown): string {
+  if (raw === null || raw === undefined) {
+    return ''
+  }
+  if (typeof raw === 'string') {
+    return raw
+  }
+  if (Array.isArray(raw)) {
+    return raw
+      .map((part: unknown) => {
+        if (typeof part === 'string') {
+          return part
+        }
+        if (part && typeof part === 'object' && 'text' in part) {
+          const text = (part as { readonly text: unknown }).text
+          return typeof text === 'string' ? text : ''
+        }
+        return ''
+      })
+      .join('')
+  }
+  return ''
+}
+
+function extractStreamableAssistantContentDelta(
+  rawMessage: Record<string, unknown>,
+  previousFullContent: string,
+): { readonly delta: string; readonly nextFullContent: string } {
+  const rawContent = rawMessage.content
+  if (typeof rawContent === 'string') {
+    if (rawContent.length === 0) {
+      return { delta: '', nextFullContent: previousFullContent }
+    }
+    return { delta: rawContent, nextFullContent: previousFullContent + rawContent }
+  }
+  const normalizedSnapshot = normalizeOllamaAssistantTextField(rawContent)
+  if (normalizedSnapshot.length === 0) {
+    return { delta: '', nextFullContent: previousFullContent }
+  }
+  if (normalizedSnapshot.startsWith(previousFullContent)) {
+    return {
+      delta: normalizedSnapshot.slice(previousFullContent.length),
+      nextFullContent: normalizedSnapshot,
+    }
+  }
+  return {
+    delta: normalizedSnapshot,
+    nextFullContent: previousFullContent + normalizedSnapshot,
+  }
+}
+
+function appendStreamAssistantTextDeltas(
+  messageRecord: Record<string, unknown>,
+  accumulated: { readonly content: { value: string }; readonly thinking: { value: string } },
+): void {
+  const contentDelta = messageRecord.content
+  if (typeof contentDelta === 'string') {
+    accumulated.content.value += contentDelta
+  }
+  const thinkingDelta = messageRecord.thinking
+  if (typeof thinkingDelta === 'string') {
+    accumulated.thinking.value += thinkingDelta
+  }
+}
+
+function parseToolArguments(raw: unknown): Record<string, unknown> {
+  if (raw === null || raw === undefined) {
+    return {}
+  }
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim()
+    if (trimmed.length === 0) {
+      return {}
+    }
+    try {
+      const parsed = JSON.parse(trimmed) as unknown
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>
+      }
+    } catch {
+      return {}
+    }
+    return {}
+  }
+  if (typeof raw === 'object' && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>
+  }
+  return {}
+}
+
+
+function parseToolChatMessage(message: Record<string, unknown>): ToolChatMessage {
+  const role = ((message.role as string) || 'assistant') as ToolChatMessage['role']
+  const content = normalizeOllamaAssistantTextField(message.content)
+  const rawToolCalls = message.tool_calls as ReadonlyArray<Record<string, unknown>> | undefined
+  const toolName =
+    typeof message.name === 'string' && message.name.length > 0 ? message.name : undefined
+
+  const toolCalls: readonly ToolCall[] | undefined = rawToolCalls?.map((call) => {
+    const func = (call.function as Record<string, unknown>) ?? {}
+    const id = typeof call.id === 'string' && call.id.length > 0 ? call.id : undefined
+    return {
+      ...(id !== undefined ? { id } : {}),
+      function: {
+        name: (func.name as string) ?? '',
+        arguments: parseToolArguments(func.arguments),
+      },
+    }
   })
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText)
-    throw new Error(`Ollama chat failed: ${text}`)
+  return {
+    role,
+    content,
+    ...(toolName !== undefined ? { name: toolName } : {}),
+    ...(toolCalls && toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
   }
+}
 
-  if (!request.stream) {
-    const data = await res.json()
-    yield data.message?.content ?? ''
-    return
+export function normalizeToolChatMessagesForOllamaApi(
+  messages: readonly ToolChatMessage[],
+): unknown[] {
+  return messages.map((message) => {
+    if (message.role === 'assistant' && message.tool_calls && message.tool_calls.length > 0) {
+      return {
+        role: 'assistant',
+        content: message.content,
+        tool_calls: message.tool_calls.map((toolCall) => ({
+          ...(toolCall.id !== undefined ? { id: toolCall.id } : {}),
+          type: 'function',
+          function: {
+            name: toolCall.function.name,
+            arguments: toolCall.function.arguments,
+          },
+        })),
+      }
+    }
+    if (message.role === 'tool') {
+      return {
+        role: 'tool',
+        content: message.content,
+        ...(message.name !== undefined ? { name: message.name } : {}),
+      }
+    }
+    return { role: message.role, content: message.content }
+  })
+}
+
+/**
+ * Splits assistant text into small pieces so the UI can append them sequentially (typing effect).
+ */
+export function splitForTypingEffect(text: string): readonly string[] {
+  if (text.length === 0) {
+    return []
   }
+  return text.split(/(\s+)/).filter((part) => part.length > 0)
+}
 
-  if (!res.body) throw new Error('No response body for streaming')
+export async function chatWithTools(request: ToolChatRequest): Promise<ToolChatResponse> {
+  const { signal, finishTracking } = beginTrackedChatRequest()
+  try {
+    const payload = {
+      model: request.model,
+      messages: normalizeToolChatMessagesForOllamaApi(request.messages),
+      tools: request.tools,
+      stream: false,
+      keep_alive: resolveOllamaKeepAlive(getSettings()),
+      options: { num_ctx: CHAT_NUM_CTX, ...request.options },
+    }
 
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
+    const res = await fetch(`${getHost()}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal,
+    })
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText)
+      throw new Error(`Ollama chat failed: ${text}`)
+    }
 
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop() ?? ''
+    const data = await res.json() as Record<string, unknown>
+    const message = data.message as Record<string, unknown> | undefined
 
-    for (const line of lines) {
-      if (!line.trim()) continue
+    if (!message || typeof message !== 'object') {
+      throw new Error('Ollama response missing message field')
+    }
+
+    const responseMessage = parseToolChatMessage(message)
+    const hasToolCalls = responseMessage.tool_calls && responseMessage.tool_calls.length > 0
+    const hasContent = responseMessage.content.trim().length > 0
+
+    logger.debug(
+      {
+        hasContent,
+        contentLength: responseMessage.content.length,
+        contentPreview: responseMessage.content.slice(0, 100),
+        hasToolCalls,
+        toolCallCount: responseMessage.tool_calls?.length ?? 0,
+        rawContentType: typeof message.content,
+        rawContentIsArray: Array.isArray(message.content),
+        rawThinkingPresent: message.thinking !== undefined && message.thinking !== null,
+        rawThinkingLength: typeof message.thinking === 'string' ? message.thinking.length : Array.isArray(message.thinking) ? JSON.stringify(message.thinking).length : 0,
+      },
+      '[Ollama] chatWithTools response',
+    )
+
+    if (!hasContent && !hasToolCalls) {
+      logger.warn(
+        {
+          rawMessageKeys: Object.keys(message),
+          rawContent: JSON.stringify(message.content)?.slice(0, 500),
+          rawThinking: typeof message.thinking === 'string' ? message.thinking.slice(0, 300) : JSON.stringify(message.thinking)?.slice(0, 500),
+        },
+        '[Ollama] Model returned empty content with no tool calls',
+      )
+    }
+
+    recordChatModelActivity()
+    const assistantThinkingText = normalizeOllamaAssistantTextField(message.thinking)
+    return { message: responseMessage, assistantThinkingText }
+  } finally {
+    finishTracking()
+  }
+}
+
+export type PlainChatStreamTokenEvent =
+  | { readonly type: 'thinking_token'; readonly text: string }
+  | { readonly type: 'content_token'; readonly text: string }
+
+/**
+ * Streams a plain text response (no tools) with real-time token delivery.
+ * Use this after tool calling is complete to stream the final user-facing response.
+ */
+export async function* streamPlainResponse(request: {
+  readonly model: string
+  readonly messages: readonly ToolChatMessage[]
+  readonly options?: ChatRequestOptions
+}): AsyncGenerator<PlainChatStreamTokenEvent | { readonly type: 'done'; readonly fullText: string }> {
+  const { signal, finishTracking } = beginTrackedChatRequest()
+  let completedSuccessfully = false
+  try {
+    const payload = {
+      model: request.model,
+      messages: normalizeToolChatMessagesForOllamaApi(request.messages),
+      stream: true,
+      keep_alive: resolveOllamaKeepAlive(getSettings()),
+      options: { num_ctx: CHAT_NUM_CTX, ...request.options },
+    }
+
+    const res = await fetch(`${getHost()}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal,
+    })
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText)
+      throw new Error(`Ollama chat failed: ${text}`)
+    }
+
+    if (!res.body) {
+      throw new Error('No response body for streaming')
+    }
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let lineBuffer = ''
+    let aggregatedAssistantContent = ''
+    let latestDoneAssistantMessage: Record<string, unknown> | null = null
+
+    let isStreamDone = false
+    while (!isStreamDone) {
+      const { done, value } = await reader.read()
+      if (done) {
+        isStreamDone = true
+        break
+      }
+
+      lineBuffer += decoder.decode(value, { stream: true })
+      const lines = lineBuffer.split('\n')
+      lineBuffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        if (!line.trim()) continue
+        try {
+          const json = JSON.parse(line) as Record<string, unknown>
+          if (
+            json.done === true
+            && json.message
+            && typeof json.message === 'object'
+            && !Array.isArray(json.message)
+          ) {
+            latestDoneAssistantMessage = json.message as Record<string, unknown>
+          }
+          const rawMessage = json.message as Record<string, unknown> | undefined
+          if (rawMessage && typeof rawMessage === 'object' && !Array.isArray(rawMessage)) {
+            const thinkingDelta = rawMessage.thinking
+            if (typeof thinkingDelta === 'string' && thinkingDelta.length > 0) {
+              yield { type: 'thinking_token', text: thinkingDelta }
+            }
+            const { delta, nextFullContent } = extractStreamableAssistantContentDelta(
+              rawMessage,
+              aggregatedAssistantContent,
+            )
+            aggregatedAssistantContent = nextFullContent
+            if (delta.length > 0) {
+              yield { type: 'content_token', text: delta }
+            }
+          }
+        } catch {
+          // skip malformed lines
+        }
+      }
+    }
+
+    if (lineBuffer.trim()) {
       try {
-        const json = JSON.parse(line)
-        if (json.message?.content) {
-          yield json.message.content
+        const json = JSON.parse(lineBuffer) as Record<string, unknown>
+        if (
+          json.done === true
+          && json.message
+          && typeof json.message === 'object'
+          && !Array.isArray(json.message)
+        ) {
+          latestDoneAssistantMessage = json.message as Record<string, unknown>
+        }
+        const rawMessage = json.message as Record<string, unknown> | undefined
+        if (rawMessage && typeof rawMessage === 'object' && !Array.isArray(rawMessage)) {
+          const thinkingDelta = rawMessage.thinking
+          if (typeof thinkingDelta === 'string' && thinkingDelta.length > 0) {
+            yield { type: 'thinking_token', text: thinkingDelta }
+          }
+          const { delta, nextFullContent } = extractStreamableAssistantContentDelta(
+            rawMessage,
+            aggregatedAssistantContent,
+          )
+          aggregatedAssistantContent = nextFullContent
+          if (delta.length > 0) {
+            yield { type: 'content_token', text: delta }
+          }
         }
       } catch {
-        // skip malformed lines
+        // ignore trailing garbage
       }
+    }
+
+    if (aggregatedAssistantContent.length === 0 && latestDoneAssistantMessage !== null) {
+      const recoveredContent = normalizeOllamaAssistantTextField(
+        latestDoneAssistantMessage.content,
+      )
+      if (recoveredContent.length > 0) {
+        aggregatedAssistantContent = recoveredContent
+        for (const piece of splitForTypingEffect(recoveredContent)) {
+          yield { type: 'content_token', text: piece }
+        }
+      }
+    }
+
+    completedSuccessfully = true
+    yield { type: 'done', fullText: aggregatedAssistantContent }
+  } finally {
+    finishTracking()
+    if (completedSuccessfully) {
+      recordChatModelActivity()
+    }
+  }
+}
+
+/**
+ * Streams a tool-enabled chat round. Waits for the final `done` line so we never show partial
+ * assistant text when the model actually chose tool_calls. For plain text replies, replays the
+ * final content in word-sized chunks for the typing effect.
+ */
+export async function* streamChatWithTools(
+  request: ToolChatRequest,
+): AsyncGenerator<ToolChatStreamEvent> {
+  const { signal, finishTracking } = beginTrackedChatRequest()
+  let completedSuccessfully = false
+  try {
+    logger.debug(
+      {
+        model: request.model,
+        messageCount: request.messages.length,
+        toolSchemaCount: request.tools.length,
+        toolSchemaNames: request.tools.map((tool) => tool.function.name),
+      },
+      '[Ollama] Stage: streamChatWithTools_request_start',
+    )
+
+    const payload = {
+      model: request.model,
+      messages: normalizeToolChatMessagesForOllamaApi(request.messages),
+      tools: request.tools,
+      stream: true,
+      keep_alive: resolveOllamaKeepAlive(getSettings()),
+      options: { num_ctx: CHAT_NUM_CTX, ...request.options },
+    }
+
+    const res = await fetch(`${getHost()}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal,
+    })
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText)
+      logger.debug({ status: res.status, bodyPreview: text.slice(0, 200) }, '[Ollama] Stage: streamChatWithTools_http_not_ok')
+      throw new Error(`Ollama chat failed: ${text}`)
+    }
+
+    logger.debug({ model: request.model }, '[Ollama] Stage: streamChatWithTools_reading_stream_body')
+
+    if (!res.body) {
+      throw new Error('No response body for streaming')
+    }
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let lineBuffer = ''
+    const accumulated = {
+      content: { value: '' },
+      thinking: { value: '' },
+    }
+    let lastDoneMessage: Record<string, unknown> | null = null
+    /**
+     * Ollama often emits `tool_calls` on NDJSON lines with `done: false`; the final `done: true`
+     * line may omit them. Without this snapshot, the loop agent treats every turn as plain text
+     * and hits the empty-content fallback.
+     */
+    let latestStreamChunkWithToolCalls: Record<string, unknown> | null = null
+
+    let isStreamDone = false
+    while (!isStreamDone) {
+      const { done, value } = await reader.read()
+      if (done) {
+        isStreamDone = true
+        break
+      }
+
+      lineBuffer += decoder.decode(value, { stream: true })
+      const lines = lineBuffer.split('\n')
+      lineBuffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        if (!line.trim()) {
+          continue
+        }
+        try {
+          const json = JSON.parse(line) as Record<string, unknown>
+          const rawMessage = json.message
+          if (rawMessage && typeof rawMessage === 'object' && !Array.isArray(rawMessage)) {
+            const messageRecord = rawMessage as Record<string, unknown>
+            const streamedToolCalls = messageRecord.tool_calls
+            if (Array.isArray(streamedToolCalls) && streamedToolCalls.length > 0) {
+              latestStreamChunkWithToolCalls = messageRecord
+            }
+            const thinkingLengthBefore = accumulated.thinking.value.length
+            const contentLengthBefore = accumulated.content.value.length
+            appendStreamAssistantTextDeltas(messageRecord, accumulated)
+            const thinkingAdded = accumulated.thinking.value.slice(thinkingLengthBefore)
+            if (thinkingAdded.length > 0) {
+              yield { type: 'thinking_stream_chunk', text: thinkingAdded }
+            }
+            const contentAdded = accumulated.content.value.slice(contentLengthBefore)
+            if (contentAdded.length > 0) {
+              yield { type: 'content_chunk', text: contentAdded }
+            }
+          }
+          if (json.done === true && json.message && typeof json.message === 'object') {
+            lastDoneMessage = json.message as Record<string, unknown>
+          }
+        } catch {
+          // skip malformed lines
+        }
+      }
+    }
+
+    if (lineBuffer.trim()) {
+      try {
+        const json = JSON.parse(lineBuffer) as Record<string, unknown>
+        const rawMessage = json.message
+        if (rawMessage && typeof rawMessage === 'object' && !Array.isArray(rawMessage)) {
+          const messageRecord = rawMessage as Record<string, unknown>
+          const streamedToolCalls = messageRecord.tool_calls
+          if (Array.isArray(streamedToolCalls) && streamedToolCalls.length > 0) {
+            latestStreamChunkWithToolCalls = messageRecord
+          }
+          const thinkingLengthBefore = accumulated.thinking.value.length
+          const contentLengthBefore = accumulated.content.value.length
+          appendStreamAssistantTextDeltas(messageRecord, accumulated)
+          const thinkingAdded = accumulated.thinking.value.slice(thinkingLengthBefore)
+          if (thinkingAdded.length > 0) {
+            yield { type: 'thinking_stream_chunk', text: thinkingAdded }
+          }
+          const contentAdded = accumulated.content.value.slice(contentLengthBefore)
+          if (contentAdded.length > 0) {
+            yield { type: 'content_chunk', text: contentAdded }
+          }
+        }
+        if (json.done === true && json.message && typeof json.message === 'object') {
+          lastDoneMessage = json.message as Record<string, unknown>
+        }
+      } catch {
+        // ignore trailing garbage
+      }
+    }
+
+    if (!lastDoneMessage) {
+      logger.debug({ model: request.model }, '[Ollama] Stage: streamChatWithTools_missing_done_message')
+      throw new Error('Ollama streaming response ended without a done message')
+    }
+
+    logger.debug(
+      { model: request.model, rawDoneMessageKeys: Object.keys(lastDoneMessage) },
+      '[Ollama] Stage: streamChatWithTools_stream_done_line_received',
+    )
+
+    const contentFromDone = normalizeOllamaAssistantTextField(lastDoneMessage.content)
+    const thinkingFromDone = normalizeOllamaAssistantTextField(lastDoneMessage.thinking)
+
+    const mergedContent =
+      accumulated.content.value.length > 0 ? accumulated.content.value : contentFromDone
+    const mergedThinking =
+      accumulated.thinking.value.length > 0 ? accumulated.thinking.value : thinkingFromDone
+
+    const doneToolCallsRaw = lastDoneMessage.tool_calls
+    const doneHasToolCalls =
+      Array.isArray(doneToolCallsRaw) && doneToolCallsRaw.length > 0
+
+    const mergedMessage: Record<string, unknown> = {
+      ...lastDoneMessage,
+      content: mergedContent,
+      thinking: mergedThinking,
+    }
+
+    if (!doneHasToolCalls && latestStreamChunkWithToolCalls !== null) {
+      const rescuedToolCalls = latestStreamChunkWithToolCalls.tool_calls
+      if (Array.isArray(rescuedToolCalls) && rescuedToolCalls.length > 0) {
+        mergedMessage.tool_calls = rescuedToolCalls
+      }
+    }
+
+    const finalMessage = parseToolChatMessage(mergedMessage)
+    const hasToolCalls = finalMessage.tool_calls && finalMessage.tool_calls.length > 0
+
+    logger.debug(
+      {
+        model: request.model,
+        hasToolCalls,
+        toolCallCount: finalMessage.tool_calls?.length ?? 0,
+        toolNames: finalMessage.tool_calls?.map((call) => call.function.name) ?? [],
+        contentLength: finalMessage.content.length,
+        contentPreview: finalMessage.content.trim().slice(0, 240),
+      },
+      '[Ollama] Stage: streamChatWithTools_parse_complete',
+    )
+
+    if (hasToolCalls) {
+      yield { type: 'assistant_message', message: finalMessage }
+      completedSuccessfully = true
+      return
+    }
+
+    yield { type: 'assistant_message', message: finalMessage }
+    completedSuccessfully = true
+  } finally {
+    finishTracking()
+    if (completedSuccessfully) {
+      recordChatModelActivity()
     }
   }
 }
@@ -333,13 +1043,28 @@ export async function generateStructuredResponse<T>(
   )
 }
 
-async function collectChatResponse(request: ChatRequest): Promise<string> {
+export async function collectChatResponse(request: ChatRequest): Promise<string> {
   let response = ''
   for await (const chunk of chat(request)) {
     response += chunk
   }
 
   return response
+}
+
+export function parseJsonFromModelResponse(raw: string): Record<string, unknown> | null {
+  const sanitized = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/g, '')
+  const balanced = extractFirstBalancedJsonObject(sanitized)
+  const toParse = balanced ?? sanitized
+  try {
+    const parsed: unknown = JSON.parse(toParse)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>
+    }
+  } catch {
+    return null
+  }
+  return null
 }
 
 function parseStructuredResponse(rawResponse: string): Record<string, unknown> {
@@ -353,9 +1078,74 @@ function parseStructuredResponse(rawResponse: string): Record<string, unknown> {
   return parsed as Record<string, unknown>
 }
 
+function extractFirstBalancedJsonObject(value: string): string | null {
+  const startIndex = value.indexOf('{')
+  if (startIndex === -1) {
+    return null
+  }
+
+  let depth = 0
+  let isInsideString = false
+  let isEscaped = false
+
+  for (let index = startIndex; index < value.length; index += 1) {
+    const character = value[index]
+
+    if (isInsideString) {
+      if (isEscaped) {
+        isEscaped = false
+        continue
+      }
+      if (character === '\\') {
+        isEscaped = true
+        continue
+      }
+      if (character === '"') {
+        isInsideString = false
+      }
+      continue
+    }
+
+    if (character === '"') {
+      isInsideString = true
+      continue
+    }
+    if (character === '{') {
+      depth += 1
+      continue
+    }
+    if (character === '}') {
+      depth -= 1
+      if (depth === 0) {
+        return value.slice(startIndex, index + 1)
+      }
+    }
+  }
+
+  return null
+}
+
+function stripLeadingThinkingBlock(rawResponse: string): string {
+  const trimmedStart = rawResponse.trimStart()
+  if (!trimmedStart.toLowerCase().startsWith('<thinking>')) {
+    return rawResponse
+  }
+  const closeTag = '</thinking>'
+  const closeIndex = trimmedStart.toLowerCase().indexOf(closeTag)
+  if (closeIndex === -1) {
+    return rawResponse
+  }
+  return trimmedStart.slice(closeIndex + closeTag.length).trimStart()
+}
+
 function sanitizeStructuredJsonResponse(rawResponse: string): string {
-  let cleaned = rawResponse.trim()
+  let cleaned = stripLeadingThinkingBlock(rawResponse).trim()
   cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/g, '')
+
+  const balanced = extractFirstBalancedJsonObject(cleaned)
+  if (balanced !== null) {
+    return balanced
+  }
 
   const firstBraceIndex = cleaned.indexOf('{')
   const lastBraceIndex = cleaned.lastIndexOf('}')

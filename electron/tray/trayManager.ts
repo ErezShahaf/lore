@@ -23,9 +23,7 @@ export function createTray(): Tray {
     icon = nativeImage.createEmpty()
   }
 
-  if (process.platform === 'darwin' || process.platform === 'win32') {
-    icon = icon.resize({ width: 16, height: 16 })
-  }
+  icon = icon.resize({ width: 16, height: 16 })
 
   tray = new Tray(icon)
   tray.setToolTip('Lore')

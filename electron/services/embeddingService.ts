@@ -1,4 +1,6 @@
 import { getSettings } from './settingsService'
+import { resolveOllamaKeepAlive } from './resolveOllamaKeepAlive'
+import { isEvalRuntimeProfile } from './runtimeProfileService'
 
 const EMBEDDING_DIMENSIONS: Record<string, number> = {
   'qwen3-embedding:0.6b': 1024,
@@ -9,6 +11,7 @@ const EMBEDDING_DIMENSIONS: Record<string, number> = {
   'snowflake-arctic-embed': 1024,
 }
 
+const DEFAULT_EMBEDDING_MODEL_NAME = 'nomic-embed-text'
 const DEFAULT_DIMENSION = 768
 
 function getHost(): string {
@@ -16,11 +19,23 @@ function getHost(): string {
 }
 
 function getModel(): string {
-  return getSettings().embeddingModel || 'nomic-embed-text'
+  return getSettings().embeddingModel || DEFAULT_EMBEDDING_MODEL_NAME
+}
+
+/**
+ * Resolve the vector dimension for a given model name. An empty string
+ * resolves to the default model so "no model selected yet" and "default"
+ * always collapse to the same effective dimension — avoids the mismatch
+ * where the table is built at 768 but later queries embed at 1024.
+ */
+export function resolveEmbeddingDimensionForModelName(modelName: string): number {
+  const trimmed = typeof modelName === 'string' ? modelName.trim() : ''
+  const effectiveModelName = trimmed.length > 0 ? trimmed : DEFAULT_EMBEDDING_MODEL_NAME
+  return EMBEDDING_DIMENSIONS[effectiveModelName] ?? DEFAULT_DIMENSION
 }
 
 export function getEmbeddingDimension(): number {
-  return EMBEDDING_DIMENSIONS[getModel()] ?? DEFAULT_DIMENSION
+  return resolveEmbeddingDimensionForModelName(getSettings().embeddingModel)
 }
 
 export async function embedText(text: string): Promise<Float32Array> {
@@ -30,9 +45,9 @@ export async function embedText(text: string): Promise<Float32Array> {
     body: JSON.stringify({
       model: getModel(),
       input: text,
-      keep_alive: -1,
+      keep_alive: resolveOllamaKeepAlive(getSettings()),
     }),
-    signal: AbortSignal.timeout(30_000),
+    ...(isEvalRuntimeProfile() ? {} : { signal: AbortSignal.timeout(30_000) }),
   })
 
   if (!res.ok) {
@@ -56,9 +71,9 @@ export async function embedTexts(texts: string[]): Promise<Float32Array[]> {
     body: JSON.stringify({
       model: getModel(),
       input: texts,
-      keep_alive: -1,
+      keep_alive: resolveOllamaKeepAlive(getSettings()),
     }),
-    signal: AbortSignal.timeout(60_000),
+    ...(isEvalRuntimeProfile() ? {} : { signal: AbortSignal.timeout(60_000) }),
   })
 
   if (!res.ok) {

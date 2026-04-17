@@ -4,20 +4,10 @@ dist-electron/
 resources/icons/
 
 # release/ — track only installer artifacts
-release/**
-!release/**/
-!release/**/*.exe
-!release/**/*.dmg
-!release/**/*.pkg
-!release/**/*.AppImage
-!release/**/*.deb
-!release/**/*.rpm
-!release/**/*.msi
-release/**/*unpacked/
-release/**/*unpacked/**
-release/**/*.yml
-release/**/*.yaml
+release
 .env
 *.log
 .DS_Store
 Thumbs.db
+evals/results/
+evals/.generated/
