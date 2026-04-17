@@ -1,6 +1,6 @@
 {
   "name": "lore",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "AI-powered thought capture and recall desktop app",
   "main": "dist-electron/main.js",
   "scripts": {
