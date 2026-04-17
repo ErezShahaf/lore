@@ -11,6 +11,7 @@ import type {
   RetrievalOptions,
   SystemInfo,
   HardwareProfile,
+  EmbeddingMigrationStatus,
 } from '../shared/types'
 
 const loreAPI = {
@@ -202,6 +203,29 @@ const loreAPI = {
 
   getDocumentsByType: (type: string): Promise<unknown[]> =>
     ipcRenderer.invoke('db:get-by-type', { type }),
+
+  // ── Embedding migration ───────────────────────────────────────
+
+  getEmbeddingMigrationStatus: (): Promise<EmbeddingMigrationStatus> =>
+    ipcRenderer.invoke('embedding-migration:get-status'),
+
+  onEmbeddingMigrationStatusChanged: (
+    callback: (status: EmbeddingMigrationStatus) => void,
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      status: EmbeddingMigrationStatus,
+    ): void => callback(status)
+    ipcRenderer.on('embedding-migration:status-changed', handler)
+    return () =>
+      ipcRenderer.removeListener('embedding-migration:status-changed', handler)
+  },
+
+  retryEmbeddingMigration: (): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('embedding-migration:retry'),
+
+  discardEmbeddingMigration: (): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('embedding-migration:discard'),
 
   // ── Update check ──────────────────────────────────────────────
 

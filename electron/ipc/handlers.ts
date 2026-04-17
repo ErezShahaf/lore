@@ -23,9 +23,16 @@ import {
   deleteModel,
 } from '../services/ollamaService'
 import { bootstrapOllama, restartOllamaWithNewModelsPath } from '../services/ollamaBootstrap'
-import { getStats, resetTable } from '../services/lanceService'
+import { getStats } from '../services/lanceService'
 import { retrieveRelevantDocuments } from '../services/documentPipeline'
 import { getDocumentsByType } from '../services/lanceService'
+import {
+  discardEmbeddingMigration,
+  embeddingMigrationEvents,
+  ensureDocumentsTableMatchesEmbeddingModel,
+  getEmbeddingMigrationStatus,
+  retryEmbeddingMigration,
+} from '../services/embeddingTableSync'
 import { processUserInput } from '../services/agentService'
 import { getSystemInfo, getHardwareProfile } from '../services/systemInfoService'
 import {
@@ -33,7 +40,13 @@ import {
   getLastUpdatePromptShownAt,
   setLastUpdatePromptShownAt,
 } from '../services/updateCheckService'
-import type { RetrievalOptions, PullProgress, AppSettings, DisplayInfo } from '../../shared/types'
+import type {
+  RetrievalOptions,
+  PullProgress,
+  AppSettings,
+  DisplayInfo,
+  EmbeddingMigrationStatus,
+} from '../../shared/types'
 
 const activePulls = new Map<string, PullProgress>()
 
@@ -45,8 +58,20 @@ function isNumber(v: unknown): v is number {
   return typeof v === 'number' && Number.isFinite(v)
 }
 
+function broadcastToAllWindows(channel: string, payload: unknown): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send(channel, payload)
+  }
+}
+
 export function registerIpcHandlers(): void {
   ipcMain.handle('ping', () => 'pong')
+
+  // Forward migration state changes to all renderer windows so the chat UI
+  // can render progress/error panels immediately and block input.
+  embeddingMigrationEvents.on('status-changed', (status: EmbeddingMigrationStatus) => {
+    broadcastToAllWindows('embedding-migration:status-changed', status)
+  })
 
   ipcMain.on('chat:resize', (_event, args: unknown) => {
     const { height } = (args ?? {}) as { height?: unknown }
@@ -188,8 +213,24 @@ export function registerIpcHandlers(): void {
           settingsUpdate.embeddingModel = name
         }
         if (Object.keys(settingsUpdate).length > 0) {
+          const previousEmbeddingModel = settings.embeddingModel
           const updated = updateSettings(settingsUpdate)
           broadcastToAll('settings:changed', updated)
+
+          // When a pull auto-assigns the embedding model, the settings:update
+          // IPC flow is bypassed — run the same reconciliation here so the
+          // LanceDB schema width matches the chosen model before any search.
+          if (settingsUpdate.embeddingModel !== undefined) {
+            ensureDocumentsTableMatchesEmbeddingModel({
+              previousModelName: previousEmbeddingModel,
+              newModelName: settingsUpdate.embeddingModel,
+            }).catch((err) => {
+              logger.error(
+                { err },
+                '[Lore] Embedding sync after pull auto-assign failed',
+              )
+            })
+          }
         }
       }
 
@@ -289,10 +330,18 @@ export function registerIpcHandlers(): void {
     }
 
     if ('embeddingModel' in (partial as Record<string, unknown>) &&
-        updated.embeddingModel !== prev.embeddingModel &&
-        prev.embeddingModel !== '') {
-      resetTable().catch(err => {
-        logger.error({ err }, '[Lore] Failed to reset database after embedding model change')
+        updated.embeddingModel !== prev.embeddingModel) {
+      // Reconcile the LanceDB schema with the new embedding model. Previously
+      // this was gated on `prev.embeddingModel !== ''` and also bluntly wiped
+      // the table, which caused the 1024-dim query / 768-dim table mismatch
+      // on first-model selection and silently destroyed user data otherwise.
+      // The sync helper picks the right action: no-op, empty reset, or a
+      // chunked re-embedding migration — and broadcasts progress.
+      ensureDocumentsTableMatchesEmbeddingModel({
+        previousModelName: prev.embeddingModel,
+        newModelName: updated.embeddingModel,
+      }).catch(err => {
+        logger.error({ err }, '[Lore] Embedding sync after settings:update failed')
       })
     }
 
@@ -305,6 +354,30 @@ export function registerIpcHandlers(): void {
       win.webContents.send('settings:changed', updated)
     }
     return updated
+  })
+
+  // ── Embedding migration ────────────────────────────────────────
+
+  ipcMain.handle('embedding-migration:get-status', (): EmbeddingMigrationStatus => {
+    return getEmbeddingMigrationStatus()
+  })
+
+  ipcMain.handle('embedding-migration:retry', async () => {
+    try {
+      await retryEmbeddingMigration()
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Retry failed' }
+    }
+  })
+
+  ipcMain.handle('embedding-migration:discard', async () => {
+    try {
+      await discardEmbeddingMigration()
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Discard failed' }
+    }
   })
 
   // ── Database ──────────────────────────────────────────────────

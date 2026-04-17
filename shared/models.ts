@@ -1,17 +1,19 @@
-import type { RecommendedModel, ModelVariant } from './types'
+import type { RecommendedModel, ModelVariant, SystemInfo } from './types'
 
 export const RECOMMENDED_MODELS: RecommendedModel[] = [
 
+  // ── Chat models (priority = quality ranking in Lore) ────────
+
   {
-    displayName: 'Qwen 3.5 4B',
-    parametersBillions: 4,
-    tier: 'medium',
+    displayName: 'Gemma 4 26B',
+    parametersBillions: 26,
+    tier: 'large',
     category: 'chat',
-    description: 'Strong fallback when 9B does not fit',
-    gpuRecommended: false,
+    description: 'MoE architecture — only 4B parameters active per token, full 26B quality',
+    gpuRecommended: true,
+    recommendationPriority: 1,
     variants: [
-      { tag: 'qwen3.5:4b', quantization: 'Q4_K_M', sizeOnDisk: '~3.4 GB', minRAMGB: 6 },
-      { tag: 'qwen3.5:4b-q8_0', quantization: 'Q8', sizeOnDisk: '~5.3 GB', minRAMGB: 8 },
+      { tag: 'gemma4:26b', quantization: 'Q4_K_M', sizeOnDisk: '~18 GB', minRAMGB: 20, minVramMB: 20480 },
     ],
   },
   {
@@ -19,13 +21,39 @@ export const RECOMMENDED_MODELS: RecommendedModel[] = [
     parametersBillions: 9,
     tier: 'medium',
     category: 'chat',
-    description: 'Recommended — best quality for RAG when your system can run it',
+    description: 'Strong all-round model for RAG — runs well on most machines',
     gpuRecommended: true,
+    recommendationPriority: 2,
     variants: [
-      { tag: 'qwen3.5:9b', quantization: 'Q4_K_M', sizeOnDisk: '~6.6 GB', minRAMGB: 8 },
-      { tag: 'qwen3.5:9b-q8_0', quantization: 'Q8', sizeOnDisk: '~11 GB', minRAMGB: 16 },
+      { tag: 'qwen3.5:9b', quantization: 'Q4_K_M', sizeOnDisk: '~6.6 GB', minRAMGB: 8, minVramMB: null },
+      { tag: 'qwen3.5:9b-q8_0', quantization: 'Q8', sizeOnDisk: '~11 GB', minRAMGB: 16, minVramMB: null },
     ],
   },
+  {
+    displayName: 'Gemma 4 E4B',
+    parametersBillions: 8,
+    tier: 'medium',
+    category: 'chat',
+    description: 'MoE with effective 4B active parameters — quality-focused alternative',
+    gpuRecommended: false,
+    recommendationPriority: 3,
+    variants: [
+      { tag: 'gemma4:e4b', quantization: 'Q4_K_M', sizeOnDisk: '~9.6 GB', minRAMGB: 12, minVramMB: null },
+    ],
+  },
+  {
+    displayName: 'Gemma 4 E2B',
+    parametersBillions: 4,
+    tier: 'small',
+    category: 'chat',
+    description: 'Lightweight model for constrained hardware',
+    gpuRecommended: false,
+    recommendationPriority: 4,
+    variants: [
+      { tag: 'gemma4:e2b', quantization: 'Q4_K_M', sizeOnDisk: '~7.2 GB', minRAMGB: 8, minVramMB: null },
+    ],
+  },
+
   // ── Embedding models ──────────────────────────────────────
   {
     displayName: 'Qwen 3 Embedding 0.6B',
@@ -34,8 +62,9 @@ export const RECOMMENDED_MODELS: RecommendedModel[] = [
     category: 'embedding',
     description: 'Best quality small-model option for multilingual and code retrieval',
     gpuRecommended: false,
+    recommendationPriority: 0,
     variants: [
-      { tag: 'qwen3-embedding:0.6b', quantization: 'Default', sizeOnDisk: '~639 MB', minRAMGB: 6 },
+      { tag: 'qwen3-embedding:0.6b', quantization: 'Default', sizeOnDisk: '~639 MB', minRAMGB: 6, minVramMB: null },
     ],
   },
   {
@@ -45,8 +74,9 @@ export const RECOMMENDED_MODELS: RecommendedModel[] = [
     category: 'embedding',
     description: 'Strong multilingual choice for longer documents and cross-language search',
     gpuRecommended: false,
+    recommendationPriority: 0,
     variants: [
-      { tag: 'bge-m3', quantization: 'Default', sizeOnDisk: '~1.2 GB', minRAMGB: 8 },
+      { tag: 'bge-m3', quantization: 'Default', sizeOnDisk: '~1.2 GB', minRAMGB: 8, minVramMB: null },
     ],
   },
   {
@@ -56,8 +86,9 @@ export const RECOMMENDED_MODELS: RecommendedModel[] = [
     category: 'embedding',
     description: 'High-quality general-purpose retrieval model with broad community adoption',
     gpuRecommended: false,
+    recommendationPriority: 0,
     variants: [
-      { tag: 'mxbai-embed-large', quantization: 'Default', sizeOnDisk: '~670 MB', minRAMGB: 6 },
+      { tag: 'mxbai-embed-large', quantization: 'Default', sizeOnDisk: '~670 MB', minRAMGB: 6, minVramMB: null },
     ],
   },
   {
@@ -67,8 +98,9 @@ export const RECOMMENDED_MODELS: RecommendedModel[] = [
     category: 'embedding',
     description: 'Fast, high-quality embeddings — recommended default',
     gpuRecommended: false,
+    recommendationPriority: 0,
     variants: [
-      { tag: 'nomic-embed-text', quantization: 'Default', sizeOnDisk: '~274 MB', minRAMGB: 4 },
+      { tag: 'nomic-embed-text', quantization: 'Default', sizeOnDisk: '~274 MB', minRAMGB: 4, minVramMB: null },
     ],
   },
 ]
@@ -95,22 +127,61 @@ export function pickBestVariant(
 }
 
 /**
+ * Determine whether a model can run efficiently on the current hardware.
+ *
+ * - RAM must meet the minimum for the first (smallest) variant.
+ * - If the model declares a VRAM requirement and VRAM was detected,
+ *   effective VRAM must meet it.
+ * - If VRAM is null (detection failed), the VRAM check is skipped
+ *   so no model is penalised or promoted — pure priority order.
+ */
+export function canRunEfficiently(
+  model: RecommendedModel,
+  effectiveVramMB: number | null,
+  totalMemoryGB: number,
+): boolean {
+  const baseVariant = model.variants[0]
+  if (baseVariant.minRAMGB > totalMemoryGB) return false
+
+  if (baseVariant.minVramMB !== null && effectiveVramMB !== null) {
+    if (effectiveVramMB < baseVariant.minVramMB) return false
+  }
+
+  return true
+}
+
+/**
+ * Whether VRAM was detected and we can make confident hardware judgements.
+ * When false, no "Best for your system" or "Not supported" tags should appear.
+ */
+export function isVramKnown(systemInfo: SystemInfo | null): boolean {
+  return systemInfo?.gpu?.vramMB !== null && systemInfo?.gpu?.vramMB !== undefined
+}
+
+/**
  * Sort models so the best compatible model appears first.
- * Compatible models sorted largest-first (best quality); incompatible
- * ones after, smallest-first so near-misses show first.
+ *
+ * When VRAM is known: supported models first (by priority), then unsupported (by priority).
+ * When VRAM is unknown: pure priority order — no model is promoted or demoted.
  */
 export function sortModelsForSystem(
   models: RecommendedModel[],
-  totalMemoryGB: number | null,
+  systemInfo: SystemInfo | null,
 ): RecommendedModel[] {
-  if (totalMemoryGB === null) return models
+  if (!systemInfo) return [...models].sort((a, b) => a.recommendationPriority - b.recommendationPriority)
+
+  const effectiveVramMB = systemInfo.gpu?.vramMB ?? null
+  const vramDetected = effectiveVramMB !== null
 
   return [...models].sort((a, b) => {
-    const aFits = a.variants[0].minRAMGB <= totalMemoryGB
-    const bFits = b.variants[0].minRAMGB <= totalMemoryGB
+    if (vramDetected) {
+      const aFits = canRunEfficiently(a, effectiveVramMB, systemInfo.totalMemoryGB)
+      const bFits = canRunEfficiently(b, effectiveVramMB, systemInfo.totalMemoryGB)
 
-    if (aFits && !bFits) return -1
-    if (!aFits && bFits) return 1
-    return b.parametersBillions - a.parametersBillions
+      if (aFits && !bFits) return -1
+      if (!aFits && bFits) return 1
+    }
+
+    return a.recommendationPriority - b.recommendationPriority
   })
 }

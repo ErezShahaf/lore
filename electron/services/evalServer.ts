@@ -7,6 +7,7 @@ import { embedTexts } from './embeddingService'
 import { clearConversation, getConversationHistory, getLastPipelineTrace, processUserInput } from './agentService'
 import { formatLocalDate } from './localDate'
 import { getAllDocuments, getDocumentsByType, getStats, insertDocuments, resetTable } from './lanceService'
+import { ensureDocumentsTableMatchesEmbeddingModel } from './embeddingTableSync'
 import { getSettings, updateSettings } from './settingsService'
 import {
   PIPELINE_TRACE_SCHEMA_VERSION,
@@ -274,7 +275,14 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
       settingsUpdate.embeddingModel !== undefined
       && settingsUpdate.embeddingModel !== previousSettings.embeddingModel
     ) {
-      await resetTable()
+      // Align the LanceDB schema with the new model via the same reconciler
+      // the production flows use, so evals exercise the real migration path.
+      // The eval harness seeds fresh data per scenario, so this typically
+      // resolves to an empty-table reset.
+      await ensureDocumentsTableMatchesEmbeddingModel({
+        previousModelName: previousSettings.embeddingModel,
+        newModelName: settingsUpdate.embeddingModel,
+      })
       clearConversation()
     }
 

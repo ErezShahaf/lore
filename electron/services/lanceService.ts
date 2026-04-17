@@ -11,19 +11,28 @@ import {
   Schema,
   FixedSizeList,
 } from 'apache-arrow'
-import { getEmbeddingDimension } from './embeddingService'
+import { getEmbeddingDimension, resolveEmbeddingDimensionForModelName } from './embeddingService'
+import { getSettings } from './settingsService'
+import {
+  readActiveTablePointer,
+  writeActiveTablePointer,
+  type ActiveTablePointer,
+} from './activeTablePointer'
 import type { LoreDocument, DatabaseStats } from '../../shared/types'
 
-let db: lancedb.Connection | null = null
-let documentsTable: lancedb.Table | null = null
+const DEFAULT_ACTIVE_TABLE_NAME = 'documents'
+
+let connection: lancedb.Connection | null = null
+let activeDocumentsTable: lancedb.Table | null = null
+let activeDocumentsTableName: string = DEFAULT_ACTIVE_TABLE_NAME
 
 function getDbPath(): string {
-  const dir = join(app.getPath('userData'), 'lore-db')
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-  return dir
+  const directoryPath = join(app.getPath('userData'), 'lore-db')
+  if (!existsSync(directoryPath)) mkdirSync(directoryPath, { recursive: true })
+  return directoryPath
 }
 
-function buildSchema(dimension: number): Schema {
+export function buildDocumentsSchema(dimension: number): Schema {
   return new Schema([
     new Field('id', new Utf8()),
     new Field('content', new Utf8()),
@@ -39,7 +48,7 @@ function buildSchema(dimension: number): Schema {
   ])
 }
 
-function docToRow(doc: LoreDocument): Record<string, unknown> {
+export function docToRow(doc: LoreDocument): Record<string, unknown> {
   return {
     id: doc.id,
     content: doc.content,
@@ -55,11 +64,11 @@ function docToRow(doc: LoreDocument): Record<string, unknown> {
   }
 }
 
-function rowToDoc(row: Record<string, unknown>): LoreDocument {
-  const vec = row.vector
-  const vector = vec instanceof Float32Array
-    ? vec
-    : new Float32Array(vec as number[])
+export function rowToDoc(row: Record<string, unknown>): LoreDocument {
+  const rawVector = row.vector
+  const vector = rawVector instanceof Float32Array
+    ? rawVector
+    : new Float32Array(rawVector as number[])
 
   return {
     id: row.id as string,
@@ -76,62 +85,201 @@ function rowToDoc(row: Record<string, unknown>): LoreDocument {
   }
 }
 
-export async function initialize(): Promise<void> {
-  const dbPath = getDbPath()
-  db = await lancedb.connect(dbPath)
-
-  const dimension = getEmbeddingDimension()
-  const tableNames = await db.tableNames()
-
-  if (tableNames.includes('documents')) {
-    documentsTable = await db.openTable('documents')
-
-    const existingDim = await getTableVectorDimension()
-    if (existingDim !== null && existingDim !== dimension) {
-      logger.info({ existingDim, dimension }, '[LanceDB] Vector dimension mismatch, recreating table')
-      await resetTable()
-      return
-    }
-  } else {
-    const schema = buildSchema(dimension)
-    documentsTable = await db.createEmptyTable('documents', schema)
-  }
-
-  logger.info({ dbPath }, '[LanceDB] Initialized')
-}
-
-async function getTableVectorDimension(): Promise<number | null> {
-  if (!documentsTable) return null
+export async function getTableVectorDimensionForHandle(
+  table: lancedb.Table,
+): Promise<number | null> {
   try {
-    const schema = await documentsTable.schema()
+    const schema = await table.schema()
     const vectorField = schema.fields.find((f: { name: string }) => f.name === 'vector')
     if (vectorField && vectorField.type instanceof FixedSizeList) {
       return vectorField.type.listSize
     }
   } catch {
-    // schema introspection not available, skip check
+    // schema introspection not available on this lancedb build; caller can fall back
   }
   return null
 }
 
-export async function resetTable(): Promise<void> {
-  if (!db) throw new Error('LanceDB not initialized')
+async function openOrCreateActiveTable(
+  connectionHandle: lancedb.Connection,
+  desiredTableName: string,
+  dimension: number,
+): Promise<{ table: lancedb.Table; tableName: string; wasCreated: boolean }> {
+  const tableNames = await connectionHandle.tableNames()
 
-  const tableNames = await db.tableNames()
-  if (tableNames.includes('documents')) {
-    await db.dropTable('documents')
-    logger.info('[LanceDB] Dropped existing documents table')
+  if (tableNames.includes(desiredTableName)) {
+    return {
+      table: await connectionHandle.openTable(desiredTableName),
+      tableName: desiredTableName,
+      wasCreated: false,
+    }
   }
 
+  if (tableNames.includes(DEFAULT_ACTIVE_TABLE_NAME)) {
+    return {
+      table: await connectionHandle.openTable(DEFAULT_ACTIVE_TABLE_NAME),
+      tableName: DEFAULT_ACTIVE_TABLE_NAME,
+      wasCreated: false,
+    }
+  }
+
+  const schema = buildDocumentsSchema(dimension)
+  return {
+    table: await connectionHandle.createEmptyTable(DEFAULT_ACTIVE_TABLE_NAME, schema),
+    tableName: DEFAULT_ACTIVE_TABLE_NAME,
+    wasCreated: true,
+  }
+}
+
+/**
+ * Open the database and attach to the active documents table as described
+ * by the pointer file. We intentionally do NOT auto-reset the table on
+ * dimension mismatch — that silently destroyed user data on the next boot.
+ * Reconciliation is the sync layer's responsibility (see embeddingTableSync).
+ */
+export async function initialize(): Promise<void> {
+  const databasePath = getDbPath()
+  connection = await lancedb.connect(databasePath)
+
+  const pointer = readActiveTablePointer()
+  const currentSettings = getSettings()
+  const expectedDimensionForCurrentModel = resolveEmbeddingDimensionForModelName(
+    currentSettings.embeddingModel,
+  )
+
+  const { table, tableName, wasCreated } = await openOrCreateActiveTable(
+    connection,
+    pointer.activeTable,
+    expectedDimensionForCurrentModel,
+  )
+
+  activeDocumentsTable = table
+  activeDocumentsTableName = tableName
+
+  const actualDimension = await getTableVectorDimensionForHandle(table) ?? 0
+  const recordedModel = wasCreated ? currentSettings.embeddingModel : pointer.activeTableModel
+
+  writeActiveTablePointer({
+    activeTable: tableName,
+    activeTableDimension: actualDimension,
+    activeTableModel: recordedModel,
+    pendingMigration: pointer.pendingMigration,
+  })
+
+  logger.info(
+    {
+      databasePath,
+      activeTableName: tableName,
+      activeDimension: actualDimension,
+      hasPendingMigration: pointer.pendingMigration !== null,
+    },
+    '[LanceDB] Initialized',
+  )
+}
+
+export function getConnection(): lancedb.Connection {
+  if (!connection) throw new Error('LanceDB not initialized')
+  return connection
+}
+
+export function getActiveTableName(): string {
+  return activeDocumentsTableName
+}
+
+export async function getActiveTableVectorDimension(): Promise<number | null> {
+  if (!activeDocumentsTable) return null
+  return getTableVectorDimensionForHandle(activeDocumentsTable)
+}
+
+/**
+ * Re-read the pointer file and re-open whatever table it points at, so the
+ * in-memory handle reflects the current active table. Called on init, after
+ * a migration pointer flip, and after crash-recovery cleanup — ensuring that
+ * code holding a reference via getTable() always sees the current active
+ * table, not a stale one from module load time.
+ */
+export async function reopenActiveTable(): Promise<void> {
+  if (!connection) throw new Error('LanceDB not initialized')
+  const pointer = readActiveTablePointer()
+  const tableNames = await connection.tableNames()
+
+  const targetTableName = tableNames.includes(pointer.activeTable)
+    ? pointer.activeTable
+    : tableNames.includes(DEFAULT_ACTIVE_TABLE_NAME)
+      ? DEFAULT_ACTIVE_TABLE_NAME
+      : null
+
+  if (targetTableName === null) {
+    throw new Error(
+      `Cannot reopen active table: neither "${pointer.activeTable}" nor fallback "${DEFAULT_ACTIVE_TABLE_NAME}" exists`,
+    )
+  }
+
+  activeDocumentsTable = await connection.openTable(targetTableName)
+  activeDocumentsTableName = targetTableName
+
+  const actualDimension = await getTableVectorDimensionForHandle(activeDocumentsTable) ?? 0
+  writeActiveTablePointer({
+    activeTable: targetTableName,
+    activeTableDimension: actualDimension,
+    activeTableModel: pointer.activeTableModel,
+    pendingMigration: pointer.pendingMigration,
+  })
+
+  logger.info(
+    { activeTableName: targetTableName, activeDimension: actualDimension },
+    '[LanceDB] Reopened active table',
+  )
+}
+
+export async function resetTable(): Promise<void> {
+  if (!connection) throw new Error('LanceDB not initialized')
+  const currentSettings = getSettings()
   const dimension = getEmbeddingDimension()
-  const schema = buildSchema(dimension)
-  documentsTable = await db.createEmptyTable('documents', schema)
-  logger.info({ dimension }, '[LanceDB] Created new documents table')
+
+  const existingTableNames = await connection.tableNames()
+  const tablesToDrop = new Set<string>()
+  tablesToDrop.add(activeDocumentsTableName)
+  tablesToDrop.add(DEFAULT_ACTIVE_TABLE_NAME)
+  for (const name of existingTableNames) {
+    if (name.startsWith('documents__mig_')) tablesToDrop.add(name)
+  }
+
+  for (const name of tablesToDrop) {
+    if (existingTableNames.includes(name)) {
+      try {
+        await connection.dropTable(name)
+      } catch (err) {
+        logger.warn({ err, name }, '[LanceDB] Failed to drop table during reset')
+      }
+    }
+  }
+
+  const schema = buildDocumentsSchema(dimension)
+  activeDocumentsTable = await connection.createEmptyTable(DEFAULT_ACTIVE_TABLE_NAME, schema)
+  activeDocumentsTableName = DEFAULT_ACTIVE_TABLE_NAME
+
+  writeActiveTablePointer({
+    activeTable: DEFAULT_ACTIVE_TABLE_NAME,
+    activeTableDimension: dimension,
+    activeTableModel: currentSettings.embeddingModel,
+    pendingMigration: null,
+  })
+
+  logger.info({ dimension }, '[LanceDB] Reset: dropped old tables and created fresh documents')
+}
+
+export function setActiveTableInternal(
+  table: lancedb.Table,
+  tableName: string,
+): void {
+  activeDocumentsTable = table
+  activeDocumentsTableName = tableName
 }
 
 function getTable(): lancedb.Table {
-  if (!documentsTable) throw new Error('LanceDB not initialized')
-  return documentsTable
+  if (!activeDocumentsTable) throw new Error('LanceDB not initialized')
+  return activeDocumentsTable
 }
 
 // ── Write operations ──────────────────────────────────────────
@@ -326,6 +474,8 @@ export async function compactTable(): Promise<void> {
   await table.optimize()
 }
 
-function escapeSql(value: string): string {
+export function escapeSql(value: string): string {
   return value.replace(/'/g, "''")
 }
+
+export type { ActiveTablePointer }

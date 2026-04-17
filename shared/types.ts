@@ -81,6 +81,24 @@ export interface DatabaseStats {
   documentsByType: Record<string, number>
 }
 
+export type EmbeddingMigrationStatus =
+  | { readonly status: 'idle' }
+  | {
+      readonly status: 'migrating'
+      readonly processed: number
+      readonly total: number
+      readonly fromModel: string
+      readonly toModel: string
+    }
+  | {
+      readonly status: 'error'
+      readonly message: string
+      readonly processed: number
+      readonly total: number
+      readonly fromModel: string
+      readonly toModel: string
+    }
+
 export interface ConversationEntry {
   role: 'user' | 'assistant'
   content: string
@@ -601,6 +619,7 @@ export interface ModelVariant {
   quantization: string
   sizeOnDisk: string
   minRAMGB: number
+  minVramMB: number | null
 }
 
 export interface RecommendedModel {
@@ -610,5 +629,6 @@ export interface RecommendedModel {
   category: 'chat' | 'embedding'
   description: string
   gpuRecommended: boolean
+  recommendationPriority: number
   variants: ModelVariant[]
 }

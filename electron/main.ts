@@ -11,6 +11,12 @@ import { getSettings, updateSettings } from './services/settingsService'
 import { startHealthCheck, stopHealthCheck, preloadModels } from './services/ollamaService'
 import { bootstrapOllama, stopOllama, isOllamaSetupNeeded } from './services/ollamaBootstrap'
 import { initialize as initLanceDB, cleanupOldDeleted, compactTable } from './services/lanceService'
+import {
+  cleanupOrphanStagingTables,
+  ensureDocumentsTableMatchesEmbeddingModel,
+  resumePendingMigrationIfAny,
+} from './services/embeddingTableSync'
+import { readActiveTablePointer } from './services/activeTablePointer'
 import { applyAutoStart } from './services/autoStartService'
 import { startEvalServer, stopEvalServer } from './services/evalServer'
 import { configureRuntimeProfile, isEvalRuntimeProfile } from './services/runtimeProfileService'
@@ -148,6 +154,37 @@ if (!gotLock) {
         profile: runtimeProfileState.profile,
         userDataPath: runtimeProfileState.userDataPath,
       }, '[Lore] LanceDB initialized')
+
+      // Startup reconciliation: either resume an interrupted migration
+      // (idempotent — picks up from staging IDs), or catch the case where
+      // the active table's dimension does not match the configured embedding
+      // model and kick off a migration / empty reset accordingly.
+      const pointerOnBoot = readActiveTablePointer()
+      if (pointerOnBoot.pendingMigration) {
+        await resumePendingMigrationIfAny().catch((err) => {
+          logger.error({ err }, '[Lore] Resume pending embedding migration failed')
+        })
+      } else {
+        const settingsForSync = getSettings()
+        if (settingsForSync.embeddingModel) {
+          const recordedModel = pointerOnBoot.activeTableModel
+          // When we don't know which model built the active table (legacy
+          // install before this pointer existed), fall back to comparing
+          // against the current model — the ensure helper will no-op unless
+          // the dimension on disk actually differs from the current setting.
+          const previousModelName = recordedModel.length > 0 ? recordedModel : settingsForSync.embeddingModel
+          await ensureDocumentsTableMatchesEmbeddingModel({
+            previousModelName,
+            newModelName: settingsForSync.embeddingModel,
+          }).catch((err) => {
+            logger.error({ err }, '[Lore] Startup embedding sync failed')
+          })
+        }
+      }
+
+      cleanupOrphanStagingTables().catch((err) => {
+        logger.warn({ err }, '[Lore] Orphan staging cleanup failed')
+      })
 
       cleanupOldDeleted(30).then((count) => {
         if (count > 0) logger.info({ count }, '[Lore] Cleaned up old deleted documents')
