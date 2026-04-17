@@ -62,7 +62,6 @@ export function createChatWindow(): BrowserWindow {
   if (chatWindow && !chatWindow.isDestroyed()) return chatWindow
 
   const { workArea } = getPreferredDisplay()
-  const isLinuxPlatform = process.platform === 'linux'
 
   const x = workArea.x + SCREEN_MARGIN
   const y = workArea.y + workArea.height - CHAT_WINDOW_DEFAULT_HEIGHT - SCREEN_MARGIN
@@ -76,7 +75,7 @@ export function createChatWindow(): BrowserWindow {
     alwaysOnTop: true,
     transparent: true,
     backgroundColor: '#00000000',
-    skipTaskbar: !isLinuxPlatform,
+    skipTaskbar: true,
     resizable: false,
     show: false,
     webPreferences: {
@@ -130,16 +129,6 @@ export function hideChatWindow(): void {
   win.setSize(CHAT_WINDOW_WIDTH, CHAT_WINDOW_DEFAULT_HEIGHT)
   win.webContents.send('chat:reset')
   win.hide()
-}
-
-export function minimizeChatWindowWithReset(): void {
-  const win = getChatWindow()
-  if (!win) return
-
-  resetChatSessionBeforeHidingWindow()
-  win.setSize(CHAT_WINDOW_WIDTH, CHAT_WINDOW_DEFAULT_HEIGHT)
-  win.webContents.send('chat:reset')
-  win.minimize()
 }
 
 export function hideChatWindowAnimated(): void {

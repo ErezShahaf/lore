@@ -226,12 +226,7 @@ if (!gotLock) {
         updateSettings({ ollamaSetupComplete: true })
       }
 
-      const chatWindow = createChatWindow()
-      if (process.platform === 'linux') {
-        chatWindow.once('ready-to-show', () => {
-          showOrCreateChatWindow()
-        })
-      }
+      createChatWindow()
 
       bootstrapOllama()
         .then(() => preloadModels())

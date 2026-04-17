@@ -21,7 +21,6 @@ const loreAPI = {
     ipcRenderer.send('chat:resize', { height }),
 
   hideChatWindow: () => ipcRenderer.send('chat:hide'),
-  minimizeChatWindowWithReset: () => ipcRenderer.send('chat:minimize-with-reset'),
 
   sendMessage: (
     message: string,

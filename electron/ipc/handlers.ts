@@ -3,7 +3,6 @@ import { logger } from '../logger'
 import {
   resizeChatWindow,
   hideChatWindow,
-  minimizeChatWindowWithReset,
   createChatWindow,
   showChatWindow,
   repositionChatWindow,
@@ -81,10 +80,6 @@ export function registerIpcHandlers(): void {
 
   ipcMain.on('chat:hide', () => {
     hideChatWindow()
-  })
-
-  ipcMain.on('chat:minimize-with-reset', () => {
-    minimizeChatWindowWithReset()
   })
 
   // ── Streaming chat (agent pipeline) ────────────────────────────
