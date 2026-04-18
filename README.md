@@ -24,6 +24,8 @@
 
 ## What is Lore?
 
+At the moment, Lore is mostly useful for managing personal knowledge — your thoughts, notes, todos, personal guides, and the small decisions you'd otherwise forget. The longer-term goal is broader: as the data you capture grows, Lore should be able to use that context to act on your behalf, eventually serving as a foundation for personal agents that reason in a way that reflects how you actually think and work. That part is still early, and the current focus is making the day-to-day capture and recall experience perfect.
+
 Lore is a lightweight desktop app that sits in your system tray and lets you pop-up a hover chat with a button click to quickly capture thoughts. It uses a local LLM (via [Ollama](https://ollama.com)) and a local vector database (LanceDB) to store, understand, and retrieve your information — no cloud services, no API keys, complete privacy.
 
 Think of it as your private second memory — a place to store anything you might need later. From long-form guides you’ve written for yourself, todo lists, decision summaries, urls, or even that exact curl you used to reproduce the bug in production. Everything stays organized and instantly searchable by simply describing it in plain language — even by date, or topic.
@@ -123,7 +125,7 @@ Join the [Lore Discord server](https://discord.gg/hsrsertbdb) to share feedback,
 ## Roadmap
 
 - [x] Proof of Concept
-- [ ] Improved agent and software reliability
+- [x] Improved agent and software reliability
 - [ ] Add knowledge exploration UI (note viewer + editor + semantic browser)
 - [ ] MCP support
 - [ ] Semantic reasoning over your data
