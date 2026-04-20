@@ -7,6 +7,7 @@ import {
   searchSimilar,
   getAllDocuments,
   getDocumentsByFilter,
+  quoteSqlIdentifier,
 } from './lanceService'
 import type {
   DocumentType,
@@ -351,10 +352,14 @@ function buildFilter(options?: RetrievalOptions): string | undefined {
     parts.push(`date <= '${escapeFilterValue(options.dateTo)}'`)
   }
   if (options?.createdAtFrom) {
-    parts.push(`createdAt >= '${escapeFilterValue(options.createdAtFrom)}'`)
+    parts.push(
+      `${quoteSqlIdentifier('createdAt')} >= '${escapeFilterValue(options.createdAtFrom)}'`,
+    )
   }
   if (options?.createdAtTo) {
-    parts.push(`createdAt < '${escapeFilterValue(options.createdAtTo)}'`)
+    parts.push(
+      `${quoteSqlIdentifier('createdAt')} < '${escapeFilterValue(options.createdAtTo)}'`,
+    )
   }
   return parts.length > 0 ? parts.join(' AND ') : undefined
 }

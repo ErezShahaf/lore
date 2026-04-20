@@ -335,7 +335,7 @@ export async function hardDeleteDocument(id: string): Promise<void> {
 
 export async function hardDeleteDocuments(): Promise<void> {
   const table = getTable()
-  await table.delete('isDeleted = true')
+  await table.delete(`${quoteSqlIdentifier('isDeleted')} = true`)
 }
 
 // ── Read operations ───────────────────────────────────────────
@@ -348,9 +348,8 @@ export async function searchSimilar(
   const table = getTable()
   let query = table.vectorSearch(Array.from(queryVector)).distanceType('cosine').limit(limit)
 
-  const fullFilter = filter
-    ? `isDeleted = false AND (${filter})`
-    : 'isDeleted = false'
+  const notDeleted = `${quoteSqlIdentifier('isDeleted')} = false`
+  const fullFilter = filter ? `${notDeleted} AND (${filter})` : notDeleted
   query = query.where(fullFilter)
 
   const results = await query.toArray()
@@ -379,7 +378,9 @@ export async function getDocumentsByType(type: string): Promise<LoreDocument[]> 
   const table = getTable()
   const results = await table
     .query()
-    .where(`type = '${escapeSql(type)}' AND isDeleted = false`)
+    .where(
+      `type = '${escapeSql(type)}' AND ${quoteSqlIdentifier('isDeleted')} = false`,
+    )
     .toArray()
 
   return results.map((r: Record<string, unknown>) => rowToDoc(r))
@@ -392,7 +393,9 @@ export async function getDocumentsByDateRange(
   const table = getTable()
   const results = await table
     .query()
-    .where(`date >= '${escapeSql(startDate)}' AND date <= '${escapeSql(endDate)}' AND isDeleted = false`)
+    .where(
+      `date >= '${escapeSql(startDate)}' AND date <= '${escapeSql(endDate)}' AND ${quoteSqlIdentifier('isDeleted')} = false`,
+    )
     .toArray()
 
   return results.map((r: Record<string, unknown>) => rowToDoc(r))
@@ -404,9 +407,8 @@ export async function getDocumentsByFilter(
 ): Promise<LoreDocument[]> {
   const table = getTable()
   let query = table.query()
-  const fullFilter = filter
-    ? `isDeleted = false AND (${filter})`
-    : 'isDeleted = false'
+  const notDeleted = `${quoteSqlIdentifier('isDeleted')} = false`
+  const fullFilter = filter ? `${notDeleted} AND (${filter})` : notDeleted
 
   query = query.where(fullFilter)
   if (typeof limit === 'number' && Number.isFinite(limit)) {
@@ -421,7 +423,7 @@ export async function getAllDocuments(includeDeleted = false): Promise<LoreDocum
   const table = getTable()
   let query = table.query()
   if (!includeDeleted) {
-    query = query.where('isDeleted = false')
+    query = query.where(`${quoteSqlIdentifier('isDeleted')} = false`)
   }
   const results = await query.toArray()
   return results.map((r: Record<string, unknown>) => rowToDoc(r))
@@ -434,13 +436,14 @@ export async function cleanupOldDeleted(daysOld = 30): Promise<number> {
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - daysOld)
 
-  const deletedDocs = await table
-    .query()
-    .where(`isDeleted = true AND updatedAt < '${cutoff.toISOString()}'`)
-    .toArray()
+  const staleDeletedPredicate = `${quoteSqlIdentifier('isDeleted')} = true AND ${quoteSqlIdentifier(
+    'updatedAt',
+  )} < '${escapeSql(cutoff.toISOString())}'`
+
+  const deletedDocs = await table.query().where(staleDeletedPredicate).toArray()
 
   if (deletedDocs.length > 0) {
-    await table.delete(`isDeleted = true AND updatedAt < '${cutoff.toISOString()}'`)
+    await table.delete(staleDeletedPredicate)
   }
 
   return deletedDocs.length
@@ -472,6 +475,14 @@ export async function getStats(): Promise<DatabaseStats> {
 export async function compactTable(): Promise<void> {
   const table = getTable()
   await table.optimize()
+}
+
+/**
+ * Lance filter SQL treats double-quoted tokens as string literals; use backticks
+ * for case-sensitive column names so predicates bind to Arrow fields (e.g. isDeleted).
+ */
+export function quoteSqlIdentifier(name: string): string {
+  return `\`${name.replace(/`/g, '``')}\``
 }
 
 export function escapeSql(value: string): string {
